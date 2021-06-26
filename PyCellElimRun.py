@@ -214,9 +214,19 @@ class Spline:
       sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
       #surx = [item[0] for item in sur]
       #sury = [item[1]
-      if None in sur:
-        assert False, "incomplete surroundings are not yet supported."
-      slopes = [0.5*((sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])+(sur[1][1]-sur[0][1])/(sur[1][0]-sur[0][0])),0.5*((sur[3][1]-sur[2][1])/(sur[3][0]-sur[2][0])+(sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0]))]
+      if None in sur[1:3]:
+        assert False, "an important (inner) item is missing from the surroundings."
+      slopes = [None,None]
+      if sur[0] == None:
+        #sur[0] = sur[1]
+        slopes[0] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
+      else:
+        slopes[0] = 0.5*((sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])+(sur[1][1]-sur[0][1])/(sur[1][0]-sur[0][0]))
+      if sur[3] == None:
+        #sur[3] = sur[2]
+        slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
+      else:
+        slopes[1] = 0.5*((sur[3][1]-sur[2][1])/(sur[3][0]-sur[2][0])+(sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0]))
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
       return Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
       #assert False, "The current interpolationMode isn't fully supported."
