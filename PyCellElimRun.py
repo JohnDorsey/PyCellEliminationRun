@@ -127,11 +127,11 @@ class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  def __init__(self, interpolationMode="sinusoidal", length=None, endpoints=None, doPopuMap=True):
+  def __init__(self, interpolationMode="cubic-hermite", length=None, endpoints=None, doPopuMap=True):
     assert endpoints == None, "avoid using preset endpoints for this stage of testing."
     self.interpolationMode = interpolationMode
-    assert self.interpolationMode in ["linear","sinusoidal","cubic"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["linear","sinusoidal"], "this interpolation mode is not supported, but support is planned."
+    assert self.interpolationMode in ["linear","sinusoidal","cubic-hermite","fourier"], "this interpolation mode is not supported."
+    assert self.interpolationMode in ["linear","sinusoidal","cubic-hermite"], "this interpolation mode is not supported, but support is planned."
     self.length = length
     self.endpoints = endpoints
     assert not (self.length == None and self.endpoints == none)
@@ -151,6 +151,17 @@ class Spline:
       pass
 
 
+  #these functions are used in constructing cubic hermite splines.
+  def hermite_h00(t):
+    return 2*t**3 - 3*t**2 + 1
+  def hermite_h10(t):
+    return t**3 - 2*t**2 + t
+  def hermite_h01(t):
+    return -2*t**3 + 3*t**2
+  def hermite_h11(t):
+    return t**3-t**2
+
+
   def prettyPrint(self):
     if not DOVIS:
       return
@@ -165,9 +176,15 @@ class Spline:
       print("")
 
 
-  def getPointInDirection(location,direction,skipStart=True):
+  def getPointInDirection(self,location,direction,skipStart=True):
+    print("getPointInDirection: "+str((location,direction,skipStart)))
+    #assert type(direction) == int
     assert direction in [-1,1]
+    #assert 0 <= location < len(self.data)
+    #print(direction)
     location += skipStart*direction
+    if not 0 <= location < len(self.data):
+      return None
     for i in range(len(self.data)*2):
       if self.data[location] != None:
         return (location,self.data[location])
@@ -181,7 +198,7 @@ class Spline:
     result = self.data[index]
     if result != None:
       return result
-    if interpolationMode in ["linear","sinusoidal"]:
+    if self.interpolationMode in ["linear","sinusoidal"]:
       leftItemIndex,rightItemIndex = (index-1, index+1) #the following search procedure could be moved to another method.
       while self.data[leftItemIndex] == None:
         leftItemIndex -= 1
@@ -192,11 +209,19 @@ class Spline:
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
       elif self.interpolationMode == "sinusoidal":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
-    elif interpolationMode == "cubic":
-      surroundings = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None]
-      surroundings[0],surroundings[3] = (self.getPointInDirection(surroundings[1],-1),self.getPointInDirection(surroundings[2],1))
-      if None in surroundings:
+    elif self.interpolationMode == "cubic-hermite":
+      sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None]
+      sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
+      #surx = [item[0] for item in sur]
+      #sury = [item[1]
+      if None in sur:
         assert False, "incomplete surroundings are not yet supported."
+      slopes = [0.5*((sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])+(sur[1][1]-sur[0][1])/(sur[1][0]-sur[0][0])),0.5*((sur[3][1]-sur[2][1])/(sur[3][0]-sur[2][0])+(sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0]))]
+      t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
+      return Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
+      #assert False, "The current interpolationMode isn't fully supported."
+    elif self.interpolationMode == "fourier":
+      assert False, "The current interpolationMode isn't fully supported."
     else:
       assert False, "The current interpolationMode isn't fully supported."
 
