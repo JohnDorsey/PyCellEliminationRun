@@ -127,11 +127,11 @@ class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  def __init__(self, interpolationMode="cubic-hermite", length=None, endpoints=None, doPopuMap=True):
+  def __init__(self, interpolationMode="finite distance cubic hermite", length=None, endpoints=None):
     assert endpoints == None, "avoid using preset endpoints for this stage of testing."
     self.interpolationMode = interpolationMode
-    assert self.interpolationMode in ["linear","sinusoidal","cubic-hermite","fourier"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["linear","sinusoidal","cubic-hermite"], "this interpolation mode is not supported, but support is planned."
+    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
+    assert self.interpolationMode in ["linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
     self.length = length
     self.endpoints = endpoints
     assert not (self.length == None and self.endpoints == none)
@@ -146,9 +146,6 @@ class Spline:
     self.data = [None for i in range(self.endpoints[1][0]+1)]
     self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1])
     assert len(self.data) == self.length
-    self.doPopuMap = doPopuMap
-    if doPopuMap:
-      pass
 
 
   #these functions are used in constructing cubic hermite splines.
@@ -193,8 +190,19 @@ class Spline:
         return None
     assert False
 
+  def forceMonotonicSlopes(sur,slopes): #completely untested.
+    surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)]
+    surMonotonicSlope = -1 if all(item =< 0 for item in surRises) else 1 if all(item >= 0 for item in surRises) else 0 #I love python.
+    if surMonotonicSlope == 1:
+      for i in range(len(slopes)):
+        slopes[i] = max(0,slopes[i])
+    elif surMonotonicSlope == -1:
+      for i in range(len(slopes)):
+        slopes[i] = min(0,slopes[i])
 
-  def __getitem__(self,index): #not integer-based yet. Also, this is one of the biggest wastes of time.
+  def __getitem__(self,index):
+    #not integer-based yet. Also, some methods can't easily be integer-based.
+    #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow linear time searches of a mostly empty array are used.
     result = self.data[index]
     if result != None:
       return result
@@ -209,27 +217,24 @@ class Spline:
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
       elif self.interpolationMode == "sinusoidal":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
-    elif self.interpolationMode == "cubic-hermite":
+    elif self.interpolationMode == "finite distance cubic hermite":
       sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None]
       sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
-      #surx = [item[0] for item in sur]
-      #sury = [item[1]
       if None in sur[1:3]:
         assert False, "an important (inner) item is missing from the surroundings."
       slopes = [None,None]
       if sur[0] == None:
-        #sur[0] = sur[1]
         slopes[0] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
       else:
         slopes[0] = 0.5*((sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])+(sur[1][1]-sur[0][1])/(sur[1][0]-sur[0][0]))
       if sur[3] == None:
-        #sur[3] = sur[2]
         slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
       else:
         slopes[1] = 0.5*((sur[3][1]-sur[2][1])/(sur[3][0]-sur[2][0])+(sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0]))
+      #if self.interpolationMode == "monotonic finite distance cubic hermite":
+      #  Spline.forceMonotonicSlopes(sur,slopes)
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
       return Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
-      #assert False, "The current interpolationMode isn't fully supported."
     elif self.interpolationMode == "fourier":
       assert False, "The current interpolationMode isn't fully supported."
     else:
