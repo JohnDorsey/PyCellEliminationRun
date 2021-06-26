@@ -1,3 +1,14 @@
+
+"""
+
+Codes.py by John Dorsey.
+
+Codes.py contains tools for encoding and decoding universal codes like fibonacci coding, elias gamma coding, elias delta coding, and unary coding.
+
+"""
+
+
+
 """
 from wikipedia:
   Symbol 	Fibonacci representation 	Fibonacci code word 	Implied probability

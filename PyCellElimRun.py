@@ -1,8 +1,17 @@
 
+"""
+
+PyCellElimRun.py by John Dorsey.
+
+PyCellElimRun.py contains tools for converting audio samples into a sequence of integers that is more easily compressed.
+
+"""
+
+
 import math
 
 """
-block format:
+possible block format:
   value range start.
   value range end.
   sample index range start.
@@ -23,9 +32,9 @@ todo:
     -a mode where the NN learns as it goes.
   -spackle-based compression of pressDataNums based on the fact that they all add up to a known value. --> actually this should be developed separately.
   -inclusion of gzip.
-  -a codec setting which attempts to optimize the run length value sequence achieved for better compression of it by a number sequence compressor with known strengths and weaknesses... i.e. optimize for a number sequence compressor that is best at compressing slowly changing numbers by intentionally using what would normally be "bad" or "overly ambitious" strategies for choosing a cell visit order for the next cell elimination run.
   -for performance:
     -numba.
+    -spline caching.
     -move to another language.
 """
 

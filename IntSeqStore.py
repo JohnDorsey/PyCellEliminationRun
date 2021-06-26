@@ -1,3 +1,12 @@
+"""
+
+IntSeqStore.py by John Dorsey.
+
+IntSeqStore.py contains tools for storing integer sequences with as little overhead as possible.
+
+
+"""
+
 
 
 
