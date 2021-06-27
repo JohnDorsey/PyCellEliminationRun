@@ -127,13 +127,13 @@ class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  def __init__(self, interpolationMode="finite distance cubic hermite", length=None, endpoints=None):
-    assert endpoints == None, "avoid using preset endpoints for this stage of testing."
+  def __init__(self, interpolationMode="finite distance cubic hermite", length=None, endpoints=None, outputFilters=[]):
+    self.endpoints = endpoints
+    assert self.endpoints == None, "avoid using preset endpoints for this stage of testing."
     self.interpolationMode = interpolationMode
     assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
     assert self.interpolationMode in ["linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
     self.length = length
-    self.endpoints = endpoints
     assert not (self.length == None and self.endpoints == none)
     if self.length == None:
       self.length = self.endpoints[1][0] - self.endpoints[0][0] + 1
@@ -146,6 +146,9 @@ class Spline:
     self.data = [None for i in range(self.endpoints[1][0]+1)]
     self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1])
     assert len(self.data) == self.length
+    self.outputFilters = outputFilters
+    for outputFilter in self.outputFilters:
+      assert outputFilter in ["clip","monotonic"], "that output filter is not supported."
 
 
   #these functions are used in constructing cubic hermite splines.
@@ -203,10 +206,31 @@ class Spline:
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
     #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow linear time searches of a mostly empty array are used.
-    result = self.data[index]
-    if result != None:
-      return result
-    if self.interpolationMode in ["linear","sinusoidal"]:
+    if self.data[index] != None:
+      return self.data[index]
+    elif self.interpolationMode == "hold":
+      result = self.getPointInDirection(index,-1)
+      if result != None:
+        return result[1]
+      result = self.getPointInDirection(index,1)
+      assert result != None, "zero known points is not enough to work with."
+      return result[1]
+    elif self.interpolationMode == "nearest-neighbor":
+      #when two neighbors are equal distances away, the one on the left will be chosen.
+      leftItemIndex,rightItemIndex = (index, index) #these don't really need to be separate variables.
+      while True:
+        leftItemIndex -= 1
+        rightItemIndex += 1
+        if leftItemIndex < 0:
+          break
+        if rightItemIndex >= len(self.data):
+          break
+        if self.data[leftItemIndex] != None:
+          return self.data[leftItemIndex]
+        if self.data[rightItemIndex] != None:
+          return self.data[rightItemIndex]
+      assert False, "this interpolation mode can't run with missing endpoints or a bad location." #saved some time by not handling this, even though it would be simple to handle.
+    elif self.interpolationMode in ["linear","sinusoidal"]:
       leftItemIndex,rightItemIndex = (index-1, index+1) #the following search procedure could be moved to another method.
       while self.data[leftItemIndex] == None:
         leftItemIndex -= 1
@@ -234,7 +258,10 @@ class Spline:
       #if self.interpolationMode == "monotonic finite distance cubic hermite":
       #  Spline.forceMonotonicSlopes(sur,slopes)
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
-      return Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
+      result = Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
+      if "clip" in self.outputFilters: #this should be moved to the end of the function.
+        result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #not tested.
+      return result
     elif self.interpolationMode == "fourier":
       assert False, "The current interpolationMode isn't fully supported."
     else:
