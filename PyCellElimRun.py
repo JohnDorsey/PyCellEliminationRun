@@ -68,30 +68,30 @@ def linearInsort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted with
 
 
 def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambda x: x)):
-  #this still needs caching, right?
   if len(sortedList) == 0:
     sortedList.append(newItem)
     return
+  keyFunOfNewItem = keyFun(newItem) #cache this for probably a tiny performance gain, but not as much as rewriting the method to take a key instead of a keyFun would give.
   if endPoint == None:
     endPoint = len(sortedList)-1
   if endPoint - startPoint == 1:
-    if keyFun(sortedList[endPoint]) < keyFun(newItem):
+    if keyFun(sortedList[endPoint]) < keyFunOfNewItem:
       sortedList.insert(endPoint+1,newItem)
     else:
-      if keyFun(sortedList[startPoint]) < keyFun(newItem):
+      if keyFun(sortedList[startPoint]) < keyFunOfNewItem:
         sortedList.insert(endPoint,newItem)
       else:
         sortedList.insert(startPoint,newItem)
     return
   elif endPoint - startPoint == 0:
-    if keyFun(sortedList[endPoint]) < keyFun(newItem):
+    if keyFun(sortedList[endPoint]) < keyFunOfNewItem:
       sortedList.insert(endPoint+1,newItem)
     else:
       sortedList.insert(endPoint,newItem)
     return
   testPoint = int((startPoint+endPoint)/2)
   testItem = sortedList[testPoint]
-  testResult = keyFun(testItem) - keyFun(newItem)
+  testResult = keyFun(testItem) - keyFunOfNewItem
   if testResult > 0: #if we should search lower...
     """if testPoint-startPoint <= 1:
       if keyFun(newItem) <= keyFun(sortedList[startPoint]):
@@ -406,7 +406,7 @@ class CodecState:
 
 
   def processBlock(self,interpolateMissingValues=True):
-    #encode or decode.
+    #encode or decode. This method processes all the data that is currently loaded into the CodecState, which is supposed to be one block. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way.
     self.runIndex = 0
     while True:
       self.processRun()
@@ -471,7 +471,7 @@ class CodecState:
       outputCell = rankings[0][0]
       dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
       yield outputCell
-      del rankings[0]
+      del rankings[0] #room for optimization.
       self.cellCatalogue.eliminateCell(outputCell)
       replacementCell = self.cellCatalogue.clampCell(outputCell)
       assert str(outputCell) != str(replacementCell) #debug.
