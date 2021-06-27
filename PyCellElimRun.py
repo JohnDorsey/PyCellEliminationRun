@@ -193,6 +193,7 @@ class Spline:
         return None
     assert False
 
+
   def forceMonotonicSlopes(sur,slopes): #completely untested.
     surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)]
     surMonotonicSlope = -1 if all(item =< 0 for item in surRises) else 1 if all(item >= 0 for item in surRises) else 0 #I love python.
@@ -202,6 +203,7 @@ class Spline:
     elif surMonotonicSlope == -1:
       for i in range(len(slopes)):
         slopes[i] = min(0,slopes[i])
+
 
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
@@ -241,7 +243,11 @@ class Spline:
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
       elif self.interpolationMode == "sinusoidal":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
-    elif self.interpolationMode == "finite distance cubic hermite":
+
+    #interpolationModes after this point generally end without using return so that the end of the function with outputFilter code may apply.
+    result = None
+
+    if self.interpolationMode == "finite distance cubic hermite":
       sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None]
       sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
       if None in sur[1:3]:
@@ -259,13 +265,14 @@ class Spline:
       #  Spline.forceMonotonicSlopes(sur,slopes)
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
       result = Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
-      if "clip" in self.outputFilters: #this should be moved to the end of the function.
-        result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #not tested.
-      return result
     elif self.interpolationMode == "fourier":
       assert False, "The current interpolationMode isn't fully supported."
     else:
       assert False, "The current interpolationMode isn't fully supported."
+
+    if "clip" in self.outputFilters: #this should be moved to the end of the function.
+      result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #not tested.
+    return result
 
 
   def __setitem__(self,index,value):
