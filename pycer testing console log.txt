@@ -425,3 +425,58 @@ CodecState.processBlock: missing values exist and will be filled in using the in
 test passed.
 >>> 
 
+
+
+""" sample rate corrected for further tests. """
+
+
+>>> Testing.test()
+interpolation mode hold: 
+the length of the fibcoded data is 4227.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 38 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the length of the fibcoded data is 3746.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 36 missing values.
+test passed.
+interpolation mode linear: 
+the length of the fibcoded data is 3252.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 66 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the length of the fibcoded data is 3132.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 45 missing values.
+test passed.
+interpolation mode finite distance cubic hermite: 
+the length of the fibcoded data is 2984.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 9 missing values.
+test passed.
+interpolation mode finite distance cubic hermite&clip: 
+the length of the fibcoded data is 3018.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 24 missing values.
+test passed.
+>>> reload(Testing.CERWaves)
+<module 'CERWaves' from '/home/john/Desktop/PyCellElimRun/CERWaves.py'>
+>>> reload(Testing)
+<module 'Testing' from '/home/john/Desktop/PyCellElimRun/Testing.py'>
+>>> Testing.test()
+interpolation mode hold: 
+the length of the fibcoded data is 9088.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 42 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the length of the fibcoded data is 8251.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 45 missing values.
+test passed.
+interpolation mode linear: 
+the length of the fibcoded data is 7249.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 83 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the length of the fibcoded data is 6921.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 50 missing values.
+test passed.
+interpolation mode finite distance cubic hermite: 
+the length of the fibcoded data is 6680.
+
+

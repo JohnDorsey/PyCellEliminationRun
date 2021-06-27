@@ -148,7 +148,7 @@ class Spline:
     if "&" in interpolationMode:
       self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
     assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
+    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
     for outputFilter in self.outputFilters:
       assert outputFilter in ["clip","monotonic"], "that output filter is not supported."
 
