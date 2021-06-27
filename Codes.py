@@ -99,7 +99,7 @@ def fibcodeBitArrToInt(inputBitArr):
 
 
 def intSeqToFibcodeSeqStr(inputIntSeq):
-  return "".join(intToFibcodeStr(inputInt) for inputInt in inputIntSeq)
+  return "".join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
 
 def fibcodeSeqStrToIntArr(inputFibcodeSeqStr):
   return [fibcodeBitStrToInt(item+"11") for item in inputFibcodeSeqStr.split("11")]
@@ -202,7 +202,7 @@ def intToEliasDeltaBitStr(inputNum):
   """
 def eliasDeltaBitStrToInt(inputBitStr,mode="parse"):
   assert mode in ["convert","parse"]
-  prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #this causes slow and avoidable repeated failures.
+  prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #@ this causes slow and avoidable repeated failures.
   prefixLength = len(prefix)
   prefixValue = eliasGammaBitStrToInt(prefix)
   result = inputBitStr[prefixLength:prefixLength+prefixValue]

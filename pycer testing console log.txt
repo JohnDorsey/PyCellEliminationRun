@@ -336,3 +336,92 @@ CodecState.processBlock: missing values exist and will be filled in using the in
 [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121, 122, 122, 124, 124, 126, 126, 128, 128, 127, 127, 127, 127, 127, 127, 125, 125, 124, 124, 126, 126, 129, 129, 130, 130, 130, 130, 131, 131, 131, 131, 131, 131, 132, 132, 130, 130, 127, 127, 128, 128, 132, 132, 133, 133, 131, 131, 131, 131, 133, 133, 131, 131, 128, 128, 127, 127, 129, 129, 131, 131, 132, 132, 134, 134, 134, 134, 132, 132, 131, 131, 132, 132, 131, 131, 127, 127, 126, 126, 129, 129, 131, 131, 132, 132, 134, 134, 134, 134, 131, 131, 130, 130, 130, 130, 127, 127, 124, 124, 126, 126, 130, 130, 133, 133, 134, 134, 135, 135, 134, 134, 132, 132, 129, 129, 126, 126, 126, 126, 128, 128, 129, 129, 132, 132, 135, 135, 136, 136, 133, 133, 132, 132, 131, 131, 131, 131, 130, 130, 130, 130, 130, 130, 132, 132, 135, 135, 135, 135, 133, 133, 132, 132, 132, 132, 131, 131, 130, 130, 128, 128, 129, 129, 132, 132, 134, 134, 133, 133, 131, 131, 132, 132, 133, 133, 131, 131, 129, 129, 129, 129, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 131, 130, 130, 131, 131, 131, 131, 132, 132, 135, 135, 135, 135, 133, 133, 133, 133, 135, 135, 134, 134, 131, 131, 131, 131, 132, 132, 131, 131, 132, 132, 132, 132, 132, 132, 133, 133, 134, 134, 135, 135, 134, 134, 133, 133, 129, 129, 129, 129, 132, 132, 132, 132, 133, 133, 137, 137, 139, 139, 136, 136, 135, 135, 134, 134, 130, 130, 128, 128, 132, 132, 133, 133, 132, 132, 135, 135, 138, 138, 136, 136, 136, 136, 137, 137, 133, 133, 129, 129, 132, 132, 132, 132, 129, 129, 132, 132, 138, 138, 138, 138, 136, 136, 136, 136, 135, 135, 131, 131, 129, 129, 130, 130, 129, 129, 130, 130, 133, 133, 136, 136, 135, 135, 134, 134, 132, 132, 130, 130, 128, 128, 128, 128, 128, 128, 128, 128, 131, 131, 134, 134, 135, 135, 133, 133, 131, 131, 130, 130, 131, 131, 131, 131, 130, 130, 131, 131, 134, 134, 136, 136, 135, 135, 134, 134, 132, 132, 130, 130, 130, 130, 133, 133, 134, 134, 133, 133, 132, 132, 133, 133, 131, 131, 130, 130, 131, 131, 131, 131, 130, 130, 131, 131, 133, 133, 130, 130, 129, 129, 133, 133, 135, 135, 134, 134, 133, 133, 133, 133, 132, 132, 133, 133, 135, 135, 136, 136, 136, 136, 137, 137, 139, 139, 140, 140, 140, 140, 139, 139, 137, 137, 137, 137, 139, 139, 141, 141, 141, 141, 141, 141, 142, 142, 142, 142, 139, 139, 138, 138, 138, 138, 138, 138, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 137, 137, 137, 137, 135, 135, 135, 135, 135, 135, 134, 134, 132, 132, 131, 131, 131, 131, 133, 133, 134, 134, 136, 136, 138, 138, 138, 138, 132, 132, 129, 129, 130, 130, 129, 129, 128, 128, 132, 132, 137, 137, 139, 139, 138, 138, 138, 138, 134, 134, 130, 130, 129, 129, 128, 128, 128, 128, 131, 131, 137, 137, 140, 140, 140, 140, 137, 137, 133, 133, 130, 130, 129, 129, 129, 129, 129, 129, 133, 133, 137, 137, 139, 139, 141, 141, 140, 140, 137, 137, 132, 132, 128, 128, 127, 127, 128, 128, 131, 131, 134, 134, 138, 138, 140, 140, 138, 138, 135, 135, 133, 133, 130, 130, 126, 126, 126, 126, 129, 129, 131, 131, 134, 134, 139, 139, 140, 140, 137, 137, 133, 133, 129, 129, 124, 124, 120, 120, 123, 123, 129, 129, 135, 135, 139, 139, 142, 142, 140, 140, 133, 133, 124, 124, 119, 119, 119, 119, 124, 124, 134, 134, 140, 140, 140, 140, 137, 137, 133, 133, 125, 125, 118, 118, 118, 118, 123, 123, 128, 128, 134, 134, 136, 136, 134, 134, 129, 129, 123, 123, 118, 118, 117, 117, 121, 121, 127, 127, 133, 133, 137, 137, 134, 134, 127, 127, 120, 120, 115, 115, 116, 116, 122, 122, 128, 128, 133, 133, 139, 139, 140, 140, 131, 131, 122, 122, 116, 116, 111, 111, 111, 111, 119, 119, 132, 132, 140, 140, 146, 146, 145, 145, 134, 134, 121, 121, 109, 109, 103, 103, 106, 106, 121, 121, 137, 137, 149, 149, 156, 156, 150, 150, 134, 134, 117, 117, 105, 105, 98, 98, 106, 106, 124, 124, 141, 141, 153, 153, 159, 159, 150, 150, 131, 131, 114, 114, 100, 100, 93, 93, 102, 102, 122, 122, 138, 138, 151, 151, 158, 158, 149, 149, 128, 128, 112, 112, 99, 99, 92, 92, 101, 101, 122, 122, 139, 139, 154, 154, 161, 161, 150, 150, 129, 129, 113, 113, 97, 97, 88, 88, 100, 100, 123, 123, 141, 141, 154, 154, 160, 160, 148, 148, 125, 125, 108, 108, 98, 98, 94, 94, 103, 103, 120, 120, 138, 138, 155, 155, 163, 163, 153, 153, 136, 136, 120, 120, 104, 104, 92, 92, 97, 97, 114, 114, 132, 132, 150, 150, 163, 163, 162, 162, 143, 143, 117, 117, 97, 97, 88, 88, 90, 90, 100, 100, 122, 122, 149, 149, 167, 167, 166, 166, 149, 149, 125, 125, 104, 104, 88, 88, 83, 83, 93, 93, 116, 116, 143, 143, 164, 164, 174, 174, 164, 164, 136, 136, 108, 108, 89, 89, 79, 79, 84, 84, 107, 107, 138, 138, 165, 165, 179, 179, 172, 172, 146, 146, 114, 114, 89, 89, 75, 75, 77, 77, 97, 97, 125, 125, 154, 154, 176, 176, 177, 177, 156, 156, 124, 124, 96, 96, 79, 79, 76, 76, 88, 88, 112, 112, 144, 144, 174, 174, 182, 182, 168, 168, 143, 143, 114, 114, 84, 84, 70, 70, 79, 79, 101, 101, 130, 130, 164, 164, 188, 188, 184, 184, 161, 161, 130, 130, 98, 98, 75, 75, 73, 73, 88, 88, 115, 115, 151, 151, 185, 185, 191, 191, 171, 171, 142, 142, 109, 109, 72, 72, 55, 55, 73, 73, 109, 109, 146, 146, 180, 180, 197, 197, 183, 183]
 >>> 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------
+
+
+
+
+
+""" tests with sampleNoise. """
+
+>>> reload(Testing.Codes)
+<module 'Codes' from '/home/john/Desktop/PyCellElimRun/Codes.py'>
+>>> Testing.test()
+interpolation mode hold: 
+the length of the fibcoded data is 1308.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 5 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the length of the fibcoded data is 1190.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 5 missing values.
+test passed.
+interpolation mode linear: 
+the length of the fibcoded data is 1090.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 13 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the length of the fibcoded data is 1109.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 11 missing values.
+test failed.
+interpolation mode finite distance cubic hermite: 
+the length of the fibcoded data is 1062.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 1 missing values.
+test passed.
+>>> 128*8
+1024
+
+
+
+""" tests with samples 10000-11024 of crickets8bmono44100.wav. """
+
+>>> reload(Testing)
+<module 'Testing' from '/home/john/Desktop/PyCellElimRun/Testing.py'>
+>>> Testing.test()
+interpolation mode hold: 
+the length of the fibcoded data is 6985.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 259 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the length of the fibcoded data is 5834.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 412 missing values.
+test passed.
+interpolation mode linear: 
+the length of the fibcoded data is 5798.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 137 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the length of the fibcoded data is 5701.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 137 missing values.
+test passed.
+interpolation mode finite distance cubic hermite: 
+the length of the fibcoded data is 5601.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 31 missing values.
+test failed.
+>>> reload(Testing.pcer)
+<module 'PyCellElimRun' from '/home/john/Desktop/PyCellElimRun/PyCellElimRun.py'>
+>>> Testing.test(interpolationModesToTest=["finite distance cubic hermite&clip"])
+interpolation mode finite distance cubic hermite&clip: 
+the length of the fibcoded data is 5648.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 140 missing values.
+test passed.
+>>> 
+

@@ -127,9 +127,7 @@ class Spline:
   def __init__(self, interpolationMode="finite distance cubic hermite", length=None, endpoints=None, outputFilters=[]):
     self.endpoints = endpoints
     assert self.endpoints == None, "avoid using preset endpoints for this stage of testing."
-    self.interpolationMode = interpolationMode
-    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
+    self.setInterpolationMode(interpolationMode,outputFilters=outputFilters)
     self.length = length
     assert not (self.length == None and self.endpoints == none)
     if self.length == None:
@@ -143,10 +141,16 @@ class Spline:
     self.data = [None for i in range(self.endpoints[1][0]+1)]
     self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1])
     assert len(self.data) == self.length
+
+  def setInterpolationMode(self,interpolationMode,outputFilters=[]):
+    self.interpolationMode = interpolationMode.split("&")[0]
     self.outputFilters = outputFilters
+    if "&" in interpolationMode:
+      self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
+    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
+    assert self.interpolationMode in ["linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
     for outputFilter in self.outputFilters:
       assert outputFilter in ["clip","monotonic"], "that output filter is not supported."
-
 
   #these functions are used in constructing cubic hermite splines.
   def hermite_h00(t):
@@ -264,7 +268,7 @@ class Spline:
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
       result = Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
     elif self.interpolationMode == "fourier":
-      assert False, "The current interpolationMode isn't fully supported."
+      assert False, "fourier interpolationMode isn't fully supported."
     else:
       assert False, "The current interpolationMode isn't fully supported."
 
@@ -503,7 +507,7 @@ def functionalTest(inputData,opMode,splineInterpolationMode,size):
     tempCS = CodecState(size,plainDataSamples=outputData,pressDataNums=[item for item in inputData],opMode=opMode)
   else:
     assert False
-  tempCS.spline.interpolationMode = splineInterpolationMode #@ this is a bad way to do it.
+  tempCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
   tempCS.processBlock()
   return outputData
 
