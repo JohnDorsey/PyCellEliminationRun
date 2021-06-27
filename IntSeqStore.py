@@ -10,7 +10,7 @@ IntSeqStore.py contains tools for storing integer sequences with as little overh
 
 
 
-def lewisTrunc(seqSum,seqSrc): #left-weighted integer sequence truncated.
+def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer sequence truncated.
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
   sumSoFar = 0
   for num in seqSrc:
@@ -18,6 +18,8 @@ def lewisTrunc(seqSum,seqSrc): #left-weighted integer sequence truncated.
     strToOutput = str(bin(num)[2:]).rjust(storeLength,'0')
     for char in strToOutput:
       yield char
+    if addDebugCommas:
+      yield ","
     sumSoFar += num
 
 
@@ -59,3 +61,45 @@ def lewisDeTrunc(seqSum,seqSrc):
     sumSoFar += num
     bitBufferStr = ""
     yield num
+
+
+
+def genDecodeWithHavenBucket(inputStr,parseFun,havenBucketSizeFun,initialHavenBucketSize=0):
+  #parseFun MUST be a parser (taking any length of string and reacting to the beginning of it only) in detailed mode (giving the result in form [the accepted input, result]).
+  ASSUMEZEROSAFE = False
+  offset = 0
+  havenBucketSize = initialHavenBucketSize
+  while True:
+    parseResult = parseFun(inputStr[offset:])
+    if None in parseResult:
+    #out of data.
+      break
+    offset += len(parseResult[0])
+    havenBucketData = inputStr[offset:offset+havenBucketSize]
+    offset += len(havenBucketData)
+    decodedValue = None
+    if ASSUMEZEROSAFE:
+      decodedValue = int(parseResult[1]+havenBucketData,2)
+    else:
+      decodedValue = (int(parseResult[1],2)-1)*(2**len(havenBucketData)) + int(havenBucketData,2)
+    yield decodedValue
+    havenBucketSize = havenBucketSizeFun(decodedValue)
+
+
+def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHavenBucketSize=0,addDebugCommas=False):
+  #parseFun MUST be a parser (taking any length of string and reacting to the beginning of it only) in detailed mode (giving the result in form [the accepted input, result]).
+  ASSUMEZEROSAFE = False
+  havenBucketSize = initialHavenBucketSize
+  for num in inputIntSeq:
+    havenBucketData = bin(num)[2:].rjust(havenBucketSize,"0")[-havenBucketSize:]
+    if ASSUMEZEROSAFE:
+      encodedStr = encodeFun(num >> havenBucketSize)
+    else:
+      encodedStr = encodeFun((num >> havenBucketSize) + 1)
+    encodedStr += havenBucketData
+    for char in encodedStr:
+      yield char
+    if addDebugCommas:
+      yield "," #@ sometimes yields one too many.
+    havenBucketSize = havenBucketSizeFun(num)
+

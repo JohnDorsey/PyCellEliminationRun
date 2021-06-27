@@ -2,6 +2,10 @@ import CERWaves
 import Codes
 import PyCellElimRun as pcer
 
+
+
+
+
 def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","finite distance cubic hermite&clip"]):
   #testSound = CERWaves.sounds["sampleNoise"]
   testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
@@ -20,3 +24,6 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
     else:
       print("test failed.")
 
+
+def compressFull():
+  pass

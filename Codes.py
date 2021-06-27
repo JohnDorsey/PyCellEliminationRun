@@ -64,7 +64,31 @@ def parsePrefix(inputStr,conditionFun):
     return None
   #assert False
   return None
-  
+
+
+
+
+
+def intToHybridCodeBitStr(inputInt,prefixConverterFun,prefixValueGetterFun=(lambda payloadString: len(payloadString)),payloadConverterFun=(lambda payloadInt: bin(payloadInt)[3:])):
+  payloadString = payloadConverterFun(inputInt)
+  prefixValue = prefixValueGetterFun(payloadString)
+  return prefixConverterFun(prefixValue) + payloadString
+
+def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payloadConverterFun=(lambda payloadString: int("1"+payloadString,2))):
+  #prefixRaw = prefixParserFun(inputBitStr)
+  #prefixValue = prefixConverterFun(prefixRaw) #this duplicates work.
+  #prefixValue = prefixParserFun(inputBitStr)
+  return payloadConverterFun(inputBitStr[len(prefixRaw):len(prefixRaw)+prefixValue])
+
+
+"""
+class UniversalCode:
+  def intToBitStr(inputInt):
+    assert False, "intToBitStr has not been implemented."
+  def bitStrToInt(inputBitStr):
+    assert False, "bitStrToInt has not been implemented."
+"""
+
 
 
 def intToFibcodeBitStr(inputInt,startPoint=None):
@@ -110,7 +134,7 @@ def intToUnaryBitStr(inputNum):
   return ("0"*inputNum)+"1"
 
 def unaryBitStrToInt(inputBitStr,mode="parse"):
-  assert mode in ["convert","parse"]
+  assert mode in ["convert","parse","detailed_parse"]
   result = 0
   for char in inputBitStr:
     if char == "0":
@@ -120,6 +144,8 @@ def unaryBitStrToInt(inputBitStr,mode="parse"):
       break
   if mode=="convert":
     assert inputBitStr[result+1:]=="1"
+  if mode == "detailed_parse":
+    return [intToUnaryBitStr(result),result]
   return result
 
 def validateUnaryBitStr(inputBitStr):
@@ -147,13 +173,16 @@ def intToEliasGammaBitStr(inputNum):
   assert inputNum >= 1
   return (("0"*(inputNum.bit_length()-1))+bin(inputNum)[2:]) if inputNum > 1 else "1"
 
-def eliasGammaBitStrToInt(inputBitStr,mode="parse"):
-  assert mode in ["convert","parse"]
+def eliasGammaBitStrToInt(inputBitStr,mode="parse"): #@ broken right now.
+  assert mode in ["convert","parse","detailed_parse"]
   if mode == "convert":
     return int(inputBitStr,2) #special case of this format of method. Usually the convert branch would look like parsing and then making sure that the rest of the data is empty.
-  elif mode == "parse":
+  elif mode in ["parse","detailed_parse"]:
     prefixValue = unaryBitStrToInt(inputBitStr,mode="parse")
-    return inputBitStr[prefixValue+1:prefixValue+prefixValue]
+    result = inputBitStr[prefixValue+1:prefixValue+prefixValue+1]
+    if mode == "detailed_parse":
+      return [inputBitStr[:prefixValue+prefixValue+1],int("1"+result,2)]
+    return int("1"+result,2)
   else:
     assert False, "reality error."
 
@@ -195,20 +224,23 @@ def eliasGammaSeqStrToIntArr(inputBitStr):
 
 def intToEliasDeltaBitStr(inputNum):
   assert inputNum >= 1
-  return intToEliasGammaStr(inputNum.bit_length())+bin(inputNum)[3:] if inputNum > 1 else "1"
+  return intToEliasGammaBitStr(inputNum.bit_length())+bin(inputNum)[3:] if inputNum > 1 else "1"
 
 """def EliasDeltaBitStrToInt(inputBitStr):
   prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #this causes slow and avoidable repeated failures.
   """
 def eliasDeltaBitStrToInt(inputBitStr,mode="parse"):
-  assert mode in ["convert","parse"]
+  assert mode in ["convert","parse","detailed_parse"]
   prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #@ this causes slow and avoidable repeated failures.
   prefixLength = len(prefix)
   prefixValue = eliasGammaBitStrToInt(prefix)
   result = inputBitStr[prefixLength:prefixLength+prefixValue]
-  print([inputBitStr,prefix,prefixLength,prefixValue,result])
+  #result = int("1"+result,2)
+  #print([inputBitStr,prefix,prefixLength,prefixValue,result])
   if mode=="convert":
     assert prefixLength+prefixValue == len(inputBitStr)
+  if mode == "detailed_parse":
+    return [inputBitStr[:prefixLength+prefixValue],int("1"+result,2)]
   return int("1"+result,2)
 
 
@@ -216,9 +248,52 @@ def intSeqToEliasDeltaSeqStr(inputIntSeq):
   return "".join(intToEliasDeltaBitStr(inputInt) for inputInt in inputIntSeq)
 
 
+
+
+
+
+
+def intToEliasGammaIotaBitStr(inputInt,maxPayload):
+  assert type(inputInt) == int
+  maxPayloadLength = len(bin(maxPayload)[3:])
+  #print("maxPayloadLength="+str(maxPayloadLength))
+  prefixLength = len(bin(maxPayloadLength)[2:])
+  #print("prefixLength="+str(prefixLength))
+  return bin(len(bin(inputInt)[3:]))[2:].rjust(prefixLength,"0") + bin(inputInt)[3:]
+
+def eliasGammaIotaBitStrToInt(inputBitStr,maxPayload,mode="parse"):
+  assert type(inputBitStr) == str
+  if not mode == "parse":
+    print("WARNING: for eliasGammaIotaBitStrToInt, modes other than parse are not implemented, and parse mode be used in their stead. This might cause slower execution and incorrect results.")
+  maxPayloadLength = len(bin(maxPayload)[3:])
+  #print("maxPayloadLength="+str(maxPayloadLength))
+  prefixLength = len(bin(maxPayloadLength)[2:])
+  #print("prefixLength="+str(prefixLength))
+  prefixValue = int(inputBitStr[:prefixLength],2)
+  #print("prefixValue="+str(prefixValue))
+  return int("1"+inputBitStr[prefixLength:prefixLength+prefixValue],2)
+
+
+
+def intToEliasDeltaIotaBitStr(inputInt,maxPayload): #@ not yet proven optimal.
+  assert type(inputInt) == int
+  return intToHybridCodeBitStr(inputInt,(lambda x: intToEliasGammaIotaBitStr(x+1,len(bin(maxPayload)[3:])+1)))
+
+def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal.
+  assert type(inputBitStr) == str
+  parseFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="parse")-1)
+  convertFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="convert")-1)
+  return hybridCodeBitStrToInt(inputBitStr,parseFun,convertFun)
+
+
+
+
+
 assert parsePrefix("00001Hello",validateUnaryBitStr)=="00001"
 assert parsePrefix("101101101World",validateBinaryBitStr)=="101101101"
 
 assert sum([validateEliasGammaBitStr(bin(item)[2:]) for item in range(1,100) if bin(item)[2:] not in [intToEliasGammaBitStr(i) for i in range(1,10)]]) == 0
 assert sum([validateEliasGammaBitStr(item) for item in [intToEliasGammaBitStr(i) for i in range(1,100)]]) == 99
+
+assert [eliasDeltaBitStrToInt(intToEliasDeltaBitStr(i)) for i in range(1,32)] == [i for i in range(1,32)]
 
