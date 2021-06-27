@@ -13,13 +13,17 @@ IntSeqStore.py contains tools for storing integer sequences with as little overh
 def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer sequence truncated.
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
   sumSoFar = 0
+  justStarted = True
   for num in seqSrc:
     storeLength = int.bit_length(seqSum-sumSoFar)
     strToOutput = str(bin(num)[2:]).rjust(storeLength,'0')
+    if addDebugCommas:
+      if not justStarted:
+        yield "," #@ sometimes yields one too many.
+      else:
+        justStarted = False
     for char in strToOutput:
       yield char
-    if addDebugCommas:
-      yield ","
     sumSoFar += num
 
 
@@ -90,16 +94,25 @@ def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHav
   #parseFun MUST be a parser (taking any length of string and reacting to the beginning of it only) in detailed mode (giving the result in form [the accepted input, result]).
   ASSUMEZEROSAFE = False
   havenBucketSize = initialHavenBucketSize
+  justStarted = True #used only to control debug commas.
   for num in inputIntSeq:
-    havenBucketData = bin(num)[2:].rjust(havenBucketSize,"0")[-havenBucketSize:]
+    havenBucketData = None
+    if havenBucketSize == 0: #this special case is necessary because when python array slices start at negative zero, they contain the whole array.
+      havenBucketData = ""
+    else:
+      havenBucketData = bin(num)[2:].rjust(havenBucketSize,"0")[-havenBucketSize:]
     if ASSUMEZEROSAFE:
       encodedStr = encodeFun(num >> havenBucketSize)
     else:
       encodedStr = encodeFun((num >> havenBucketSize) + 1)
     encodedStr += havenBucketData
+    print([havenBucketSize,havenBucketData,encodedStr])
+    if addDebugCommas:
+      if not justStarted:
+        yield "," #@ sometimes yields one too many.
+      else:
+        justStarted = False
     for char in encodedStr:
       yield char
-    if addDebugCommas:
-      yield "," #@ sometimes yields one too many.
     havenBucketSize = havenBucketSizeFun(num)
 

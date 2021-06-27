@@ -122,8 +122,8 @@ def fibcodeBitArrToInt(inputBitArr):
   return sum([fibNums[i+1]*inputBitArr[i] for i in range(len(inputBitArr)-1)])
 
 
-def intSeqToFibcodeSeqStr(inputIntSeq):
-  return "".join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
+def intSeqToFibcodeSeqStr(inputIntSeq,addDebugCommas=False):
+  return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
 
 def fibcodeSeqStrToIntArr(inputFibcodeSeqStr):
   return [fibcodeBitStrToInt(item+"11") for item in inputFibcodeSeqStr.split("11")]
