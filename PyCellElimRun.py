@@ -71,7 +71,7 @@ def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambd
   if len(sortedList) == 0:
     sortedList.append(newItem)
     return
-  keyFunOfNewItem = keyFun(newItem) #cache this for probably a tiny performance gain, but not as much as rewriting the method to take a key instead of a keyFun would give.
+  keyFunOfNewItem = keyFun(newItem) #@ cache this for probably a tiny performance gain, but not as much as rewriting the method to take a key instead of a keyFun would give.
   if endPoint == None:
     endPoint = len(sortedList)-1
   if endPoint - startPoint == 1:
@@ -108,10 +108,6 @@ def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambd
 def clamp(value,minmax):
   return min(max(value,minmax[0]),minmax[1])
 
-
-sampleNoise = [128,128,127, 126, 124,113,112,89,32,16,17,14,0,1,9,8,77,78,97,201,210,203,185,183,144,101,99,96,99,124,129,156,146,149,177,181,185,184,170,160,140,110,50,55,75,125,11,123,245,254,255,255,255,254,251,236,249,237,234,221,201,145,103,96,91,115,119,144,144,145,147,149,155,165,175,185,188,193,250,230,210,205,160,50,40,35,31,31,32,39,47,88,86,82,41,13,9,8,6,5,4,4,3,3,3,4,3,2,0,1,2,4,7,17,45,23,46,36,49,62,61,65,98,127,128]
-sampleNoise.extend([128 for i in range(128-len(sampleNoise))])
-assert len(sampleNoise) == 128
 
 
 def intify(arr): #force every number to be an int.
@@ -198,7 +194,7 @@ class Spline:
   def forceMonotonicSlopes(sur,slopes): #completely untested.
     #sur stands for surroundings.
     surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)] #changes in y between each pair of points.
-    surMonotonicSlope = -1 if all(item =< 0 for item in surRises) else 1 if all(item >= 0 for item in surRises) else 0 #the sign of every surRise if those are all the same sign, else 0.
+    surMonotonicSlope = -1 if all(((item <= 0) for item in surRises)) else 1 if all(((item >= 0) for item in surRises)) else 0 #the sign of every surRise if those are all the same sign, else 0.
     if surMonotonicSlope == 1:
       for i in range(len(slopes)):
         slopes[i] = max(0,slopes[i])
@@ -221,7 +217,7 @@ class Spline:
       return result[1]
     elif self.interpolationMode == "nearest-neighbor":
       #when two neighbors are equal distances away, the one on the left will be chosen.
-      leftItemIndex,rightItemIndex = (index, index) #these don't really need to be separate variables.
+      leftItemIndex,rightItemIndex = (index, index) #@ these don't really need to be separate variables.
       while True:
         leftItemIndex -= 1
         rightItemIndex += 1
@@ -235,7 +231,7 @@ class Spline:
           return self.data[rightItemIndex]
       assert False, "this interpolation mode can't run with missing endpoints or a bad location." #saved some time by not handling this, even though it would be simple to handle.
     elif self.interpolationMode in ["linear","sinusoidal"]:
-      leftItemIndex,rightItemIndex = (index-1, index+1) #the following search procedure could be moved to another method.
+      leftItemIndex,rightItemIndex = (index-1, index+1) #@ the following search procedure could be moved to another method.
       while self.data[leftItemIndex] == None:
         leftItemIndex -= 1
       while self.data[rightItemIndex] == None:
@@ -273,7 +269,7 @@ class Spline:
       assert False, "The current interpolationMode isn't fully supported."
 
     if "clip" in self.outputFilters: #this should be moved to the end of the function.
-      result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #not tested.
+      result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #@ not tested.
     return result
 
 
@@ -415,7 +411,7 @@ class CodecState:
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataSamples)) or (self.opMode == "decode" and self.runIndex >= len(self.pressDataNums)):
         if self.opMode == "decode" and interpolateMissingValues:
           if None in self.plainDataSamples:
-            print("CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
+            print("CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are " + str(self.plainDataSamples.count(None)) + " missing values.")
             for index in range(len(self.plainDataSamples)):
               if self.plainDataSamples[index] == None:
                 self.plainDataSamples[index] = self.spline[index]
@@ -497,7 +493,7 @@ class CodecState:
 
 
 
-def functionalTest(inputData,opMode,size=(8,8)):
+def functionalTest(inputData,opMode,splineInterpolationMode,size):
   assert opMode in ["encode","decode"]
   tempCS = None
   outputData = []
@@ -507,5 +503,8 @@ def functionalTest(inputData,opMode,size=(8,8)):
     tempCS = CodecState(size,plainDataSamples=outputData,pressDataNums=[item for item in inputData],opMode=opMode)
   else:
     assert False
+  tempCS.spline.interpolationMode = splineInterpolationMode #@ this is a bad way to do it.
   tempCS.processBlock()
   return outputData
+
+
