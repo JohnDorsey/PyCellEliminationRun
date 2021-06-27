@@ -42,16 +42,16 @@ todo:
 #switching from linearInsort to bisectInsort in 1024x256 cell data improves run time from 3 minutes to under 10 seconds. But increasing cell area to 2048x256 makes encoding take 87 seconds, and 4096x256 makes encoding take 6 minutes.
 
 
-DODBGPRINT = False
-DOVIS = False
+DODBGPRINT = False #print debug info.
+DOVIS = False #show pretty printing, mostly for debugging.
 
 
-def dbgPrint(text,end="\n"):
+def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
   if DODBGPRINT:
     print(text,end=end)
 
 
-def insort(sortedList, newItem, keyFun=(lambda x: x)):
+def insort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted using whichever method is not commented out.
   #linearInsort(sortedList, newItem, keyFun=keyFun)
   bisectInsort(sortedList, newItem, keyFun=keyFun)
   
@@ -68,6 +68,7 @@ def linearInsort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted with
 
 
 def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambda x: x)):
+  #this still needs caching, right?
   if len(sortedList) == 0:
     sortedList.append(newItem)
     return
@@ -113,7 +114,7 @@ sampleNoise.extend([128 for i in range(128-len(sampleNoise))])
 assert len(sampleNoise) == 128
 
 
-def intify(arr):
+def intify(arr): #force every number to be an int.
   for i,item in enumerate(arr):
     if type(item) == list:
       intify(item)
@@ -177,7 +178,7 @@ class Spline:
 
 
   def getPointInDirection(self,location,direction,skipStart=True):
-    print("getPointInDirection: "+str((location,direction,skipStart)))
+    dbgPrint("getPointInDirection: "+str((location,direction,skipStart)))
     #assert type(direction) == int
     assert direction in [-1,1]
     #assert 0 <= location < len(self.data)
@@ -195,8 +196,9 @@ class Spline:
 
 
   def forceMonotonicSlopes(sur,slopes): #completely untested.
-    surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)]
-    surMonotonicSlope = -1 if all(item =< 0 for item in surRises) else 1 if all(item >= 0 for item in surRises) else 0 #I love python.
+    #sur stands for surroundings.
+    surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)] #changes in y between each pair of points.
+    surMonotonicSlope = -1 if all(item =< 0 for item in surRises) else 1 if all(item >= 0 for item in surRises) else 0 #the sign of every surRise if those are all the same sign, else 0.
     if surMonotonicSlope == 1:
       for i in range(len(slopes)):
         slopes[i] = max(0,slopes[i])
@@ -208,7 +210,7 @@ class Spline:
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
     #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow linear time searches of a mostly empty array are used.
-    if self.data[index] != None:
+    if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
     elif self.interpolationMode == "hold":
       result = self.getPointInDirection(index,-1)
@@ -283,6 +285,7 @@ class Spline:
 
 
 class CellCatalogue:
+  #a place to record the states of cells.
   ELIMVAL = 0
   UNKVAL = 1
   LIVEVAL = 2
@@ -374,7 +377,7 @@ class CellCatalogue:
 
 
 class CodecState:
-
+  #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
   def __init__(self, size, plainDataSamples=None, pressDataNums=None, opMode="encode"):
     self.size = size
