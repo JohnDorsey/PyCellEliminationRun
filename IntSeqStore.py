@@ -19,7 +19,7 @@ def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer seque
     strToOutput = str(bin(num)[2:]).rjust(storeLength,'0')
     if addDebugCommas:
       if not justStarted:
-        yield "," #@ sometimes yields one too many.
+        yield ","
       else:
         justStarted = False
     for char in strToOutput:
@@ -106,13 +106,38 @@ def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHav
     else:
       encodedStr = encodeFun((num >> havenBucketSize) + 1)
     encodedStr += havenBucketData
-    print([havenBucketSize,havenBucketData,encodedStr])
+    #print([havenBucketSize,havenBucketData,encodedStr])
     if addDebugCommas:
       if not justStarted:
-        yield "," #@ sometimes yields one too many.
+        yield ","
       else:
         justStarted = False
     for char in encodedStr:
       yield char
     havenBucketSize = havenBucketSizeFun(num)
+
+
+class StatefulFunctionHost:
+  def __init__(self,mainFunIn,state=[]):
+    self.mainFunIn = mainFunIn
+    #self.primerFunsIn = primerFunsIn
+    self.state = state
+    assert len(state) == 0
+    self.callCount = -1
+
+  def mainFunOut(self,inputData):
+    self.callCount += 1
+    #if self.callCount < len(self.primerFunsIn):
+    #  return self.primerFunsIn(state,inputData)
+    return self.mainFunIn(self.callCount,self.state,inputData)
+
+  def extrapolationDemoFun(callCount,state,inputData):
+    if callCount == 0:
+      assert len(state) == 0
+    if len(state) > 2:
+      del state[0]
+    state.append(inputData)
+    if len(state) == 1:
+      return state[0]
+    return state[-1] + (state[-1]-state[-2])
 
