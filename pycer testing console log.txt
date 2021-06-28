@@ -543,3 +543,84 @@ NameError: name 'config' is not defined
 
 
 The current design sets endpoints to zero assuming unsigned data. that will need to be fixed, and old compressor outputs will become broken.
+
+
+
+
+----------------
+
+
+
+before correction of elimination issue (hit cells weren't eliminated because the generator was deleted before anything caused it to eliminate what it had yielded).:
+
+
+>>> reload(PyCellElimRun)
+<module 'PyCellElimRun' from '/home/john/Desktop/PyCellElimRun/PyCellElimRun.py'>
+>>> PyCellElimRun.functionalTest([0,0,0,0,0],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 4.
+Spline.__setitem__: overwriting an item at index 0.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+[0, 49, 51, 145, 0]
+>>> PyCellElimRun.functionalTest([25,25,25,25,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+[245, 0, 0, 0, 0]
+>>> PyCellElimRun.functionalTest([25,25,25000,25,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+[245, 0, 0, 0, 0]
+>>> PyCellElimRun.functionalTest([25,25,28,25,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 4.
+Spline.__setitem__: overwriting an item at index 1.
+[217, 18, 2, 8, 0]
+>>> PyCellElimRun.functionalTest([25,25,45,25,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+[52, 104, 9, 80, 0]
+>>> PyCellElimRun.functionalTest([25,35,45,35,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 2.
+Spline.__setitem__: overwriting an item at index 1.
+Spline.__setitem__: overwriting an item at index 1.
+[52, 193, 0, 0, 0]
+>>> PyCellElimRun.functionalTest([25,35,49,35,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 3.
+Spline.__setitem__: overwriting an item at index 1.
+[12, 220, 2, 11, 0]
+>>> PyCellElimRun.functionalTest([25,35,50,35,25],"encode","linear",[5,50])
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/john/Desktop/PyCellElimRun/PyCellElimRun.py", line 518, in functionalTest
+    tempCS.processBlock()
+  File "/home/john/Desktop/PyCellElimRun/PyCellElimRun.py", line 416, in processBlock
+    self.processRun()
+  File "/home/john/Desktop/PyCellElimRun/PyCellElimRun.py", line 433, in processRun
+    for cellToCheck in self.getGenCellCheckOrder():
+  File "/home/john/Desktop/PyCellElimRun/PyCellElimRun.py", line 480, in getGenCellCheckOrder
+    replacementCell = self.cellCatalogue.clampCell(outputCell)
+  File "/home/john/Desktop/PyCellElimRun/PyCellElimRun.py", line 374, in clampCell
+    assert result != cell, "CellCatalogue.clampCell(cell): this function failed."
+AssertionError: CellCatalogue.clampCell(cell): this function failed.
+
+
+
+
+after fix:
+
+
+>>> PyCellElimRun.functionalTest([25,25,49,25,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 0.
+Spline.__setitem__: overwriting an item at index 4.
+[12, 94, 0, 45, 0]
+>>> PyCellElimRun.functionalTest([25,35,45,35,25],"encode","linear",[5,50])
+Spline.__setitem__: overwriting an item at index 0.
+Spline.__setitem__: overwriting an item at index 4.
+[52, 154, 0, 0, 0]
+>>> 
+
+
+that's an improvement!

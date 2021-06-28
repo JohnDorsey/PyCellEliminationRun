@@ -124,31 +124,33 @@ class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  def __init__(self, interpolationMode="finite distance cubic hermite", length=None, endpoints=None, outputFilters=[]):
+  def __init__(self, interpolationMode="finite difference cubic hermite", size=None, endpoints=None, outputFilters=[]):
     self.endpoints = endpoints
     assert self.endpoints == None, "avoid using preset endpoints for this stage of testing."
     self.setInterpolationMode(interpolationMode,outputFilters=outputFilters)
-    self.length = length
-    assert not (self.length == None and self.endpoints == none)
-    if self.length == None:
-      self.length = self.endpoints[1][0] - self.endpoints[0][0] + 1
+    self.size = size
+    assert not (self.size == None and self.endpoints == none)
+    if self.size == None:
+      self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
+      dbgPrint("Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
-      self.endpoints = ((0,0),(self.length-1,0))
+      self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
     else:
       assert False, "impossible error."
     assert len(self.endpoints) == 2
     assert self.endpoints[0][0] == 0, "sample ranges not starting at zero are not yet supported."
+    assert self.endpoints[1][0] == size[0]-1, "sample ranges not ending at their second endpoint are not supported."
     self.data = [None for i in range(self.endpoints[1][0]+1)]
     self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1])
-    assert len(self.data) == self.length
+    assert len(self.data) == self.size[0]
 
   def setInterpolationMode(self,interpolationMode,outputFilters=[]):
     self.interpolationMode = interpolationMode.split("&")[0]
     self.outputFilters = outputFilters
     if "&" in interpolationMode:
       self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
-    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite","fourier"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite distance cubic hermite"], "this interpolation mode is not supported, but support is planned."
+    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","fourier"], "this interpolation mode is not supported."
+    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite"], "this interpolation mode is not supported, but support is planned."
     for outputFilter in self.outputFilters:
       assert outputFilter in ["clip","monotonic"], "that output filter is not supported."
 
@@ -249,7 +251,7 @@ class Spline:
     #interpolationModes after this point generally end without using return so that the end of the function with outputFilter code may apply.
     result = None
 
-    if self.interpolationMode == "finite distance cubic hermite":
+    if self.interpolationMode == "finite difference cubic hermite":
       sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None]
       sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
       if None in sur[1:3]:
@@ -279,6 +281,10 @@ class Spline:
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
+    if self.data[index] != None:
+      print("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
+      if index == 1:
+        assert False
     self.data[index] = value
 
 
@@ -324,7 +330,14 @@ class CellCatalogue:
     else:
       assert False, "unknown storage mode."
 
-  
+  def eliminateColumn(self,columnIndex):
+    if self.storageMode == "limits":  
+      self.limits[columnIndex][0] = -1
+      self.limits[columnIndex][1] = -3
+    elif self.storageMode == "grid":
+      for i in range(len(self.grid[columnIndex])):
+        self.grid[columnIndex][i] = CellCatalogue.ELIMVAL
+
   def eliminateCell(self,cell):
     #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
     if self.getCell(cell) == CellCatalogue.ELIMVAL:
@@ -401,7 +414,7 @@ class CodecState:
       assert False, "invalid opMode."
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
-    self.spline = Spline(length=self.size[0])
+    self.spline = Spline(size=self.size)
     self.cellCatalogue = CellCatalogue(size=self.size)
 
 
@@ -447,6 +460,7 @@ class CodecState:
       assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "CodecState.processRun: this loop has run for an impossibly long time."
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
+        self.cellCatalogue.eliminateColumn(cellToCheck[0])
         dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return
 
@@ -501,7 +515,9 @@ def functionalTest(inputData,opMode,splineInterpolationMode,size):
   if size[0] == None:
     dbgPrint("functionalTest: assuming size.")
     size[0] = len(inputData)
-  assert opMode in ["encode","decode"]
+  assert opMode in ["encode","decode","encode_then_decode"]
+  if opMode == "encode_then_decode":
+    return functionalTest(functionalTest(inputData,"encode",splineInterpolationMode,size),"decode",splineInterpolationMode,size)
   tempCS = None
   outputData = []
   if opMode == "encode":
