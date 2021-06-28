@@ -96,6 +96,7 @@ def intToFibcodeBitStr(inputInt,startPoint=None):
 
 def intToFibcodeBitArr(inputInt,startPoint=None):
   assert inputInt >= 1
+  assert inputInt < fibNums[-1]
   if startPoint == None:
     startPoint = len(fibNums)-1
     """while fibNums[startPoint-1] > inputInt:

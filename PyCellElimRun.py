@@ -498,6 +498,9 @@ class CodecState:
 
 
 def functionalTest(inputData,opMode,splineInterpolationMode,size):
+  if size[0] == None:
+    dbgPrint("functionalTest: assuming size.")
+    size[0] = len(inputData)
   assert opMode in ["encode","decode"]
   tempCS = None
   outputData = []

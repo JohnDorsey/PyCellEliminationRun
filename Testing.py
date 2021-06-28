@@ -25,5 +25,16 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
       print("test failed.")
 
 
-def compressFull():
-  pass
+def compressFull(soundName,destFileName,interpolationMode,blockWidth):
+  sound = CERWaves.sounds[soundName]
+  destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
+  offset = 0
+  print("starting compression.")
+  while offset + blockWidth + 1 < len(sound):
+    print(str(100*offset/len(sound))[:5]+"%...",end="")
+    audioData = sound[offset:offset+blockWidth]
+    offset += blockWidth
+    pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,256])
+    pressDataBitStr = Codes.intSeqToFibcodeSeqStr([item+1 for item in pressDataNums]) + "\n"
+    destFile.write(pressDataBitStr)
+  destFile.close()
