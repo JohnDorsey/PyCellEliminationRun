@@ -1,3 +1,5 @@
+#from __future__ import print_function as print
+
 
 """
 
@@ -48,7 +50,8 @@ DOVIS = False #show pretty printing, mostly for debugging.
 
 def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
   if DODBGPRINT:
-    print(text,end=end)
+    print(text)
+    print("custom line endings disabled for python2 compatibility.")
 
 
 def insort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted using whichever method is not commented out.
@@ -134,7 +137,9 @@ class Spline:
       self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
       dbgPrint("Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
+      print("the endpoint mode might be wrong.")
       self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
+      #self.endpoints = ((0,0),(self.size[0]-1,0))
     else:
       assert False, "impossible error."
     assert len(self.endpoints) == 2
@@ -173,9 +178,11 @@ class Spline:
     tempValues = [self.__getitem__(index) for index in range(self.endpoints[1][0]+1)]
     valueRange = (min(tempValues),max(tempValues))
     for value in range(valueRange[1],valueRange[0]-1,-1):
-      print(str(value).rjust(10)+": ",end="")
+      #print(str(value).rjust(10)+": ",end="")
+      print("prettyPrinting disabled for python2 compatibility.")
       for index in range(self.endpoints[1][0]+1):
-        print("#" if (tempValues[index] == value) else "-",end="")
+        #print("#" if (tempValues[index] == value) else "-",end="")
+        pass
       print("")
 
 
@@ -282,9 +289,9 @@ class Spline:
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
     if self.data[index] != None:
-      print("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
-      if index == 1:
-        assert False
+      dbgPrint("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
+      #if index == 1:
+      #  assert False
     self.data[index] = value
 
 
@@ -316,10 +323,13 @@ class CellCatalogue:
       return
     dbgPrint("CellCatalogue.prettyPrint():")
     for y in range(self.size[1]):
-      print("  ",end="")
+      print("prettyPrinting disabled for python2 compatibility.")
+      #print("  ",end="")
       for x in range(self.size[0]):
-        print(self.getCell((x,y)),end="")
-      print(" ",end="")
+        #print(self.getCell((x,y)),end="")
+        pass
+      #print(" ",end="")
+    return
 
 
   def getCell(self,cell):
@@ -460,7 +470,7 @@ class CodecState:
       assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "CodecState.processRun: this loop has run for an impossibly long time."
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
-        self.cellCatalogue.eliminateColumn(cellToCheck[0])
+        #self.cellCatalogue.eliminateColumn(cellToCheck[0]) #@ !!!!!!!1
         dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return
 

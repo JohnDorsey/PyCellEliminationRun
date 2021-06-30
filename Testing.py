@@ -1,3 +1,6 @@
+#from __future__ import print_function as print
+#from __future__ import print_function
+
 import CERWaves
 import Codes
 import PyCellElimRun as pcer
@@ -14,6 +17,7 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
   assert min(testSound) >= 0
   for interpolationMode in interpolationModesToTest:
     print("interpolation mode " + interpolationMode + ": ")
+    print("the input data is length " + str(len(testSound)) + " and has a range of " + str((min(testSound),max(testSound))) + " and the start of it looks like " + str(testSound[:16]) + ".")
     pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
     pressDataFibcodeSeqStr = Codes.intSeqToFibcodeSeqStr(num+1 for num in pressDataNums)
     print("the length of the fibcoded data is " + str(len(pressDataFibcodeSeqStr)) + ".")
@@ -29,9 +33,10 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth):
   sound = CERWaves.sounds[soundName]
   destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
   offset = 0
-  print("starting compression.")
+  print("starting compression on sound of length " + str(len(sound)) + "...")
+  print("the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:16]) + ".")
   while offset + blockWidth + 1 < len(sound):
-    print(str(100*offset/len(sound))[:5]+"%...",end="")
+    print(str(100*offset/len(sound))[:5]+"%...")
     audioData = sound[offset:offset+blockWidth]
     offset += blockWidth
     pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,256])

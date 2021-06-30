@@ -624,3 +624,55 @@ Spline.__setitem__: overwriting an item at index 4.
 
 
 that's an improvement!
+
+
+
+
+
+(29 Jun 2021)
+
+
+
+tests are now going wrong, as shown:
+>>> Testing.test()
+interpolation mode hold: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 9088.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 42 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 8251.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 45 missing values.
+test passed.
+interpolation mode linear: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 7249.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 83 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6921.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 50 missing values.
+test passed.
+interpolation mode finite difference cubic hermite: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6614.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 10 missing values.
+test passed.
+interpolation mode finite difference cubic hermite&clip: 
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6680.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 25 missing values.
+test passed.
+
+
+These results are longer than even the input data. The cause of this is very difficult to find. Column elimination has been turned back off, and setting endpoints to half of the input data's expected range doesn't seem to make a big enough difference to account for anything I've seen.
+The file "moo linear 128" was from the promising tests, and it and "corrected moo linear 256" can't be replicated easily, so I might need to roll back many changes. commit 7f72511 seems to be from when things were working well, unless the results were incorrectly measured back then.
+

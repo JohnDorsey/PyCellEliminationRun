@@ -7,21 +7,64 @@ When loaded, CERWaves.py loads sample audio for easy use in testing the codec. A
 """
 
 
-
+import sys
 import wave
 
 
-sounds = {"crickets8bmono44100.wav":None,"moo8bmono44100.wav":None}
-
+sounds = {"crickets8bmono44100.wav":None,"moo8bmono44100.wav":None,"moo8bmono44100.txt":None}
 
 
 
 def loadSound(filename):
-  soundFile = wave.open(filename,mode="rb")
-  result = [int(item) for item in soundFile.readframes(2**32)]
-  soundFile.close()
-  return result
+  if filename.endswith(".wav"):
+    soundFile = wave.open(filename,mode="rb")
+    result = None
+    if sys.version[0] == "3":
+      result = [int(item) for item in soundFile.readframes(2**32)]
+    else:
+      #result = [int(ord(item)) for item in soundFile.readframes(2**32)]
+      #assert False
+      print(".wav files won't be loaded in this version.")
+    soundFile.close()
+    return result
+  elif filename.endswith(".raw"):
+    soundFile = open(filename,mode="rb")
+    result = None
+    result = [int(item) for item in soundFile.read(2**32)][1:][::2]
+    soundFile.close()
+    return result
+  elif filename.endswith(".txt"):
+    return deserializeSound(filename)
+  else:
+    assert False
 
+
+def serializeSound(filename,sound):
+  assert filename.endswith(".txt")
+  soundFile = open(filename,"w")
+  #soundFile.write("".join(chr(item) for item in sound))
+  soundFile.write(str(sound))
+  soundFile.close()
+
+def deserializeSound(filename):
+  assert filename.endswith(".txt")
+  soundFile = open(filename,"r")
+  #soundFile.write("".join(chr(item) for item in sound))
+  result = soundFile.read(2**32)
+  soundFile.close()
+  return eval(result)
+
+def saveSound(filename,sound):
+  assert filename.endswith(".raw")
+  soundFile = open(filename,"w")
+  #soundFile.write("".join(chr(item) for item in sound))
+  for item in sound:
+    assert type(item) == int
+    assert item < 256
+    assert item >= 0
+    #soundFile.write(eval("b'"+chr(item)+"'"))
+    soundFile.write(chr(item))
+  soundFile.close()
 
 for key in sounds.keys():
   sounds[key] = loadSound(key)
