@@ -4,12 +4,17 @@
 import CERWaves
 import Codes
 import PyCellElimRun as pcer
+import IntSeqStore
+
+
+
+havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.fibonacciCoding.intToBitStr,(lambda x: x>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibonacciCoding.bitStrToInt(xx,mode="detailed_parse")),(lambda x: x>>1)))) #@ ouch.
 
 
 
 
 
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"]):
+def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding):
   soundSourceStr = "CERWaves.sounds[\"moo8bmono44100.txt\"][10000:10000+1024*2][::2]"
   #testSound = CERWaves.sounds["sampleNoise"]
   #testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024]
@@ -24,9 +29,9 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
     print("interpolation mode " + interpolationMode + ": ")
     print("the input data is length " + str(len(testSound)) + " and has a range of " + str((min(testSound),max(testSound))) + " and the start of it looks like " + str(testSound[:16]) + ".")
     pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
-    pressDataFibcodeSeqStr = Codes.intSeqToFibcodeSeqStr(num+1 for num in pressDataNums)
-    print("the length of the fibcoded data is " + str(len(pressDataFibcodeSeqStr)) + ".")
-    reconstPressDataNums = [num-1 for num in Codes.fibcodeSeqStrToIntArr(pressDataFibcodeSeqStr)]
+    pressDataCodeStr = numberCoding.intSeqToBitStr(num+1 for num in pressDataNums)
+    print("the length of the coded data is " + str(len(pressDataCodeStr)) + ".")
+    reconstPressDataNums = [num-1 for num in numberCoding.bitStrToIntSeq(pressDataCodeStr)]
     reconstPlainDataNums = pcer.functionalTest(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
     if reconstPlainDataNums == testSound:
       print("test passed.")
@@ -34,7 +39,7 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
       print("test failed.")
 
 
-def compressFull(soundName,destFileName,interpolationMode,blockWidth):
+def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCoding=Codes.fibonacciCoding):
   sound = CERWaves.sounds[soundName]
   destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
   offset = 0
@@ -46,13 +51,13 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth):
     offset += blockWidth
     pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,256])
     print("there are " + str(len(pressDataNums)) + " pressDataNums to store.")
-    pressDataBitStr = Codes.intSeqToFibcodeSeqStr([item+1 for item in pressDataNums]) + "\n"
+    pressDataBitStr = numberCoding.intSeqToBitStr([item+1 for item in pressDataNums]) + "\n"
     print("the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
 
 
-def decompressFull(srcFileName,interpolationMode,blockWidth):
+def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding=Codes.fibonacciCoding):
   print("remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
   #sound = CERWaves.sounds[soundName]
   result = []
@@ -68,7 +73,7 @@ def decompressFull(srcFileName,interpolationMode,blockWidth):
     except:
       break
     print("loaded a line of length " + str(len(loadedLine)) + " which starts with " + loadedLine[:64] + ".")
-    pressDataNums = [item-1 for item in Codes.fibcodeSeqStrToIntArr(loadedLine)]
+    pressDataNums = [item-1 for item in numberCoding.bitStrToIntSeq(loadedLine)]
     assert min(pressDataNums) == 0
     if not len(pressDataNums) == blockWidth:
       print("pressDataNums is the wrong length. Trimming will be attempted.")

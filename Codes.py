@@ -110,11 +110,23 @@ def intToFibcodeBitArr(inputInt,startPoint=None):
   result.append(1)
   return result[1:] #I don't know why this is necessary.
 
-def fibcodeBitStrToInt(inputBitStr):
-  return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr])
+def fibcodeBitStrToInt(inputBitStr,mode="parse"):
+  #return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr],mode=mode)
+  if mode == "convert":
+    return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr])
+  elif mode == "detailed_parse":
+    for offset in range(0,len(inputBitStr)):
+      if inputBitStr[offset:offset+2] == "11":
+        return [inputBitStr[:offset+2],fibcodeBitStrToInt(inputBitStr[:offset+2],mode="convert")]
+  elif mode == "parse":
+    return fibcodeBitStrToInt(inputBitStr,mode="detailed_parse")[1] #maybe this is simpler.
+  else:
+    assert False, "bad mode."
+      
 
-def fibcodeBitArrToInt(inputBitArr):
+def fibcodeBitArrToInt(inputBitArr,mode="parse"):
   return sum([fibNums[i+1]*inputBitArr[i] for i in range(len(inputBitArr)-1)])
+  #for i in range(len(inputBitArr))
 
 
 def intSeqToFibcodeSeqStr(inputIntSeq,addDebugCommas=False):

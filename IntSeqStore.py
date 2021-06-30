@@ -75,7 +75,7 @@ def genDecodeWithHavenBucket(inputStr,parseFun,havenBucketSizeFun,initialHavenBu
   havenBucketSize = initialHavenBucketSize
   while True:
     parseResult = parseFun(inputStr[offset:])
-    if None in parseResult:
+    if parseResult == None or None in parseResult or '' in parseResult:
     #out of data.
       break
     offset += len(parseResult[0])
@@ -83,9 +83,9 @@ def genDecodeWithHavenBucket(inputStr,parseFun,havenBucketSizeFun,initialHavenBu
     offset += len(havenBucketData)
     decodedValue = None
     if ASSUMEZEROSAFE:
-      decodedValue = int(parseResult[1]+havenBucketData,2)
+      decodedValue = int(bin(parseResult[1])[2:]+havenBucketData,2)
     else:
-      decodedValue = (int(parseResult[1],2)-1)*(2**len(havenBucketData)) + int(havenBucketData,2)
+      decodedValue = (int(bin(parseResult[1])[2:],2)-1)*(2**len(havenBucketData)) + int("0"+havenBucketData,2)
     yield decodedValue
     havenBucketSize = havenBucketSizeFun(decodedValue)
 
