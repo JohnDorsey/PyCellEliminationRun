@@ -968,3 +968,42 @@ the length of the coded data is 3359 and it begins with 010001001000001010000100
 CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
 test passed.
 
+
+
+
+
+(30 Jun 2021)
+
+
+
+
+The following demonstrates that PyCellElimRun can handle decoding incomplete pressData as expected - since a value of zero in the pressDataNums means that the least likely assumption is instantly true, it means that interpolating missing values gives the same result as having access to those missing zeroes. decompression being _finished_ could be detected in a more intelligent way, fairly easily, by paying closer attention to the cellCatalogue or by looking at the sum of all numbers processed so far in the block - detecting when decompression is finished would allow blocks to be self-delimiting without headers. This would have tangible space savings when block sizes are small.
+
+
+>>>> Testing.pcer.functionalTest([2,2,2,2,2,2,2],"encode","linear",[7,7])
+[28, 5, 4, 5, 0, 0, 0]
+>>>> Testing.pcer.functionalTest([2,2,2,2,2,],"encode","linear",[5,5])
+[20, 0, 0, 0, 0]
+>>>> Testing.pcer.functionalTest([2,2,2,2,2],"encode","linear",[5,5])
+[20, 0, 0, 0, 0]
+>>>> Testing.pcer.functionalTest([20,0,0,0,0],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 3 missing values.
+[2, 2, 2.0, 2.0, 2]
+>>>> Testing.pcer.functionalTest([20,0,0,0],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 3 missing values.
+[2, 2, 2.0, 2.0, 2]
+>>>> Testing.pcer.functionalTest([20,0],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 3 missing values.
+[2, 2, 2.0, 2.0, 2]
+>>>> Testing.pcer.functionalTest([20],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 4 missing values.
+[2, 2.0, 2.0, 2.0, 2]
+>>>> Testing.pcer.functionalTest([2,3,4,1,2],"encode","linear",[5,5])
+[6, 2, 12, 0, 0]
+>>>> Testing.pcer.functionalTest([6,2,12,0,0],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 2 missing values.
+[2, 3, 4, 1, 2]
+>>>> Testing.pcer.functionalTest([6,2,12],"decode","linear",[5,5])
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 3 missing values.
+[2, 3.0, 4, 1, 2]
+

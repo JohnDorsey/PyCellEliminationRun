@@ -34,6 +34,7 @@ for i in range(8192):
 
 
 def parsePrefix(inputStr,conditionFun):
+  #this slow method can search the beginning of an input string for the proper slice length to satisfy a condition, and then return it.
   prefixLength = None
   #print("parsePrefix starts.")
   #print([inputStr,prefixLength,inputStr[:prefixLength],conditionFun(inputStr[:prefixLength])])
@@ -69,12 +70,12 @@ def parsePrefix(inputStr,conditionFun):
 
 
 
-def intToHybridCodeBitStr(inputInt,prefixConverterFun,prefixValueGetterFun=(lambda payloadString: len(payloadString)),payloadConverterFun=(lambda payloadInt: bin(payloadInt)[3:])):
+def intToHybridCodeBitStr(inputInt,prefixConverterFun,prefixValueGetterFun=(lambda payloadString: len(payloadString)),payloadConverterFun=(lambda payloadInt: bin(payloadInt)[3:])): #not tested thoroughly.
   payloadString = payloadConverterFun(inputInt)
   prefixValue = prefixValueGetterFun(payloadString)
   return prefixConverterFun(prefixValue) + payloadString
 
-def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payloadConverterFun=(lambda payloadString: int("1"+payloadString,2))):
+def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payloadConverterFun=(lambda payloadString: int("1"+payloadString,2))): #not tested thoroughly.
   #prefixRaw = prefixParserFun(inputBitStr)
   #prefixValue = prefixConverterFun(prefixRaw) #this duplicates work.
   #prefixValue = prefixParserFun(inputBitStr)

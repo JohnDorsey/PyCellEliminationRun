@@ -1,3 +1,13 @@
+
+"""
+
+PyWaveTest.py by John Dorsey.
+
+PyWaveTest.py provides tools to convert .wav files to new .wav files in a fixed format (normally 44.1kHz unsigned 8-bit mono) for easy testing of compression.
+
+"""
+
+
 import wave
 
 #"Night_Sounds_-_Crickets-Lisa_Redfern-591005346.wav"
