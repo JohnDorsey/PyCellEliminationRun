@@ -895,3 +895,76 @@ the length of the fibcoded data is 3450.
 CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
 test passed.
 
+
+The following demonstrates real space savings from haven buckets in Testing.test:
+
+>>>> Testing.test(numberCoding=Codes.fibonacciCoding)
+the sound source is CERWaves.sounds["moo8bmono44100.txt"][10000:10000+1024*2][::2]
+the sample rate migh be wrong. Check it.
+interpolation mode hold: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 5480 and it begins with 0100010010000010100001000110100000001011101010111010011000111000
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 357 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 4247 and it begins with 0100010010000010100001000110101000001000011001000100100011101001
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 465 missing values.
+test passed.
+interpolation mode linear: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3413 and it begins with 0100010010000010100001000110001010001010011100010010000010110100
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 510 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3474 and it begins with 0100010010000010100001000110101000010100011100000001001010111000
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 440 missing values.
+test passed.
+interpolation mode finite difference cubic hermite: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3450 and it begins with 0100010010000010100001000111000001010100011101001000001010110100
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
+test passed.
+interpolation mode finite difference cubic hermite&clip: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3450 and it begins with 0100010010000010100001000111000001010100011101001000001010110100
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
+test passed.
+>>>> reload(Testing)
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 212 missing values.
+<module 'Testing' from 'Testing.py'>
+>>>> Testing.test(numberCoding=Testing.havenBucketFibonacciCoding)
+the sound source is CERWaves.sounds["moo8bmono44100.txt"][10000:10000+1024*2][::2]
+the sample rate migh be wrong. Check it.
+interpolation mode hold: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 5278 and it begins with 0100010010000010100001000111110100001100110000001100001100001011
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 357 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 4130 and it begins with 0100010010000010100001000110011000111010010000111001001000010011
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 465 missing values.
+test passed.
+interpolation mode linear: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3296 and it begins with 0100010010000010100001000110011100101110001001001101001010100110
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 510 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3385 and it begins with 0100010010000010100001000110011010101000010000101111111100011010
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 440 missing values.
+test passed.
+interpolation mode finite difference cubic hermite: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3359 and it begins with 0100010010000010100001000110011010110111100000101111000010011110
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
+test passed.
+interpolation mode finite difference cubic hermite&clip: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the coded data is 3359 and it begins with 0100010010000010100001000110011010110111100000101111000010011110
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 424 missing values.
+test passed.
+

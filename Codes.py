@@ -302,7 +302,7 @@ def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal
 
 
 class UniversalCoding:
-  def __init__(self,intToBitStrFun,bitStrToIntFun,intSeqToBitStrFun,bitStrToIntSeqFun):
+  def __init__(self,intToBitStrFun,bitStrToIntFun,intSeqToBitStrFun,bitStrToIntSeqFun,zeroSafe=False):
     if intToBitStrFun:
       self.intToBitStr = intToBitStrFun
     if bitStrToIntFun:
@@ -311,6 +311,7 @@ class UniversalCoding:
       self.intSeqToBitStr = intSeqToBitStrFun
     if bitStrToIntSeqFun:
       self.bitStrToIntSeq = bitStrToIntSeqFun
+    self.zeroSafe=zeroSafe
   def intToBitStr(self,inputInt):
     assert False, "intToBitStr has not been implemented."
   def bitStrToInt(self,inputBitStr):

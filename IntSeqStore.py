@@ -105,6 +105,8 @@ def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHav
       encodedStr = encodeFun(num >> havenBucketSize)
     else:
       encodedStr = encodeFun((num >> havenBucketSize) + 1)
+    if addDebugCommas:
+      encodedStr += "."
     encodedStr += havenBucketData
     #print([havenBucketSize,havenBucketData,encodedStr])
     if addDebugCommas:
