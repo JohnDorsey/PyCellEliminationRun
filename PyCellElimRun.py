@@ -47,6 +47,8 @@ todo:
 DODBGPRINT = False #print debug info.
 DOVIS = False #show pretty printing, mostly for debugging.
 
+SPLINE_ENDPOINTS_AT_ZERO = False
+
 
 def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
   if DODBGPRINT:
@@ -132,14 +134,15 @@ class Spline:
     assert self.endpoints == None, "avoid using preset endpoints for this stage of testing."
     self.setInterpolationMode(interpolationMode,outputFilters=outputFilters)
     self.size = size
-    assert not (self.size == None and self.endpoints == none)
+    assert not (self.size == None and self.endpoints == None)
     if self.size == None:
       self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
       dbgPrint("Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
-      print("the endpoint mode might be wrong.")
-      #self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
-      self.endpoints = ((0,0),(self.size[0]-1,0))
+      if SPLINE_ENDPOINTS_AT_ZERO:
+        self.endpoints = ((0,0),(self.size[0]-1,0))
+      else:
+        self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
     else:
       assert False, "impossible error."
     assert len(self.endpoints) == 2
@@ -160,13 +163,13 @@ class Spline:
       assert outputFilter in ["clip","monotonic"], "that output filter is not supported."
 
   #these functions are used in constructing cubic hermite splines.
-  def hermite_h00(t):
+  def hermite_h00(self,t):
     return 2*t**3 - 3*t**2 + 1
-  def hermite_h10(t):
+  def hermite_h10(self,t):
     return t**3 - 2*t**2 + t
-  def hermite_h01(t):
+  def hermite_h01(self,t):
     return -2*t**3 + 3*t**2
-  def hermite_h11(t):
+  def hermite_h11(self,t):
     return t**3-t**2
 
 
@@ -204,7 +207,7 @@ class Spline:
     assert False
 
 
-  def forceMonotonicSlopes(sur,slopes): #completely untested.
+  def forceMonotonicSlopes(self,sur,slopes): #completely untested.
     #sur stands for surroundings.
     surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)] #changes in y between each pair of points.
     surMonotonicSlope = -1 if all(((item <= 0) for item in surRises)) else 1 if all(((item >= 0) for item in surRises)) else 0 #the sign of every surRise if those are all the same sign, else 0.
@@ -275,7 +278,7 @@ class Spline:
       #if self.interpolationMode == "monotonic finite distance cubic hermite":
       #  Spline.forceMonotonicSlopes(sur,slopes)
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
-      result = Spline.hermite_h00(t)*sur[1][1]+Spline.hermite_h10(t)*slopes[0]+Spline.hermite_h01(t)*sur[2][1]+Spline.hermite_h11(t)*slopes[1]
+      result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
     elif self.interpolationMode == "fourier":
       assert False, "fourier interpolationMode isn't fully supported."
     else:
