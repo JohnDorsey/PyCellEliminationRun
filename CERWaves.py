@@ -55,15 +55,18 @@ def deserializeSound(filename):
   return eval(result)
 
 def saveSound(filename,sound):
-  assert filename.endswith(".raw")
-  soundFile = open(filename,"w")
+  assert filename.endswith(".wav")
+  soundFile = wave.open(filename,mode="wb")
+  soundFile.setnchannels(1)
+  soundFile.setsampwidth(1)
+  soundFile.setframerate(44100)
   #soundFile.write("".join(chr(item) for item in sound))
   for item in sound:
     assert type(item) == int
     assert item < 256
     assert item >= 0
     #soundFile.write(eval("b'"+chr(item)+"'"))
-    soundFile.write(chr(item))
+    soundFile.writeframesraw(bytes([item]))
   soundFile.close()
 
 for key in sounds.keys():

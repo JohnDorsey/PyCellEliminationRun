@@ -249,7 +249,7 @@ class Spline:
         leftItemIndex -= 1
       while self.data[rightItemIndex] == None:
         rightItemIndex += 1
-      progression = (index-leftItemIndex)/(rightItemIndex-leftItemIndex)
+      progression = float(index-leftItemIndex)/float(rightItemIndex-leftItemIndex)
       if self.interpolationMode == "linear":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
       elif self.interpolationMode == "sinusoidal":
@@ -265,13 +265,13 @@ class Spline:
         assert False, "an important (inner) item is missing from the surroundings."
       slopes = [None,None]
       if sur[0] == None:
-        slopes[0] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
+        slopes[0] = float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])
       else:
-        slopes[0] = 0.5*((sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])+(sur[1][1]-sur[0][1])/(sur[1][0]-sur[0][0]))
+        slopes[0] = 0.5*(float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])+float(sur[1][1]-sur[0][1])/float(sur[1][0]-sur[0][0]))
       if sur[3] == None:
         slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
       else:
-        slopes[1] = 0.5*((sur[3][1]-sur[2][1])/(sur[3][0]-sur[2][0])+(sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0]))
+        slopes[1] = 0.5*(float(sur[3][1]-sur[2][1])/float(sur[3][0]-sur[2][0])+float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0]))
       #if self.interpolationMode == "monotonic finite distance cubic hermite":
       #  Spline.forceMonotonicSlopes(sur,slopes)
       t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
