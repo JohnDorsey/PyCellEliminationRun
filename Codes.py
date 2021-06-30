@@ -81,13 +81,7 @@ def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payload
   return payloadConverterFun(inputBitStr[len(prefixRaw):len(prefixRaw)+prefixValue])
 
 
-"""
-class UniversalCode:
-  def intToBitStr(inputInt):
-    assert False, "intToBitStr has not been implemented."
-  def bitStrToInt(inputBitStr):
-    assert False, "bitStrToInt has not been implemented."
-"""
+
 
 
 
@@ -127,7 +121,9 @@ def intSeqToFibcodeSeqStr(inputIntSeq,addDebugCommas=False):
   return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
 
 def fibcodeSeqStrToIntArr(inputFibcodeSeqStr):
-  return [fibcodeBitStrToInt(item+"11") for item in inputFibcodeSeqStr.split("11")]
+  #the input isn't generator safe, but it could be. Or this entire method could be thrown away and its behavior handled by the UniversalCoding class.
+  skipLastItem = inputFibcodeSeqStr.endswith("11")
+  return [fibcodeBitStrToInt(item+"11") for item in (inputFibcodeSeqStr.split("11")[:-1] if skipLastItem else inputFibcodeSeqStr.split("11"))]
 
 
 
@@ -222,14 +218,16 @@ def eliasGammaSeqStrToIntArr(inputBitStr):
     startIndex += len(prefix)
   return result
 
-
+"""
 def intToEliasDeltaBitStr(inputNum):
   assert inputNum >= 1
   return intToEliasGammaBitStr(inputNum.bit_length())+bin(inputNum)[3:] if inputNum > 1 else "1"
+"""
 
 """def EliasDeltaBitStrToInt(inputBitStr):
   prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #this causes slow and avoidable repeated failures.
   """
+"""
 def eliasDeltaBitStrToInt(inputBitStr,mode="parse"):
   assert mode in ["convert","parse","detailed_parse"]
   prefix = parsePrefix(inputBitStr,validateEliasGammaBitStr) #@ this causes slow and avoidable repeated failures.
@@ -247,7 +245,7 @@ def eliasDeltaBitStrToInt(inputBitStr,mode="parse"):
 
 def intSeqToEliasDeltaSeqStr(inputIntSeq):
   return "".join(intToEliasDeltaBitStr(inputInt) for inputInt in inputIntSeq)
-
+"""
 
 
 
@@ -290,11 +288,45 @@ def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal
 
 
 
+
+class UniversalCoding:
+  def __init__(self,intToBitStrFun,bitStrToIntFun,intSeqToBitStrFun,bitStrToIntSeqFun):
+    if intToBitStrFun:
+      self.intToBitStr = intToBitStrFun
+    if bitStrToIntFun:
+      self.bitStrToInt = bitStrToIntFun
+    if intSeqToBitStrFun:
+      self.intSeqToBitStr = intSeqToBitStrFun
+    if bitStrToIntSeqFun:
+      self.bitStrToIntSeq = bitStrToIntSeqFun
+  def intToBitStr(self,inputInt):
+    assert False, "intToBitStr has not been implemented."
+  def bitStrToInt(self,inputBitStr):
+    assert False, "bitStrToInt has not been implemented."
+  def intSeqToBitStr(self,inputIntSeq):
+    return "".join(self.intToBitStr(item) for item in inputIntSeq)
+  def bitStrToIntSeq(self,inputBitStr):
+    offset = 0
+    parseResult = None
+    while offset < len(inputBitStr):
+      parseResult = self.bitStrToInt(inputBitStr[offset:],mode="detailed_parse")
+      offset += len(parseResult[0])
+      yield parseResult[1]
+  
+
+fibonacciCoding = UniversalCoding(intToFibcodeBitStr,fibcodeBitStrToInt,intSeqToFibcodeSeqStr,fibcodeSeqStrToIntArr)
+unaryCoding = UniversalCoding(intToUnaryBitStr,unaryBitStrToInt,None,None)
+eliasGammaCoding = UniversalCoding(intToEliasGammaBitStr,eliasGammaBitStrToInt,None,None)
+#eliasDeltaCoding = UniversalCoding(intToEliasDeltaBitStr,eliasDeltaBitStrToInt,None,None)
+#eliasGammaIotaCoding = UniversalCoding(intToEliasGammaIotaBitStr,eliasGammaIotaBitStrToInt,None,None)
+#eliasDeltaIotaCoding = UniversalCoding(intToEliasDeltaIotaBitStr,eliasDeltaIotaBitStrToInt,None,None)
+
+
 assert parsePrefix("00001Hello",validateUnaryBitStr)=="00001"
 assert parsePrefix("101101101World",validateBinaryBitStr)=="101101101"
 
 assert sum([validateEliasGammaBitStr(bin(item)[2:]) for item in range(1,100) if bin(item)[2:] not in [intToEliasGammaBitStr(i) for i in range(1,10)]]) == 0
 assert sum([validateEliasGammaBitStr(item) for item in [intToEliasGammaBitStr(i) for i in range(1,100)]]) == 99
 
-assert [eliasDeltaBitStrToInt(intToEliasDeltaBitStr(i)) for i in range(1,32)] == [i for i in range(1,32)]
+#assert [eliasDeltaBitStrToInt(intToEliasDeltaBitStr(i)) for i in range(1,32)] == [i for i in range(1,32)]
 
