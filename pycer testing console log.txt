@@ -676,3 +676,106 @@ test passed.
 These results are longer than even the input data. The cause of this is very difficult to find. Column elimination has been turned back off, and setting endpoints to half of the input data's expected range doesn't seem to make a big enough difference to account for anything I've seen.
 The file "moo linear 128" was from the promising tests, and it and "corrected moo linear 256" can't be replicated easily, so I might need to roll back many changes. commit 7f72511 seems to be from when things were working well, unless the results were incorrectly measured back then.
 
+
+
+
+
+
+>>> Testing.test()
+the sample rate migh be wrong.
+interpolation mode hold: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6304.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 278 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 5808.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 415 missing values.
+test passed.
+interpolation mode linear: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 5819.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 138 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 5698.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 137 missing values.
+test passed.
+interpolation mode finite difference cubic hermite: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 5629.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 31 missing values.
+test failed.
+interpolation mode finite difference cubic hermite&clip: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 124, 126, 126, 127, 127, 125, 125, 122, 122, 121, 121, 122, 122, 121, 121].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 5662.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 139 missing values.
+test passed.
+>>> print("that was with the wrong sample rate. Now a test will be done with the right sample rate. still starting at sample 10000.")
+that was with the wrong sample rate. Now a test will be done with the right sample rate. still starting at sample 10000.
+>>> reload(Testing.pcer)
+<module 'PyCellElimRun' from '/home/john/Desktop/PyCellElimRun/PyCellElimRun.py'>
+>>> reload(Testing)
+<module 'Testing' from '/home/john/Desktop/PyCellElimRun/Testing.py'>
+>>> reload(Testing.pcer)
+<module 'PyCellElimRun' from '/home/john/Desktop/PyCellElimRun/PyCellElimRun.py'>
+>>> Testing.test()
+the sample rate migh be wrong.
+interpolation mode hold: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 8958.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 41 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 8232.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 45 missing values.
+test passed.
+interpolation mode linear: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 7226.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 83 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6913.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 51 missing values.
+test passed.
+interpolation mode finite difference cubic hermite: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6594.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 10 missing values.
+test passed.
+interpolation mode finite difference cubic hermite&clip: 
+the input data is length 1024 and has a range of (55, 197) and the start of it looks like [124, 126, 127, 125, 122, 121, 122, 121, 122, 124, 126, 128, 127, 127, 127, 125].
+the endpoint mode might be wrong.
+the length of the fibcoded data is 6645.
+the endpoint mode might be wrong.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 25 missing values.
+test passed.
+
+

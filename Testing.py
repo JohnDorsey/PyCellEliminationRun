@@ -11,7 +11,9 @@ import PyCellElimRun as pcer
 
 def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"]):
   #testSound = CERWaves.sounds["sampleNoise"]
+  #testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024]
   testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
+  print("the sample rate migh be wrong.")
   testSoundSize = [len(testSound),256]
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
