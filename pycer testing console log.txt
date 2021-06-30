@@ -779,3 +779,31 @@ CodecState.processBlock: missing values exist and will be filled in using the in
 test passed.
 
 
+
+
+
+<module 'FutureTesting' from '/home/john/Desktop/PyCellElimRunExtra/PyCellEliminationRun-7f725113bf***/FutureTesting.py'>
+>>> FutureTesting.test()
+the sample rate migh be wrong.
+interpolation mode hold: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the fibcoded data is 5611.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 370 missing values.
+test passed.
+interpolation mode nearest-neighbor: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the fibcoded data is 4308.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 450 missing values.
+test passed.
+interpolation mode linear: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the fibcoded data is 3424.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 511 missing values.
+test passed.
+interpolation mode sinusoidal: 
+the input data is length 1024 and has a range of (114, 144) and the start of it looks like [124, 124, 123, 123, 123, 123, 122, 123, 123, 123, 123, 124, 124, 124, 124, 123].
+the length of the fibcoded data is 3510.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 438 missing values.
+test passed.
+
+

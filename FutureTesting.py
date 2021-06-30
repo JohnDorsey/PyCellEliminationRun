@@ -10,13 +10,10 @@ import PyCellElimRun as pcer
 
 
 def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"]):
-  soundSourceStr = "CERWaves.sounds[\"moo8bmono44100.wav\"][10000:10000+1024*2][::2]"
   #testSound = CERWaves.sounds["sampleNoise"]
   #testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024]
-  #testSound = CERWaves.sounds["moo8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
-  testSound = eval(soundSourceStr)
-  print("the sound source is " + str(soundSourceStr))
-  print("the sample rate migh be wrong. Check it.")
+  testSound = CERWaves.sounds["moo8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
+  print("the sample rate migh be wrong.")
   testSoundSize = [None,256]
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
@@ -45,9 +42,7 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth):
     audioData = sound[offset:offset+blockWidth]
     offset += blockWidth
     pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,256])
-    print("there are " + str(len(pressDataNums)) + " pressDataNums to store.")
     pressDataBitStr = Codes.intSeqToFibcodeSeqStr([item+1 for item in pressDataNums]) + "\n"
-    print("the resulting pressDataBitStr has length " str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
 

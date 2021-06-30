@@ -138,8 +138,8 @@ class Spline:
       dbgPrint("Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
       print("the endpoint mode might be wrong.")
-      self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
-      #self.endpoints = ((0,0),(self.size[0]-1,0))
+      #self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
+      self.endpoints = ((0,0),(self.size[0]-1,0))
     else:
       assert False, "impossible error."
     assert len(self.endpoints) == 2
