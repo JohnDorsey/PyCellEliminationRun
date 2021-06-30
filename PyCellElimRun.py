@@ -26,7 +26,7 @@ possible block format:
   //more advanced versions might allow file-globally defined custom mathematical functions.
 
 todo:
-  -verify that endpoint storage is not wasteful, and that the usage of CellCatalogue is perfectly correct in all situations in order to not leave any improvements to compression ratio on the table.
+  -verify that the usage of CellCatalogue is perfectly correct in all situations in order to not leave any improvements to compression ratio on the table.
   -make an integer-only mode.
   -make a fourier interpolation mode for the spline.
   -make an AI interpolation mode for the spline:
@@ -47,7 +47,6 @@ todo:
 DODBGPRINT = False #print debug info.
 DOVIS = False #show pretty printing, mostly for debugging.
 
-SPLINE_ENDPOINTS_AT_ZERO = False
 
 
 def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
@@ -128,6 +127,8 @@ def intify(arr): #force every number to be an int.
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
+  ENDPOINTS_AT_ZERO = False
+  CACHE_BONE_DISTANCE_ABS = True
 
   def __init__(self, interpolationMode="finite difference cubic hermite", size=None, endpoints=None, outputFilters=[]):
     self.endpoints = endpoints
@@ -139,7 +140,7 @@ class Spline:
       self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
       dbgPrint("Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
-      if SPLINE_ENDPOINTS_AT_ZERO:
+      if Spline.ENDPOINTS_AT_ZERO:
         self.endpoints = ((0,0),(self.size[0]-1,0))
       else:
         self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
@@ -149,7 +150,12 @@ class Spline:
     assert self.endpoints[0][0] == 0, "sample ranges not starting at zero are not yet supported."
     assert self.endpoints[1][0] == size[0]-1, "sample ranges not ending at their second endpoint are not supported."
     self.data = [None for i in range(self.endpoints[1][0]+1)]
-    self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1])
+    self.boneDistanceAbs = None
+    if Spline.CACHE_BONE_DISTANCE_ABS:
+      self.boneDistanceAbs = [None for i in range(len(self.data))]
+    #self.data[0],self.data[-1] = (self.endpoints[0][1],self.endpoints[1][1]) #old way of setting data endpoints without cache awareness.
+    self.__setitem__(0,self.endpoints[0][1])
+    self.__setitem__(-1,self.endpoints[1][1])
     assert len(self.data) == self.size[0]
 
   def setInterpolationMode(self,interpolationMode,outputFilters=[]):
@@ -195,15 +201,23 @@ class Spline:
     assert direction in [-1,1]
     #assert 0 <= location < len(self.data)
     #print(direction)
-    location += skipStart*direction
-    if not 0 <= location < len(self.data):
+    if Spline.CACHE_BONE_DISTANCE_ABS:
+      location += skipStart*direction
+      while 0 <= location < len(self.data):
+        if self.data[location] != None:
+          return (location,self.data[location])
+        location += direction * self.boneDistanceAbs[location]
       return None
-    for i in range(len(self.data)*2):
-      if self.data[location] != None:
-        return (location,self.data[location])
-      location += direction
-      if location < 0 or location >= len(self.data):
+    else:
+      location += skipStart*direction
+      if not 0 <= location < len(self.data):
         return None
+      for i in range(len(self.data)*2):
+        if self.data[location] != None:
+          return (location,self.data[location])
+        location += direction
+        if location < 0 or location >= len(self.data):
+          return None
     assert False
 
 
@@ -247,17 +261,34 @@ class Spline:
           return self.data[rightItemIndex]
       assert False, "this interpolation mode can't run with missing endpoints or a bad location." #saved some time by not handling this, even though it would be simple to handle.
     elif self.interpolationMode in ["linear","sinusoidal"]:
-      leftItemIndex,rightItemIndex = (index-1, index+1) #@ the following search procedure could be moved to another method.
-      while self.data[leftItemIndex] == None:
-        leftItemIndex -= 1
-      while self.data[rightItemIndex] == None:
-        rightItemIndex += 1
+      
+      #turning on this slow code slowed a round-trip test from 5.45 seconds to 7.77 seconds. But caching was disabled.
+      """
+      leftBone,rightBone = (self.getPointInDirection(index,-1), self.getPointInDirection(index,1)) 
+      progression = float(index-leftBone[0])/float(rightBone[0]-leftBone[0])
+      if self.interpolationMode == "linear":
+        return leftBone[1]+((rightBone[1]-leftBone[1])*progression)
+      elif self.interpolationMode == "sinusoidal":
+        return leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*progression)))
+      """
+      
+      leftItemIndex,rightItemIndex = (index-1,index+1) #@ the following search procedure could be moved to another method.
+      if Spline.CACHE_BONE_DISTANCE_ABS: #this cache and this search method dropped linear mode compression time from 5.3 to 4.9 seconds for 1024 samples, and from 28.8 to 26 seconds for 2048 samples.
+        while self.data[leftItemIndex] == None:
+          leftItemIndex -= self.boneDistanceAbs[leftItemIndex]
+        while self.data[rightItemIndex] == None:
+          rightItemIndex += self.boneDistanceAbs[rightItemIndex]
+      else:
+        while self.data[leftItemIndex] == None:
+          leftItemIndex -= 1
+        while self.data[rightItemIndex] == None:
+          rightItemIndex += 1
       progression = float(index-leftItemIndex)/float(rightItemIndex-leftItemIndex)
       if self.interpolationMode == "linear":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
       elif self.interpolationMode == "sinusoidal":
         return self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
-
+      
     #interpolationModes after this point generally end without using return so that the end of the function with outputFilter code may apply.
     result = None
 
@@ -282,6 +313,7 @@ class Spline:
     elif self.interpolationMode == "fourier":
       assert False, "fourier interpolationMode isn't fully supported."
     else:
+      print("the interpolation mode is" + self.interpolationMode)
       assert False, "The current interpolationMode isn't fully supported."
 
     if "clip" in self.outputFilters: #this should be moved to the end of the function.
@@ -291,11 +323,32 @@ class Spline:
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
+    index = index%len(self.data) #this prevents problems with simple versions of caching code.
     if self.data[index] != None:
       dbgPrint("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
       #if index == 1:
       #  assert False
     self.data[index] = value
+    if Spline.CACHE_BONE_DISTANCE_ABS:
+      self.boneDistanceAbs[index] = 0
+      x = index + 1
+      while x < len(self.data):
+        oldDist = self.boneDistanceAbs[x]
+        newDist = abs(x - index) #abs included even when the result is expected to be positive, just for symmetry.
+        if oldDist != None:
+          if newDist >= oldDist:
+            break
+        self.boneDistanceAbs[x] = newDist
+        x += 1
+      x = index - 1
+      while x >= 0:
+        oldDist = self.boneDistanceAbs[x]
+        newDist = abs(x - index)
+        if oldDist != None:
+          if newDist >= oldDist:
+            break
+        self.boneDistanceAbs[x] = newDist
+        x += -1
 
 
 
@@ -405,6 +458,8 @@ class CellCatalogue:
 class CodecState:
   #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
+  DO_COLUMN_ELIMINATION = True
+
   def __init__(self, size, plainDataSamples=None, pressDataNums=None, opMode="encode"):
     self.size = size
     self.plainDataSamples, self.pressDataNums = (plainDataSamples, pressDataNums)
@@ -453,7 +508,7 @@ class CodecState:
     self.stepIndex = 0
     breakRun = False
     for cellToCheck in self.getGenCellCheckOrder():
-      dbgPrint("CodecState.processRun: (runIndex,stepIndex,cellToCheck) = " + str((self.runIndex,self.stepIndex,cellToCheck))) 
+      #dbgPrint("CodecState.processRun: (runIndex,stepIndex,cellToCheck) = " + str((self.runIndex,self.stepIndex,cellToCheck))) 
       if self.opMode == "encode":
         if self.plainDataSamples[cellToCheck[0]] == cellToCheck[1]: #if hit...
           #then a new run length is now known and should be added to the compressed data number list.
@@ -473,7 +528,8 @@ class CodecState:
       assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "CodecState.processRun: this loop has run for an impossibly long time."
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
-        #self.cellCatalogue.eliminateColumn(cellToCheck[0]) #@ !!!!!!!1
+        if CodecState.DO_COLUMN_ELIMINATION:
+          self.cellCatalogue.eliminateColumn(cellToCheck[0]) #@ !!!!!!!1
         dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return
 
@@ -489,16 +545,16 @@ class CodecState:
       else:
         assert False, "not all scoreFuns are yet supported."
     else:
-      assert type(scoreFun)==type(lambda x: x) #works in python3, untested in python2.
+      assert type(scoreFun) == type(lambda x: x) #works in python3, untested in python2.
     rankings = [] #rankings array will store items in format [(index, value), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
     
     for cell in self.cellCatalogue.getExtremeUnknownCells():
       insort(rankings, [cell, scoreFun(cell)], keyFun=rankingsInsortKeyFun)
     while True: #the generator loop.
       outputCell = rankings[0][0]
-      dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
+      #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
       yield outputCell
-      del rankings[0] #room for optimization.
+      del rankings[0] #@ room for optimization.
       self.cellCatalogue.eliminateCell(outputCell)
       replacementCell = self.cellCatalogue.clampCell(outputCell)
       assert str(outputCell) != str(replacementCell) #debug.
@@ -524,7 +580,7 @@ class CodecState:
 
 
 
-def functionalTest(inputData,opMode,splineInterpolationMode,size):
+def functionalTest(inputData,opMode,splineInterpolationMode,size,dbgReturnWholeCS=False):
   if size[0] == None:
     dbgPrint("functionalTest: assuming size.")
     size[0] = len(inputData)
@@ -541,6 +597,9 @@ def functionalTest(inputData,opMode,splineInterpolationMode,size):
     assert False
   tempCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
   tempCS.processBlock()
-  return outputData
-
+  if dbgReturnWholeCS:
+    return tempCS
+  else:
+    return outputData
+  assert False
 

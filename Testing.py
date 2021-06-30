@@ -6,6 +6,8 @@ import Codes
 import PyCellElimRun as pcer
 import IntSeqStore
 
+import QuickTimers
+
 
 SAMPLE_VALUE_UPPER_BOUND = 256
 PEEK = 64
@@ -17,8 +19,9 @@ havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "
 
 
 
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr = "CERWaves.sounds[\"moo8bmono44100.txt\"][10000:10000+1024]"):
+def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr="CERWaves.sounds[\"moo8bmono44100.txt\"][10000:10000+1024]"):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
+  QuickTimers.startTimer("test")
   #testSound = CERWaves.sounds["sampleNoise"]
   #testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024]
   #testSound = CERWaves.sounds["moo8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
@@ -39,10 +42,12 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
       print("test passed.")
     else:
       print("test failed.")
+  print("testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
 def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCoding):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
+  QuickTimers.startTimer("compressFull")
   sound = CERWaves.sounds[soundName]
   destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
   offset = 0
@@ -58,9 +63,11 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCodin
     print("the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
+  print("compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
 
 
 def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding):
+  QuickTimers.startTimer("decompressFull")
   #inverse of compressFull.
   print("remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
   #sound = CERWaves.sounds[soundName]
@@ -90,6 +97,7 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding):
     result.extend(plainDataNums)
   srcFile.close()
   print("result has length " + str(len(result)) + " and ends with " + str(result[-PEEK:])[-PEEK:] + ".")
+  print("decompression took " + str(QuickTimers.stopTimer("decompressFull")) + " seconds.")
   return result
 
 
