@@ -99,7 +99,10 @@ def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHav
 
 
 
-class StatefulFunctionHost: #this class is used to create state machines that appear like normal functions.
+
+class StatefulFunctionHost:
+  #this class is used to create state machines that appear like normal functions.
+  #this class might not make most things easier. It might be easier to write new generators from scratch than to incorporate this class. It is more redundant to write each generator from scratch, but it might make them each easier to understand.
 
   def __init__(self,mainFunIn,state=[]):
     self.mainFunIn = mainFunIn
