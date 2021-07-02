@@ -263,7 +263,8 @@ def intSeqToEliasDeltaSeqStr(inputIntSeq):
 
 
 
-
+#eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
+#they have not been tested much.
 
 def intToEliasGammaIotaBitStr(inputInt,maxPayload):
   assert type(inputInt) == int
@@ -285,8 +286,6 @@ def eliasGammaIotaBitStrToInt(inputBitStr,maxPayload,mode="parse"):
   #print("prefixValue="+str(prefixValue))
   return int("1"+inputBitStr[prefixLength:prefixLength+prefixValue],2)
 
-
-
 def intToEliasDeltaIotaBitStr(inputInt,maxPayload): #@ not yet proven optimal.
   assert type(inputInt) == int
   return intToHybridCodeBitStr(inputInt,(lambda x: intToEliasGammaIotaBitStr(x+1,len(bin(maxPayload)[3:])+1)))
@@ -303,6 +302,7 @@ def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal
 
 
 class UniversalCoding:
+  #the UniversalCoding format provides organization for methods that have mostly been defined above for various universal codings. Some methods in Testing.py rely on it.
   def __init__(self,intToBitStrFun,bitStrToIntFun,intSeqToBitStrFun,bitStrToIntSeqFun,zeroSafe=False):
     if intToBitStrFun:
       self.intToBitStr = intToBitStrFun
@@ -331,13 +331,13 @@ class UniversalCoding:
 fibonacciCoding = UniversalCoding(intToFibcodeBitStr,fibcodeBitStrToInt,intSeqToFibcodeSeqStr,fibcodeSeqStrToIntArr)
 unaryCoding = UniversalCoding(intToUnaryBitStr,unaryBitStrToInt,None,None)
 eliasGammaCoding = UniversalCoding(intToEliasGammaBitStr,eliasGammaBitStrToInt,None,None)
+
+#these are disabled because they are broken.
 #eliasDeltaCoding = UniversalCoding(intToEliasDeltaBitStr,eliasDeltaBitStrToInt,None,None)
-#eliasGammaIotaCoding = UniversalCoding(intToEliasGammaIotaBitStr,eliasGammaIotaBitStrToInt,None,None)
-#eliasDeltaIotaCoding = UniversalCoding(intToEliasDeltaIotaBitStr,eliasDeltaIotaBitStrToInt,None,None)
 
 
-assert parsePrefix("00001Hello",validateUnaryBitStr)=="00001"
-assert parsePrefix("101101101World",validateBinaryBitStr)=="101101101"
+assert parsePrefix("00001Hello",validateUnaryBitStr) == "00001"
+assert parsePrefix("101101101World",validateBinaryBitStr) == "101101101"
 
 assert sum([validateEliasGammaBitStr(bin(item)[2:]) for item in range(1,100) if bin(item)[2:] not in [intToEliasGammaBitStr(i) for i in range(1,10)]]) == 0
 assert sum([validateEliasGammaBitStr(item) for item in [intToEliasGammaBitStr(i) for i in range(1,100)]]) == 99

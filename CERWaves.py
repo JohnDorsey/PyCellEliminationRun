@@ -36,7 +36,7 @@ def loadSound(filename):
   elif filename.endswith(".txt"):
     return deserializeSound(filename)
   else:
-    assert False
+    assert False, "unsupported file type."
 
 
 def serializeSound(filename,sound):

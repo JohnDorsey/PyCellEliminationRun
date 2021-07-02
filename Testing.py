@@ -9,8 +9,9 @@ import IntSeqStore
 import QuickTimers
 
 
-SAMPLE_VALUE_UPPER_BOUND = 256
-PEEK = 64
+SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
+
+PEEK = 64 #these control how much information is shown in previews in the console.
 PEEEK = 2048
 
 havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.fibonacciCoding.intToBitStr,(lambda x: len(bin(x)[2:])>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibonacciCoding.bitStrToInt(xx,mode="detailed_parse")),(lambda x: len(bin(x)[2:])>>1))),zeroSafe=True) #@ ouch.

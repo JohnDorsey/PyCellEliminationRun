@@ -97,11 +97,6 @@ def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambd
   testItem = sortedList[testPoint]
   testResult = keyFun(testItem) - keyFunOfNewItem
   if testResult > 0: #if we should search lower...
-    """if testPoint-startPoint <= 1:
-      if keyFun(newItem) <= keyFun(sortedList[startPoint]):
-        
-      else:
-        sortedList.insert(testPoint,newItem)"""
     bisectInsort(sortedList, newItem, startPoint=startPoint, endPoint=testPoint, keyFun=keyFun)
   elif testResult < 0: #if we should search higher...
     bisectInsort(sortedList, newItem, startPoint=testPoint, endPoint=endPoint, keyFun=keyFun)
@@ -355,6 +350,7 @@ class Spline:
 
 class CellCatalogue:
   #a place to record the states of cells.
+  #limits mode stores only the upper and lower bounds of un-eliminated cell areas per column. Grid mode allows cells to be eliminated in non-contiguous places at the cost of a lot of memory. Grid mode has not been tested, because none of the ideas I once had for cell visit orders which required grid cataloguing remained promising choices for how to improve compression.
   ELIMVAL = 0
   UNKVAL = 1
   LIVEVAL = 2
@@ -396,13 +392,18 @@ class CellCatalogue:
     else:
       assert False, "unknown storage mode."
 
+
   def eliminateColumn(self,columnIndex):
+    #this makes it impossible for any other method to doubt that the column has no cells of any kind but eliminated.
+    #it definitely changes the output, and seems to improve compression in some tests. It is only necessary because the generator for cells to check is usually responsible for eliminating cells in the catalogue, but it can't do that when the run terminates and the generator method is also terminated.
+    #It is not really compatible with the AUTOLIVE idea.
     if self.storageMode == "limits":  
       self.limits[columnIndex][0] = -1
       self.limits[columnIndex][1] = -3
     elif self.storageMode == "grid":
       for i in range(len(self.grid[columnIndex])):
         self.grid[columnIndex][i] = CellCatalogue.ELIMVAL
+
 
   def eliminateCell(self,cell):
     #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
@@ -441,9 +442,6 @@ class CellCatalogue:
 
 
   def clampCell(self,cell): #move a cell's value to make it comply with the catalogue of eliminated cells.
-    """if self.getCell(cell) == CellCatalogue.UNKVAL: #if no action needed...
-      print("CellCatalogue.clampCell(cell): this cell is already unknown, returning unmodified input.")
-      return cell""" #this never runs and wasn't needed.
     if self.storageMode == "limits":
       result = (cell[0],clamp(cell[1],(self.limits[cell[0]][0]+1,self.limits[cell[0]][1]-1)))
       assert result != cell, "CellCatalogue.clampCell(cell): this function failed."
@@ -491,7 +489,6 @@ class CodecState:
     self.runIndex = 0
     while True:
       self.processRun()
-      self.spline.prettyPrint()
       self.runIndex += 1
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataSamples)) or (self.opMode == "decode" and self.runIndex >= len(self.pressDataNums)):
         if self.opMode == "decode" and interpolateMissingValues:
@@ -529,7 +526,7 @@ class CodecState:
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
         if CodecState.DO_COLUMN_ELIMINATION:
-          self.cellCatalogue.eliminateColumn(cellToCheck[0]) #@ !!!!!!!1
+          self.cellCatalogue.eliminateColumn(cellToCheck[0])
         dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return
 
@@ -561,7 +558,7 @@ class CodecState:
       #print([replacementCell, scoreFun(replacementCell)]) #debug.
       #print(rankings) #debug.
       insort(rankings, [replacementCell, scoreFun(replacementCell)], keyFun=rankingsInsortKeyFun)
-    #^ this code caches cell scores and might have much better performance potential, but might not work.
+    #^ this code caches cell scores and is much faster.
     #the below code, which recalculates the cell score for every compare of every insort, is around 8x slower for 128x256 cell randomish data tests.
     """for cell in self.cellCatalogue.getExtremeUnknownCells():
       insort(rankings, cell, keyFun=scoreFun)
