@@ -1,5 +1,11 @@
-#from __future__ import print_function as print
-#from __future__ import print_function
+"""
+
+Testing.py by John Dorsey.
+
+Testing.py contains tools for testing compression of audio with PyCellElimRun.py's tools.
+
+"""
+
 
 import CERWaves
 import Codes

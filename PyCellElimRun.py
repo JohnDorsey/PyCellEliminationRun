@@ -1,6 +1,3 @@
-#from __future__ import print_function as print
-
-
 """
 
 PyCellElimRun.py by John Dorsey.
@@ -308,7 +305,7 @@ class Spline:
     elif self.interpolationMode == "fourier":
       assert False, "fourier interpolationMode isn't fully supported."
     else:
-      print("the interpolation mode is" + self.interpolationMode)
+      print("the interpolationMode is " + self.interpolationMode)
       assert False, "The current interpolationMode isn't fully supported."
 
     if "clip" in self.outputFilters: #this should be moved to the end of the function.
@@ -321,8 +318,6 @@ class Spline:
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
     if self.data[index] != None:
       dbgPrint("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
-      #if index == 1:
-      #  assert False
     self.data[index] = value
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs[index] = 0
