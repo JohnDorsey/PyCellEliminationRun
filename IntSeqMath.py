@@ -53,6 +53,7 @@ def getStartingIndicesOfSubSequence(inputArr,subSequence):
 
 
 class Hist:
+  #Hist is a histogram tool to track frequency, order first encountered, and order last encountered.
   def __init__(self):
     self.data = dict()
     self.writeCount = 0
@@ -81,28 +82,29 @@ class Hist:
     return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=(lambda itemB: itemB[1]))[::-1]]
 
   def keysInDescendingRelevanceOrder(self):
+    #it is important that this method sorts first by frequency and then sorts by recentness within identical frequencies.
+    keyFun = (lambda itemB: itemB[1][0]*(self.writeCount+1)+itemB[1][2])
     for value in self.data.values():
       assert len(value) == 3
-    return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=(lambda itemB: itemB[1][1]*(self.writeCount+1)+itemB[1][2]))[::-1]]
+    return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=keyFun)[::-1]]
 
 
-def genDynamicMarkovEncode(inputSeq,maxContextLength=16):
+def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
+  assert opMode in ["encode","decode"]
   history = []
-  #knownItems = []
   contextualHist = None
   singleUsageHist = Hist()
-  #assert singleUsageHist.keysInDescendingRelevanceOrder() == []
   for inputItem in inputSeq:
     print("inputItem: " + str(inputItem))
-    history.append(inputItem)
     predictedItems = []
     for contextLength in range(maxContextLength,0,-1):
-      contextLocations = [location+contextLength for location in getStartingIndicesOfSubSequence(history[:-1],history[-contextLength-1:-1])]
+      if contextLength > len(history)-1:
+        continue #simpler than making a more complicated for loop range statement.
+      contextLocations = [location+contextLength for location in getStartingIndicesOfSubSequence(history[:-1],history[-contextLength:])]
       contextualHist = Hist()
       for contextLocation in contextLocations:
         if history[contextLocation] not in predictedItems:
           contextualHist.register(history[contextLocation])
-      #note that order of items that occurred at the same frequency is not optimized yet.
       #print("predictedItems before extension for contextLength of " + str(contextLength) + " = " + str(predictedItems))
       predictedItems.extend(key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems)
     print("predictedItems without general history = " + str(predictedItems))
@@ -113,13 +115,31 @@ def genDynamicMarkovEncode(inputSeq,maxContextLength=16):
     predictedItems.extend(key for key in singleUsageHist.keysInDescendingRelevanceOrder() if key not in predictedItems)
     print("predictedItems = " + str(predictedItems))
     resultItem = None
-    if inputItem in predictedItems:
-      resultItem = predictedItems.index(inputItem)
+    if opMode == "encode":
+      if inputItem in predictedItems:
+        resultItem = predictedItems.index(inputItem)
+      else:
+        resultItem = inputItem + len(predictedItems) - len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
+    elif opMode == "decode":
+      if inputItem < len(predictedItems):
+        resultItem = predictedItems[inputItem]
+      else:
+        resultItem = inputItem - len(predictedItems) + len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
     else:
-      resultItem = inputItem + len(predictedItems) - len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
+      assert False
     print("resultItem = " + str(resultItem))
     yield resultItem
-    singleUsageHist.register(inputItem)
+    if opMode == "encode":
+      history.append(inputItem)
+      singleUsageHist.register(inputItem)
+    elif opMode == "decode":
+      history.append(resultItem)
+      singleUsageHist.register(resultItem)
+    else:
+      assert False
+
+
+
 
 assert [item for item in genDeltaDecode(genDeltaEncode([5,5,6,5,3,0,10,0]))] == [5,5,6,5,3,0,10,0]
 
