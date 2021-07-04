@@ -1,5 +1,50 @@
 
+
+
 import IntSeqMath
+
+import IntMath
+
+
+"""
+def is_sorted(inputArr):
+  if len(inputArr) <= 1:
+    return True
+  for i in range(1,len(inputArr)):
+    if inputArr[i] < inputArr[i-1]:
+      return False
+  return True
+"""
+
+def mean(inputArr):
+  inputArrSum = sum(inputArr)
+  if type(inputArrSum) in [int,long] and inputArrSum%len(inputArr) == 0:
+    return inputArrSum / len(inputArr)
+  else:
+    return float(inputArrSum)/len(inputArr)
+
+def median(inputArr,middlePairHandlingFun=mean):
+  if len(inputArr) == 0:
+    raise ValueError, "can't find the median of an empty list."
+  elif len(inputArr) == 1:
+    return inputArr[0]
+  elif len(inputArr) >= 2:
+    #this might be faster without unecessary sorting.
+    workingArr = sorted(inputArr)
+    if len(workingArr)%2 == 1:
+      return workingArr[len(workingArr)>>1]
+    else:
+      middlePair = workingArr[(len(workingArr)>>1)-1:(len(workingArr)>>1)+1]
+      """if middlePairHandling == "mean":
+        middlePairSum = sum(middlePair)
+        if type(middlePairSum) == int and middlePairSum%2==0:
+          return middlePairSum/2
+        else:
+          return middlePairSum/2.0
+      elif middlePairHandling == "min"
+      """
+      return middlePairHandlingFun(middlePair)
+  assert False, "reality error."
 
 
 def genRunless(inputSeq):
@@ -46,6 +91,7 @@ def headingDeltadPaletteIntArrDecode(inputIntArr):
   palette = [item for item in IntSeqMath.genDecodeDelta(inputIntArr[1:1+paletteLength])]
   return [palette[item] for item in inputIntArr[1+paletteLength:]]
 
+
 def headingFloorIntArrEncode(inputIntArr):
   floorVal = min(inputIntArr)
   return [floorVal] + [item-floorVal for item in inputIntArr]
@@ -56,4 +102,22 @@ def headingFloorIntArrDecode(inputIntArr):
   return [item+floorVal for item in inputIntArr[1:]]
 
 
+def headingMedianIntArrEncode(inputIntArr):
+  medianVal = int(median(inputIntArr))
+  return [medianVal] + [item-medianVal for item in inputIntArr]
+
+def headingMedianIntArrDecode(inputIntArr):
+  #the input and output could both be made streamable.
+  medianVal = inputIntArr[0]
+  return [item+medianVal for item in inputIntArr[1:]]
+
+
+def headingMedianStaggerIntArrEncode(inputIntArr):
+  medianVal = int(median(inputIntArr))
+  return [medianVal] + [IntMath.NOP_to_OP(item-medianVal) for item in inputIntArr]
+
+def headingMedianStaggerIntArrDecode(inputIntArr):
+  #the input and output could both be made streamable.
+  medianVal = inputIntArr[0]
+  return [IntMath.OP_to_NOP(item)+medianVal for item in inputIntArr[1:]]
 
