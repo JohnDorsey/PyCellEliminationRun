@@ -1086,3 +1086,102 @@ testing took 36.6979520321 seconds.
 
 "mooWithColumnElim linear 2048" took 251 seconds to compress.
 
+
+
+
+
+
+
+
+(4 Jul 2021)
+
+
+
+The following tests show that the new experimental (headingFloor and headingDeltadPalette) IntArr <Encode|Decode> functions do not improve the compression ratio of a hand-generated array of large numbers with either fibonacci coding or haven bucket fibonacci coding with half-last-value-length buckets.
+
+
+>>>> arrup = [26574892,874365,73476,584875,76372,4837,8653487,87654387,3276482,\
+32748,246382,438726,98537,874236,87648237,876382746,872368472,87236847,8723648,\
+872348,8734568,3254762]
+>>>> arrdown = IntArrMath.deltadPalettizedIntArrEncode(arrup)
+>>>> IntArrMath.deltadPalettizedIntArrDecode(arrdown) == arrup
+True
+>>>> arrdown
+[22, 4837, 27911, 40728, 2896, 22165, 147845, 192344, 146149, 287473, 1888, 129, 2380397, 21720, 5377005, 70161, 10920, 17840324, 60661955, 411390, 6150, 784714085, 4014274, 16, 10, 2, 7, 3, 0, 13, 19, 12, 1, 5, 6, 4, 9, 18, 21, 20, 17, 14, 8, 15, 11]
+>>>> sum(arrup)
+2074685430
+>>>> sum(arrdown)
+876382999
+>>>> import Codes
+>>>> len(Codes.fibonacciCoding.intSeqToBitStr(arrdown))
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "Codes.py", line 133, in intSeqToFibcodeSeqStr
+    return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
+  File "Codes.py", line 133, in <genexpr>
+    return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
+  File "Codes.py", line 89, in intToFibcodeBitStr
+    return "".join(str(item) for item in intToFibcodeBitArr(inputInt,startPoint=startPoint))
+  File "Codes.py", line 92, in intToFibcodeBitArr
+    assert inputInt >= 1
+AssertionError
+>>>> len(Codes.fibonacciCoding.intSeqToBitStr(item+1 for item in arrdown))
+704
+>>>> len(Codes.fibonacciCoding.intSeqToBitStr(item+1 for item in arrup))
+698
+>>>> len(Codes.eliasGammaCoding.intSeqToBitStr(item+1 for item in arrup))
+934
+>>>> len(Codes.havenBucketFibonacciCdoing.intSeqToBitStr(item+1 for item in arr\
+up))
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AttributeError: 'module' object has no attribute 'havenBucketFibonacciCoding'
+>>>> import Testing
+.wav files won't be loaded in this version.
+.wav files won't be loaded in this version.
+CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are 4 missing values.
+>>>> len(.TestinghavenBucketFibonacciCoding.intSeqToBitStr(item+1 for item in a\
+arrup))
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: global name 'CTesting' is not defined
+>>>> len(Testing.havenBucketFibonacciCoding.intSeqToBitStr(item+1 for item in a\
+rrup))
+600
+>>>> len(Testing.havenBucketFibonacciCoding.intSeqToBitStr(item+1 for item in a\
+rrdown))
+632
+>>>> reload(IntArrMath)
+<module 'IntArrMath' from 'IntArrMath.py'>
+>>>> arrdown = IntArrMath.headingFloorIntArrEncode(arrup)
+>>>> IntArrMath.headingFloorIntArrDecode(arrdown) == arrup
+False
+>>>> len(arrup)
+22
+>>>> len(arrdown)
+22
+>>>> reload(IntArrMath)
+<module 'IntArrMath' from 'IntArrMath.py'>
+>>>> arrdown = IntArrMath.headingFloorIntArrEncode(arrup)
+>>>> len(arrdown)
+23
+>>>> IntArrMath.headingFloorIntArrDecode(arrdown) == arrup
+True
+>>>> len(Testing.havenBucketFibonacciCoding.intSeqToBitStr(item+1 for item in arrdown))
+613
+>>>> len(Testing.havenBucketFibonacciCoding.intSeqToBitStr(item+1 for item in arrup))
+600
+>>>> len(codes.fibonacciCoding.intSeqToBitStr(item+1 for item in arrdown))
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: global name 'codes' is not defined
+>>>> len(Codes.fibonacciCoding.intSeqToBitStr(item+1 for item in arrdown))
+698
+>>>> len(Codes.fibonacciCoding.intSeqToBitStr(item+1 for item in arrup))
+698
+>>>> arrdown == arrup
+False
+>>>> 
+
+
+

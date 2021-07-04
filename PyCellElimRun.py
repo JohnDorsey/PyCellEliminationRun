@@ -11,33 +11,7 @@ import math
 import Curves
 
 
-"""
-possible block format:
-  value range start.
-  value range end.
-  sample index range start.
-  sample index range end.
-  first sample value.
-  last sample value.
-  missing sample prediction mode ID (0=linear, 1=linear with bias towards sinusoidal swoops, 2=cubic spline, 3=polynomial, 4=fourier, ...).
-  cell (given sample and value, the question of whether that sample has that value) probability scoring mode ID (0=vertical distance to best guess waveform only, 1=direct distance to nearest point on best guess waveform, ...).
-  //more advanced versions might allow the prediction mode and cell scoring mode to dynamically change for certain ranges of samples when the known samples at either end of the range both deserved a different prediction method than was used.
-  //more advanced versions might allow file-globally defined custom mathematical functions.
 
-todo:
-  -verify that the usage of CellCatalogue is perfectly correct in all situations in order to not leave any improvements to compression ratio on the table.
-  -make an integer-only mode.
-  -make a fourier interpolation mode for the spline.
-  -make an AI interpolation mode for the spline:
-    -a mode where the NN is included in the file.
-    -a mode where the NN learns as it goes.
-  -spackle-based compression of pressDataNums based on the fact that they all add up to a known value. --> actually this should be developed separately.
-  -inclusion of gzip.
-  -for performance:
-    -numba.
-    -spline caching.
-    -move to another language.
-"""
 
 
 #switching from linearInsort to bisectInsort in 1024x256 cell data improves run time from 3 minutes to under 10 seconds. But increasing cell area to 2048x256 makes encoding take 87 seconds, and 4096x256 makes encoding take 6 minutes.

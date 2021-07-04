@@ -61,4 +61,42 @@ explanation of compression settings:
 
   The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 256 seems like a good balance.
   
-  
+
+
+
+
+
+Design notes:
+  possible file format:
+    -A plaintext header which includes:
+      -sample rate.
+      -sample value range start.
+      -sample value range end.
+      -missing sample value prediction mode.
+      -cell probability prediction mode (vertical distance to Spline, direct distance to Spline, non-circular direct distance to spline (such as (log(horiz distance to nearest point)+log(vert distance to nearest point))**0.5) because this is less affected by the speed of the audio).
+  possible block format:
+    -Superblocks:
+      -Superblocks might increase the effectiveness of some handwritten compression codecs which act on batches of blocks - e.g. palettization.
+    -Blocks.
+
+Todo:
+  -make a fourier interpolation mode for the Spline.
+  -make an integer-only linear interpolation mode for the Spline.
+  -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
+  -make an AI interpolation mode for the spline:
+    -a mode where the NN is included in the file.
+    -a mode where the NN learns as it goes.
+  -Elias Delta Iota coding.
+  -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.
+  -inclusion of gzip.
+  -for performance:
+    -numba.
+    -spline caching.
+    -move to another language.
+
+distant future Todo:
+  -more advanced versions might allow the prediction mode and cell scoring mode to dynamically change for certain ranges of samples, when the known samples at either end of the range both deserved a different prediction method than was used. This goes against the design goal of not searching through alternative representations of the same thing.
+  -more advanced versions might allow file-globally defined custom mathematical functions.
+
+done:
+  -verify that the usage of CellCatalogue is perfectly correct in all situations in order to not leave any improvements to compression ratio on the table.
