@@ -1,5 +1,6 @@
 
 
+
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
   #the output could be streamable.
   #this method could be much faster.
@@ -10,6 +11,31 @@ def getStartingIndicesOfSubSequence(inputArr,subSequence):
       result.append(i)
   return result
 
+def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=True):
+  #the output of this could be made streamable.
+  if len(searchTerm) == 0:
+    return [(0,[])]
+  result = [(0,[]),(1,[])]
+  for location in range(len(inputArr)):
+    if inputArr[location] == searchTerm[-1]:
+      result[-1][1].append(location)
+  for currentLength in range(2,len(searchTerm)+1):
+    result.append((currentLength,[]))
+    for location in result[-2][1]:
+      if location+1-currentLength < 0: #This test prevents wrapping around to the other end of the inputArr and general chaos. Without this test, the method finds nonexistant matches.
+        continue
+      if searchTerm[-currentLength] == inputArr[location+1-currentLength]:
+        result[-1][1].append(location)
+    if keepOnlyLongest:
+      i = 0
+      while i < len(result[-2][1]):
+        if result[-2][1][i] in result[-1][1]:
+          del result[-2][1][i]
+        else:
+          i += 1
+    if len(result[-1][1]) == 0:
+      break
+  return result
 
 def takeOnly(inputGen,count):
   i = 0
@@ -19,6 +45,9 @@ def takeOnly(inputGen,count):
       i += 1
     else:
       break
+
+def ordify(inputStr):
+  return [ord(char) for char in inputStr]
   
 """
 def genBleedSortedArr(inputArr):
@@ -169,8 +198,10 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
   contextualHist = None
   singleUsageHist = Hist()
   for inputItem in inputSeq:
+    print("history: " + str(history))
     print("inputItem: " + str(inputItem))
     predictedItems = []
+    """
     for contextLength in range(maxContextLength,0,-1):
       if contextLength > len(history)-1:
         continue #simpler than making a more complicated for loop range statement.
@@ -179,13 +210,22 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
       for contextLocation in contextLocations:
         if history[contextLocation] not in predictedItems:
           contextualHist.register(history[contextLocation])
-      #print("predictedItems before extension for contextLength of " + str(contextLength) + " = " + str(predictedItems))
-      predictedItems.extend(key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems)
+      extension = [key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems]
+      print("(predictedItems,extension untrimmed,extension) for contextLength of " + str(contextLength) + " = " + str((predictedItems,contextualHist.keysInDescendingRelevanceOrder(),extension)))
+      predictedItems.extend(extension)
+    
+    """
+    for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
+      contextualHist = Hist()
+      for matchEndLocation in matchesOfCurrentLength:
+        if history[matchEndLocation+1] not in predictedItems:
+          contextualHist.register(history[matchEndLocation+1])
+      extension = [key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems]
+      print("(predictedItems,extension untrimmed,extension) for currentLength of " + str(currentLength) + " = " + str((predictedItems,contextualHist.keysInDescendingRelevanceOrder(),extension)))
+      predictedItems.extend(extension)
+    
     print("predictedItems without general history = " + str(predictedItems))
     print("general history = " + str(singleUsageHist.data))
-    """for historyItem in history[:-1][::-1]:
-      if historyItem not in predictedItems:
-        predictedItems.append(historyItem)"""
     predictedItems.extend(key for key in singleUsageHist.keysInDescendingRelevanceOrder() if key not in predictedItems)
     print("predictedItems = " + str(predictedItems))
     resultItem = None
@@ -214,6 +254,16 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
 
 
 
+
+
+sampleTexts = ["You are my sunshine,\nmy only sunshine.\nYou make me happy\nwhen skies are grey!\nYou'll never know, dear,\nhow much I love you...\nplease don't take\nmy sunshine away."]
+
+
+
 assert len([item for item in takeOnly(range(256),10)]) == 10
 
 assert [item for item in takeOnly(genBleedSortedArr([5,8,10,11,15,16,17]),30)] == [5,8,10,11,15,16,17,4,6,7,9,12,14,18,3,13,19,2,20,1,21,0,22,-1,23,-2,24,-3,25,-4]
+
+for test in [("hello, world!","rld"),("123456789 123456789 123456789 3456789 56789 789","678")]:
+  assert [item+len(test[1])-1 for item in getStartingIndicesOfSubSequence(test[0],test[1])] == getEndingIndicesOfGrowingSubSequences(test[0],test[1])[-1][1]
+  continue

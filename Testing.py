@@ -26,7 +26,7 @@ havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "
 
 
 
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr="CERWaves.sounds[\"moo8bmono44100.txt\"][10000:10000+1024]"):
+def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+1024]"):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   QuickTimers.startTimer("test")
   #testSound = CERWaves.sounds["sampleNoise"]
