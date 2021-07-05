@@ -18,9 +18,9 @@ Usage:
     The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute.
 
 
-  compress the demo file "moo8bmono44100.txt":
+  compress the demo file "samples/moo8bmono44100.txt":
 
-    >>> Testing.compressFull("moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.fibonacciCoding)
+    >>> Testing.compressFull("samples/moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.fibonacciCoding)
     
     The output file will be created in the same directory as the project, and will have the interpolation mode and block size appended to the end of its name.
     
@@ -32,9 +32,9 @@ Usage:
     >>> reconstructedSound = Testing.decompressFull("<name of the compressed file>","linear",256,Testing.Codes.fibonacciCoding)
 
 
-  verify that the reconstructed file matches the original "moo8bmono44100.txt":
+  verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
 
-    >>> reconstructedSound == Testing.CERWaves.sounds["moo8bmono44100.txt"][:len(reconstructedSound)]
+    >>> reconstructedSound == Testing.CERWaves.sounds["samples/moo8bmono44100.txt"][:len(reconstructedSound)]
 
         #The reconstructed sound will be cut slightly short just because partial blocks aren't allowed yet.
   
@@ -67,36 +67,66 @@ explanation of compression settings:
 
 
 Design notes:
+
   possible file format:
+
     -A plaintext header which includes:
+
       -sample rate.
+
       -sample value range start.
+
       -sample value range end.
+
       -missing sample value prediction mode.
+
       -cell probability prediction mode (vertical distance to Spline, direct distance to Spline, non-circular direct distance to spline (such as (log(horiz distance to nearest point)+log(vert distance to nearest point))**0.5) because this is less affected by the speed of the audio).
+
   possible block format:
+
     -Superblocks:
+
       -Superblocks might increase the effectiveness of some handwritten compression codecs which act on batches of blocks - e.g. palettization.
+
     -Blocks.
 
+
 Todo:
+
   -make a fourier interpolation mode for the Spline.
+
   -make an integer-only linear interpolation mode for the Spline.
+
   -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
+
   -make an AI interpolation mode for the spline:
+
     -a mode where the NN is included in the file.
+
     -a mode where the NN learns as it goes.
+
   -Elias Delta Iota coding.
+
   -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.
+
   -inclusion of gzip.
+
   -for performance:
+
     -numba.
+
     -spline caching.
+
     -move to another language.
 
+
 distant future Todo:
+
   -more advanced versions might allow the prediction mode and cell scoring mode to dynamically change for certain ranges of samples, when the known samples at either end of the range both deserved a different prediction method than was used. This goes against the design goal of not searching through alternative representations of the same thing.
+
   -more advanced versions might allow file-globally defined custom mathematical functions.
 
+
 done:
+
   -verify that the usage of CellCatalogue is perfectly correct in all situations in order to not leave any improvements to compression ratio on the table.

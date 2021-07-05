@@ -11,7 +11,7 @@ import sys
 import wave
 
 
-sounds = {"crickets8bmono44100.wav":None,"moo8bmono44100.wav":None,"moo8bmono44100.txt":None}
+sounds = {"samples/crickets8bmono44100.wav":None,"samples/moo8bmono44100.wav":None,"samples/moo8bmono44100.txt":None}
 
 
 
