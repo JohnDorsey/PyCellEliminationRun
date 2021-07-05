@@ -6,7 +6,6 @@ import IntSeqMath
 import IntMath
 
 
-"""
 def is_sorted(inputArr):
   if len(inputArr) <= 1:
     return True
@@ -14,7 +13,7 @@ def is_sorted(inputArr):
     if inputArr[i] < inputArr[i-1]:
       return False
   return True
-"""
+
 
 def mean(inputArr):
   inputArrSum = sum(inputArr)
