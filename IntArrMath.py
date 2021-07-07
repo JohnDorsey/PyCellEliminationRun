@@ -1,4 +1,10 @@
+"""
 
+IntArrMath.py by John Dorsey.
+
+IntArrMath.py contains tools for analyzing or manipulating arrays, and must either take or return an array. Functions that both take a generator and return a generator should be put in IntSeqMath.py.
+
+"""
 
 
 import IntSeqMath

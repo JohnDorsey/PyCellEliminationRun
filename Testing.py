@@ -20,6 +20,7 @@ SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 PEEK = 64 #these control how much information is shown in previews in the console.
 PEEEK = 2048
 
+
 havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.fibonacciCoding.intToBitStr,(lambda x: len(bin(x)[2:])>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibonacciCoding.bitStrToInt(xx,mode="detailed_parse")),(lambda x: len(bin(x)[2:])>>1))),zeroSafe=True) #@ ouch.
 
 
@@ -28,28 +29,26 @@ havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "
 
 def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+1024]"):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
+  print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")
-  #testSound = CERWaves.sounds["sampleNoise"]
-  #testSound = CERWaves.sounds["crickets8bmono44100.wav"][10000:10000+1024]
-  #testSound = CERWaves.sounds["moo8bmono44100.wav"][10000:10000+1024*2][::2] #this is necessary because the sample rate of the file was wrong when it was created and samples are duplicated.
   testSound = eval(soundSourceStr)
-  print("the sound source string is " + str(soundSourceStr) + ".")
+  print("Testing.test: the sound source string is " + str(soundSourceStr) + ".")
   testSoundSize = [None,SAMPLE_VALUE_UPPER_BOUND] #leaving the length in samples equal to None allows the codec to decide this for itself. @ This could go wrong if the codec is provided incomplete data that would otherwise lead to proper decompression.
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
   for interpolationMode in interpolationModesToTest: #test all specified interpolation modes.
-    print("interpolation mode " + interpolationMode + ": ")
-    print("the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + " and the start of it looks like " + str(testSound[:PEEK])[:PEEK] + ".")
+    print("Testing.test: interpolation mode " + interpolationMode + ": ")
+    print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + " and the start of it looks like " + str(testSound[:PEEK])[:PEEK] + ".")
     pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
     pressDataCodeStr = numberCoding.intSeqToBitStr(num+(0 if numberCoding.zeroSafe else 1) for num in pressDataNums)
-    print("the length of the coded data is " + str(len(pressDataCodeStr)) + " and it begins with " + str(pressDataCodeStr[:PEEK])[:PEEK] + ".")
+    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeStr)) + " and it begins with " + str(pressDataCodeStr[:PEEK])[:PEEK] + ".")
     reconstPressDataNums = [num-(0 if numberCoding.zeroSafe else 1) for num in numberCoding.bitStrToIntSeq(pressDataCodeStr)]
     reconstPlainDataNums = pcer.functionalTest(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
     if reconstPlainDataNums == testSound:
-      print("test passed.")
+      print("Testing.test: test passed.")
     else:
-      print("test failed.")
-  print("testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
+      print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.")
+  print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
 def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCoding):
@@ -58,30 +57,30 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCodin
   sound = CERWaves.sounds[soundName]
   destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
   offset = 0
-  print("starting compression on sound of length " + str(len(sound)) + "...")
-  print("the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
+  print("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
+  print("Testing.compressFull: the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
   while offset + blockWidth + 1 < len(sound):
     print(str((100.0*offset)/float(len(sound)))[:6]+"%...")
     audioData = sound[offset:offset+blockWidth]
     offset += blockWidth
     pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
-    print("there are " + str(len(pressDataNums)) + " pressDataNums to store.")
+    print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
     pressDataBitStr = numberCoding.intSeqToBitStr([item+(0 if numberCoding.zeroSafe else 1) for item in pressDataNums]) + "\n"
-    print("the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
+    print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
-  print("compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
+  print("Testing.compressFull: compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
 
 
 def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding):
-  QuickTimers.startTimer("decompressFull")
   #inverse of compressFull.
-  print("remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
+  QuickTimers.startTimer("decompressFull")
+  print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
   #sound = CERWaves.sounds[soundName]
   result = []
   srcFile = open(srcFileName,"r")
   offset = 0
-  print("starting decompression on file named " + str(srcFileName) + "...")
+  print("Testing.decompressFull: starting decompression on file named " + str(srcFileName) + "...")
   #print("the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:512]) + ".")
   while True:
     #print(str(100*offset/len(sound))[:5]+"%...")

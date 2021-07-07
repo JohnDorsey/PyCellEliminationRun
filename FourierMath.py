@@ -1,3 +1,12 @@
+"""
+
+FourierMath.py by John Dorsey.
+
+FourierMath.py contains tools for creating fourier transforms and manipulating audio. In the future, these functions may be used by the Spline class in Curves.py for better interpolation to predict missing samples of audio.
+
+"""
+
+
 
 from math import e, pi, sin
 

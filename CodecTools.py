@@ -1,4 +1,10 @@
+"""
 
+CodecTools.py by John Dorsey.
+
+CodecTools.py contains classes and other tools that might help make it easier to rapidly create and test codecs made from smaller codecs applied in stages.
+
+"""
 
 
 

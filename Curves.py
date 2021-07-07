@@ -1,4 +1,10 @@
+"""
 
+Curves.py by John Dorsey.
+
+Curves.py contains tools like the Spline class for creating curves and doing calculations related to them. The Spline class is mainly used by the Cell Elimination Run codec in PyCellElimRun.py for predicting missing samples of audio.
+
+"""
 
 DODBGPRINT = False #print debug info.
 DOVIS = False #show pretty printing, mostly for debugging.
@@ -26,7 +32,7 @@ class Spline:
     assert not (self.size == None and self.endpoints == None)
     if self.size == None:
       self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
-      dbgPrint("Spline.__init__: self.size is incomplete.")
+      dbgPrint("Curves.Spline.__init__: self.size is incomplete.")
     elif self.endpoints == None:
       if Spline.ENDPOINTS_AT_ZERO:
         self.endpoints = ((0,0),(self.size[0]-1,0))
@@ -76,7 +82,7 @@ class Spline:
     valueRange = (min(tempValues),max(tempValues))
     for value in range(valueRange[1],valueRange[0]-1,-1):
       #print(str(value).rjust(10)+": ",end="")
-      print("prettyPrinting disabled for python2 compatibility.")
+      print("Curves.Spline.prettyPrint: prettyPrinting disabled for python2 compatibility.")
       for index in range(self.endpoints[1][0]+1):
         #print("#" if (tempValues[index] == value) else "-",end="")
         pass
@@ -84,7 +90,7 @@ class Spline:
 
 
   def getPointInDirection(self,location,direction,skipStart=True):
-    dbgPrint("getPointInDirection: "+str((location,direction,skipStart)))
+    dbgPrint("Curves.Spline.getPointInDirection: "+str((location,direction,skipStart)))
     #assert type(direction) == int
     assert direction in [-1,1]
     #assert 0 <= location < len(self.data)
@@ -213,7 +219,7 @@ class Spline:
     #this method might someday adjust cached values if a cache is created.
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
     if self.data[index] != None:
-      dbgPrint("Spline.__setitem__: overwriting an item at index " + str(index) + ".")
+      dbgPrint("Curves.Spline.__setitem__: overwriting an item at index " + str(index) + ".")
     self.data[index] = value
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs[index] = 0

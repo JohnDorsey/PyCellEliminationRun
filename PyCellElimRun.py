@@ -321,7 +321,7 @@ class CodecState:
 
 def functionalTest(inputData,opMode,splineInterpolationMode,size,dbgReturnWholeCS=False):
   if size[0] == None:
-    dbgPrint("functionalTest: assuming size.")
+    dbgPrint("PyCellElimRun.functionalTest: assuming size.")
     size[0] = len(inputData)
   assert opMode in ["encode","decode","encode_then_decode"]
   if opMode == "encode_then_decode":
