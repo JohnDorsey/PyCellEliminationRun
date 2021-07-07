@@ -7,28 +7,43 @@ CodecTools.py contains classes and other tools that might help make it easier to
 """
 
 
+def roundTripTest(testCodec, testData):
+  return testCodec.decode(testCodec.encode(testData)) == testData
 
-class NonStreamingCodec:
+
+class Codec:
   def __init__(self,encodeFun,decodeFun):
     self.encode, self.decode = (encodeFun, decodeFun)
   
   def encode(self,data):
-    assert False, "encode not implemented."
+    assert False, "Codec.encode not implemented."
 
   def decode(self,data):
-    assert False, "decode not implemented."
+    assert False, "Codec.decode not implemented."
 
 
-class StreamingCodec:
+"""
+class NonStreamingCodec(Codec):
   def __init__(self,encodeFun,decodeFun):
     self.encode, self.decode = (encodeFun, decodeFun)
   
   def encode(self,data):
-    assert False, "encode not implemented."
+    assert False, "NonStreamingCoded.encode not implemented."
 
   def decode(self,data):
-    assert False, "decode not implemented."
+    assert False, "NonStreamingCodec.decode not implemented."
 
+
+class StreamingCodec(Codec):
+  def __init__(self,encodeFun,decodeFun):
+    self.encode, self.decode = (encodeFun, decodeFun)
+  
+  def encode(self,data):
+    assert False, "StreamingCodec.encode not implemented."
+
+  def decode(self,data):
+    assert False, "StreamingCodec.decode not implemented."
+"""
 
 
 

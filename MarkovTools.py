@@ -38,6 +38,7 @@ def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=
   return result
 
 def takeOnly(inputGen,count):
+  print("takeOnly may be broken!")
   i = 0
   for item in inputGen:
     if i < count:
