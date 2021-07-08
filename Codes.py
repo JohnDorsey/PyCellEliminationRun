@@ -103,13 +103,29 @@ def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payload
 
 
 def intToFibcodeBitStr(inputInt,startPoint=None):
+  print("Codes.intToFibcodeBitStr: string-based methods like this one are deprecated.") 
   return CodecTools.bitSeqToStrCodec.encode(intToFibcodeBitArr(inputInt,startPoint=startPoint))
   #old:
   #return "".join(str(item) for item in intToFibcodeBitArr(inputInt,startPoint=startPoint))
 
+def fibcodeBitStrToInt(inputBitStr,mode="parse"):
+  print("Codes.fibcodeBitStrToInt: string-based methods like this one are deprecated.")
+  #return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr],mode=mode)
+  if mode == "convert":
+    return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr])
+  elif mode == "detailed_parse":
+    for offset in range(0,len(inputBitStr)):
+      if inputBitStr[offset:offset+2] == "11":
+        return [inputBitStr[:offset+2],fibcodeBitStrToInt(inputBitStr[:offset+2],mode="convert")]
+  elif mode == "parse":
+    return fibcodeBitStrToInt(inputBitStr,mode="detailed_parse")[1] #maybe this is simpler.
+  else:
+    assert False, "bad mode."
+
+
 def intToFibcodeBitArr(inputInt,startPoint=None):
+  #This method hasn't been replaced with or converted to a generator because doing so has no benefits - the bits must be generated in backwards order anyway.
   assert type(inputInt) in [int,long]
-  #print((inputInt,fibNums[-1]))
   assert inputInt >= 1
   if not long(inputInt) <= fibNums[-1]:
     raise ValueError, "input value of " + str(inputInt) + " is larger than the largest known fibonacci number, " + str(fibNums[-1]) + "."
@@ -132,22 +148,11 @@ def intToFibcodeBitArr(inputInt,startPoint=None):
   result.append(1)
   return result[1:] #I don't know why this is necessary.
 
-def fibcodeBitStrToInt(inputBitStr,mode="parse"):
-  #return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr],mode=mode)
-  if mode == "convert":
-    return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr])
-  elif mode == "detailed_parse":
-    for offset in range(0,len(inputBitStr)):
-      if inputBitStr[offset:offset+2] == "11":
-        return [inputBitStr[:offset+2],fibcodeBitStrToInt(inputBitStr[:offset+2],mode="convert")]
-  elif mode == "parse":
-    return fibcodeBitStrToInt(inputBitStr,mode="detailed_parse")[1] #maybe this is simpler.
-  else:
-    assert False, "bad mode."
+
       
 def fibcodeBitArrToInt(inputBitArr,mode="parse"):
+  print("Codes.fibcodeBitArrToInt is deprecated. please use a streaming version like fibcodeBitSeqToInt instead.")
   assert mode=="parse"
-  print("fibcodeBitArrToInt is deprecated. please use a streaming version like fibcodeBitSeqToInt instead.")
   return sum([fibNums[i+1]*inputBitArr[i] for i in range(len(inputBitArr)-1)])
   #for i in range(len(inputBitArr))
 
@@ -168,12 +173,12 @@ def fibcodeBitSeqToInt(inputBitSeq):
 
 
 def intSeqToFibcodeSeqStr(inputIntSeq,addDebugCommas=False):
-  print("intSeqToFibcodeSeqStr is deprecated")
+  print("Codes.intSeqToFibcodeSeqStr: string-based methods like this one are deprecated.")
   return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
 
 def fibcodeSeqStrToIntArr(inputFibcodeSeqStr):
-  print("fibcodeSeqStrToIntArr is deprecated")
-  #the input isn't generator safe, but it could be. Or this entire method could be thrown away and its behavior handled by the UniversalCoding class.
+  print("Codes.fibcodeSeqStrToIntArr: string-based methods like this one are deprecated.")
+  #the input isn't generator safe, but it could be.
   skipLastItem = inputFibcodeSeqStr.endswith("11")
   return [fibcodeBitStrToInt(item+"11") for item in (inputFibcodeSeqStr.split("11")[:-1] if skipLastItem else inputFibcodeSeqStr.split("11"))]
 
@@ -198,11 +203,11 @@ def fibcodeBitSeqToIntSeq(inputBitSeq):
 
 
 def intToUnaryBitStr(inputNum):
-  print("intToUnaryBitStr is deprecated.")
+  print("Codes.intToUnaryBitStr: string-based methods like this one are deprecated.")
   return ("0"*inputNum)+"1"
 
 def unaryBitStrToInt(inputBitStr,mode="parse"):
-  print("unaryBitStrToInt is deprecated.")
+  print("Codes.unaryBitStrToInt: string-based methods like this one are deprecated.")
   assert mode in ["convert","parse","detailed_parse"]
   result = 0
   for char in inputBitStr:
@@ -262,12 +267,12 @@ def validateBinaryBitStr(inputBitStr):
 
 
 def intToEliasGammaBitStr(inputNum):
-  print("intToEliasGammaBitStr is deprecated.")
+  print("Codes.intToEliasGammaBitStr: string-based methods like this one are deprecated.")
   assert inputNum >= 1
   return (("0"*(inputNum.bit_length()-1))+bin(inputNum)[3:]) if inputNum > 1 else "1"
 
 def eliasGammaBitStrToInt(inputBitStr,mode="parse"): #@ broken right now.
-  print("eliasGammaBitStrToInt is deprecated.")
+  print("Codes.eliasGammaBitStrToInt: string-based methods like this one are deprecated.")
   assert mode in ["convert","parse","detailed_parse"]
   if mode == "convert":
     return int(inputBitStr,2) #special case of this format of method. Usually the convert branch would look like parsing and then making sure that the rest of the data is empty.
@@ -335,7 +340,7 @@ def validateEliasGammaBitStr(inputBitStr):
   return validateBinaryBitStr(inputBitStr[prefixLength:])
   
 def eliasGammaSeqStrToIntArr(inputBitStr):
-  print("eliasGammaSeqStrToIntArr is deprecated.")
+  print("Codes.eliasGammaSeqStrToIntArr: string-based methods like this one are deprecated.")
   startIndex = 0
   result = []
   while startIndex < len(inputBitStr):
@@ -396,6 +401,7 @@ def intSeqToEliasDeltaSeqStr(inputIntSeq):
 #they have not been tested much.
 
 def intToEliasGammaIotaBitStr(inputInt,maxPayload):
+  print("Codes.intToEliasGammaIotaBitStr: string-based methods like this one are deprecated.")
   assert type(inputInt) == int
   maxPayloadLength = len(bin(maxPayload)[3:])
   #print("maxPayloadLength="+str(maxPayloadLength))
@@ -404,6 +410,7 @@ def intToEliasGammaIotaBitStr(inputInt,maxPayload):
   return bin(len(bin(inputInt)[3:]))[2:].rjust(prefixLength,"0") + bin(inputInt)[3:]
 
 def eliasGammaIotaBitStrToInt(inputBitStr,maxPayload,mode="parse"):
+  print("Codes.eliasGammaIotaBitStrToInt: string-based methods like this one are deprecated.")
   assert type(inputBitStr) == str
   if not mode == "parse":
     print("WARNING: for eliasGammaIotaBitStrToInt, modes other than parse are not implemented, and parse mode be used in their stead. This might cause slower execution and incorrect results.")
@@ -416,10 +423,12 @@ def eliasGammaIotaBitStrToInt(inputBitStr,maxPayload,mode="parse"):
   return int("1"+inputBitStr[prefixLength:prefixLength+prefixValue],2)
 
 def intToEliasDeltaIotaBitStr(inputInt,maxPayload): #@ not yet proven optimal.
+  print("Codes.intToEliasDeltaIotaBitStr: string-based methods like this one are deprecated.")
   assert type(inputInt) == int
   return intToHybridCodeBitStr(inputInt,(lambda x: intToEliasGammaIotaBitStr(x+1,len(bin(maxPayload)[3:])+1)))
 
 def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal.
+  print("Codes.eliasDeltaIotaBitStrToInt: string-based methods like this one are deprecated.")
   assert type(inputBitStr) == str
   parseFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="parse")-1)
   convertFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="convert")-1)

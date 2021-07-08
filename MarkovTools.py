@@ -1,4 +1,10 @@
+"""
 
+MarkovTools.py by John Dorsey.
+
+MarkovTools.py contains tools for transforming sequences using markov models.
+
+"""
 
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
@@ -10,6 +16,7 @@ def getStartingIndicesOfSubSequence(inputArr,subSequence):
     if inputArr[i:i+len(subSequence)] == subSequence:
       result.append(i)
   return result
+
 
 def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=True):
   #the output of this could be made streamable.
@@ -37,8 +44,11 @@ def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=
       break
   return result
 
+
 def takeOnly(inputGen,count):
-  print("takeOnly may be broken!")
+  assert count >= 0
+  if count == 0:
+    return
   i = 0
   for item in inputGen:
     if i < count:
@@ -47,52 +57,11 @@ def takeOnly(inputGen,count):
     else:
       break
 
+
 def ordify(inputStr):
   return [ord(char) for char in inputStr]
-  
-"""
-def genBleedSortedArr(inputArr):
-  for item in inputArr:
-    yield item
-  lowerSpots = [item for item in inputArr]
-  upperSpots = [item for item in inputArr]
-  lowerSpotIndex = 0
-  upperSpotIndex = 0
-  skipLower = False
-  while True:
-    lowerSpotIndex %= len(lowerSpots)
-    upperSpotIndex %= len(upperSpots)
-    if skipLower:
-      skipLower = False
-    else:
-      print(("start lower",lowerSpots,lowerSpotIndex,upperSpots,upperSpotIndex))
-      lowerSpots[lowerSpotIndex] -= 1
-      print("trying to place low"+str(lowerSpots[lowerSpotIndex]))
-      if lowerSpots[lowerSpotIndex] in inputArr or lowerSpots[lowerSpotIndex] in upperSpots:
-        del upperSpots[upperSpots.index(lowerSpots[lowerSpotIndex])]
-        del lowerSpots[lowerSpotIndex] #index does not increase when the current item is removed.
-        continue
-      else:
-        resultItem = "low"+str(lowerSpots[lowerSpotIndex])
-        print(resultItem)
-        yield resultItem
-        lowerSpotIndex += 1
-    lowerSpotIndex %= len(lowerSpots)
-    upperSpotIndex %= len(upperSpots)
-    print(("start upper",lowerSpots,lowerSpotIndex,upperSpots,upperSpotIndex))
-    upperSpots[upperSpotIndex] += 1
-    print("trying to place upp"+str(upperSpots[upperSpotIndex]))
-    if upperSpots[upperSpotIndex] in inputArr or upperSpots[upperSpotIndex] in lowerSpots:
-      del lowerSpots[lowerSpots.index(upperSpots[upperSpotIndex])]
-      del upperSpots[upperSpotIndex] #index does not increase when the current item is removed.
-      skipLower = True
-      continue
-    else:
-      resultItem = "upp"+str(upperSpots[upperSpotIndex])
-      print(resultItem)
-      yield resultItem
-      upperSpotIndex += 1
-"""
+
+
 
 def genBleedSortedArr(inputArr):
   #this generator will help in using a markov model with values the model has not seen before, by mapping them to smaller numbers when they are closer to a value that has been seen before.
@@ -202,6 +171,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
     print("history: " + str(history))
     print("inputItem: " + str(inputItem))
     predictedItems = []
+    #two versions of the same prediction generation code exist - the first was much easier to get working, but it is now disabled in favor of the second which stores temporary information in a way that will make the addition of huffman coding much easier in the future.
     """
     for contextLength in range(maxContextLength,0,-1):
       if contextLength > len(history)-1:
@@ -216,6 +186,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
       predictedItems.extend(extension)
     
     """
+    #this version of the prediction generation code is huffman-coding ready because it gives all context matches organized by frequency and length in one giant array.
     for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
       contextualHist = Hist()
       for matchEndLocation in matchesOfCurrentLength:
@@ -257,7 +228,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
 
 
 
-sampleTexts = ["You are my sunshine,\nmy only sunshine.\nYou make me happy\nwhen skies are grey!\nYou'll never know, dear,\nhow much I love you...\nplease don't take\nmy sunshine away."]
+sampleTexts = ["hello, world!","123456789 123456789 123456789 123456789 123456789 3456789 3456789 3456789 3456789 56789 56789 56789 789 789 9"]
 
 
 
@@ -265,6 +236,6 @@ assert len([item for item in takeOnly(range(256),10)]) == 10
 
 assert [item for item in takeOnly(genBleedSortedArr([5,8,10,11,15,16,17]),30)] == [5,8,10,11,15,16,17,4,6,7,9,12,14,18,3,13,19,2,20,1,21,0,22,-1,23,-2,24,-3,25,-4]
 
-for test in [("hello, world!","rld"),("123456789 123456789 123456789 3456789 56789 789","678")]:
+for test in [(sampleTexts[0],"rld"),(sampleTexts[1],"678")]:
   assert [item+len(test[1])-1 for item in getStartingIndicesOfSubSequence(test[0],test[1])] == getEndingIndicesOfGrowingSubSequences(test[0],test[1])[-1][1]
   continue
