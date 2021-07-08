@@ -235,7 +235,7 @@ class CodecState:
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataSamples)) or (self.opMode == "decode" and self.runIndex >= len(self.pressDataNums)):
         if self.opMode == "decode" and interpolateMissingValues:
           if None in self.plainDataSamples:
-            print("CodecState.processBlock: missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. There are " + str(self.plainDataSamples.count(None)) + " missing values.")
+            print("PyCellElimRun.CodecState.processBlock: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
             for index in range(len(self.plainDataSamples)):
               if self.plainDataSamples[index] == None:
                 self.plainDataSamples[index] = self.spline[index]
@@ -243,7 +243,7 @@ class CodecState:
 
 
   def processRun(self): #do one run, either encoding or decoding.
-    dbgPrint("CodecState.processRun: runIndex = " + str(self.runIndex))
+    dbgPrint("PyCellElimRun.CodecState.processRun: runIndex = " + str(self.runIndex))
     self.stepIndex = 0
     breakRun = False
     for cellToCheck in self.getGenCellCheckOrder():
@@ -264,7 +264,7 @@ class CodecState:
           self.stepIndex += 1
       else:
         assert False, "invalid opMode."
-      assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "CodecState.processRun: this loop has run for an impossibly long time."
+      assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "PyCellElimRun.CodecState.processRun: this loop has run for an impossibly long time."
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
         if CodecState.DO_COLUMN_ELIMINATION:

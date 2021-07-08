@@ -48,8 +48,6 @@ def makeArr(thing):
   return [item for item in thing]
 
 
-bitSeqToStrCodec = CodecTools.Codec((lambda x: "".join(str(item) for item in x)),(lambda x: [int(char) for char in x]))
-
 
 def parsePrefix(inputStr,conditionFun):
   #this slow method can search the beginning of an input string for the proper slice length to satisfy a condition, and then return it.
@@ -105,13 +103,16 @@ def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payload
 
 
 def intToFibcodeBitStr(inputInt,startPoint=None):
-  return BitSeqToStrCodec.encode(intToFibcodeBitArr(inputInt,startPoint=startPoint))
+  return CodecTools.bitSeqToStrCodec.encode(intToFibcodeBitArr(inputInt,startPoint=startPoint))
   #old:
   #return "".join(str(item) for item in intToFibcodeBitArr(inputInt,startPoint=startPoint))
 
 def intToFibcodeBitArr(inputInt,startPoint=None):
+  assert type(inputInt) in [int,long]
+  #print((inputInt,fibNums[-1]))
   assert inputInt >= 1
-  assert inputInt < fibNums[-1]
+  if not long(inputInt) <= fibNums[-1]:
+    raise ValueError, "input value of " + str(inputInt) + " is larger than the largest known fibonacci number, " + str(fibNums[-1]) + "."
   if startPoint == None:
     startPoint = len(fibNums)-1
     """while fibNums[startPoint-1] > inputInt:
@@ -161,7 +162,8 @@ def fibcodeBitSeqToInt(inputBitSeq):
       return result
     previousBit = inputBit
     result += fibNums[i+1] * inputBit
-  print("Codes.fibcodeBitSeqToInt: input data ran out! Returning None.")
+  if result != 0:
+    print("Codes.fibcodeBitSeqToInt: ran out of input bits midword. Returning None instead of " + str(result) + ".")
   return None
 
 
@@ -235,13 +237,14 @@ def intToUnaryBitSeq(inputInt):
 
 def unaryBitSeqToInt(inputBitSeq):
   inputBitSeq = makeGen(inputBitSeq)
-  value = 0
+  result = 0
   for inputBit in inputBitSeq:
     if inputBit == 0:
-      value += 1
+      result += 1
     else:
-      return value
-  print("unaryBitSeqToInt: ran out of data. Returning None.")
+      return result
+  if result != 0:
+    print("Codes.unaryBitSeqToInt: ran out of input bits midword. Returning None instead of " + str(result) + ".")
   return None
 
 
@@ -300,7 +303,8 @@ def eliasGammaBitSeqToInt(inputBitSeq):
     i += 1
     if i >= payloadLength:
       return result
-  print("eliasGammaBitSeqToInt ran out of data. Returning None.")
+  if result != 1:
+    print("Codes.eliasGammaBitSeqToInt: ran out of input bits midword. Returning None instead of " + str(result) + ".")
   return None
 
 
@@ -452,21 +456,30 @@ class UniversalCoding:
       offset += len(parseResult[0])
       yield parseResult[1]
   
-
 fibonacciCoding = UniversalCoding(intToFibcodeBitStr,fibcodeBitStrToInt,intSeqToFibcodeSeqStr,fibcodeSeqStrToIntArr)
 unaryCoding = UniversalCoding(intToUnaryBitStr,unaryBitStrToInt,None,None)
 eliasGammaCoding = UniversalCoding(intToEliasGammaBitStr,eliasGammaBitStrToInt,None,None)
 
+
 #these are disabled because they are broken.
 #eliasDeltaCoding = UniversalCoding(intToEliasDeltaBitStr,eliasDeltaBitStrToInt,None,None)
 
-intToFibcodeBitArrCodec = CodecTools.Codec(intToFibcodeBitArr,fibcodeBitSeqToInt)
-intToUnaryBitArrCodec = CodecTools.Codec((lambda x: makeArr(intToUnaryBitSeq(x))),unaryBitSeqToInt)
-intToEliasGammaBitArrCodec = CodecTools.Codec((lambda x: makeArr(intToEliasGammaBitSeq(x))),eliasGammaBitSeqToInt)
+codecs = {}
 
-intSeqToFibcodeBitSeqCodec = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
+
+
+codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitArr,fibcodeBitSeqToInt)
+codecs["unary"] = CodecTools.Codec((lambda x: makeArr(intToUnaryBitSeq(x))),unaryBitSeqToInt)
+codecs["eliasGamma"] = CodecTools.Codec((lambda x: makeArr(intToEliasGammaBitSeq(x))),eliasGammaBitSeqToInt)
+
+codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
 #intSeqToUnaryBitSeqCodec = None
-intSeqToEliasGammaBitSeqCodec = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
+codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
+
+
+codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
+codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
+
 
 
 assert parsePrefix("00001Hello",validateUnaryBitStr) == "00001"
@@ -477,10 +490,17 @@ assert parsePrefix("101101101World",validateBinaryBitStr) == "101101101"
 
 #assert [eliasDeltaBitStrToInt(intToEliasDeltaBitStr(i)) for i in range(1,32)] == [i for i in range(1,32)]
 
-for testCodec in [intToFibcodeBitArrCodec,intToUnaryBitArrCodec,intToEliasGammaBitArrCodec]:
+for testCodec in [codecs["fibonacci"],codecs["unary"],codecs["eliasGamma"]]:
   for testNum in [1,5,10,255,257,65535,65537,999999]:
     CodecTools.roundTripTest(testCodec,testNum)
 
-for testCodec in [intSeqToFibcodeBitSeqCodec,intSeqToEliasGammaBitSeqCodec]:
+for testCodec in [codecs["inSeq_fibonacci"],codecs["inSeq_eliasGamma"]]:
   testArr = [1,2,3,4,5,100,1000,100,5,4,3,2,1]
   CodecTools.roundTripTest(testCodec,testArr)
+
+for testCodec in [codecs["inStr_inSeq_fibonacci"],codecs["inStr_inSeq_eliasGamma"]]:
+  testArr = [1,2,3,4,5,100,1000,100,5,4,3,2,1]
+  pressData = testCodec.encode(testArr)
+  assert type(pressData) == str
+  reconstPlainData = [item for item in testCodec.decode(pressData)]
+  assert reconstPlainData == testArr

@@ -10,6 +10,12 @@ CodecTools.py contains classes and other tools that might help make it easier to
 def roundTripTest(testCodec, testData):
   return testCodec.decode(testCodec.encode(testData)) == testData
 
+def makePlatformCodec(platCodec, mainCodec):
+  return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda x: platCodec.encode(mainCodec.decode(platCodec.decode(x)))))
+
+def makeChainedPairCodec(codec1,codec2):
+  return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda x: codec1.decode(codec2.decode(x))))
+
 
 class Codec:
   def __init__(self,encodeFun,decodeFun):
@@ -20,6 +26,9 @@ class Codec:
 
   def decode(self,data):
     assert False, "Codec.decode not implemented."
+
+  def getReversedCopy(self):
+    return Codec(self.decode,self.encode)
 
 
 """
@@ -49,12 +58,18 @@ class StreamingCodec(Codec):
 
 
 
-get_NSC_delimitedStr = lambda delimiter: NonStreamingCodec((lambda x: delimiter.join(x)),(lambda x: x.split(delimiter)))
+bitSeqToStrCodec = Codec((lambda x: "".join(str(item) for item in x)),(lambda x: [int(char) for char in x]))
 
-assert get_NSC_delimitedStr("&").encode(["hello","world!"]) == "hello&world!"
-assert get_NSC_delimitedStr("&").decode("hello&world!") == ["hello","world!"]
 
-del get_NSC_delimitedStr
+
+
+
+get_delimitedStr_codec = lambda delimiter: Codec((lambda x: delimiter.join(x)),(lambda x: x.split(delimiter)))
+
+assert get_delimitedStr_codec("&").encode(["hello","world!"]) == "hello&world!"
+assert get_delimitedStr_codec("&").decode("hello&world!") == ["hello","world!"]
+
+del get_delimitedStr_codec
 
 def genDelimitedStrEncode(x,delimiter):
   justStarted = True
@@ -75,6 +90,7 @@ def genDelimitedStrDecode(x,delimiter):
       currentItem += char
   yield currentItem
 
+"""
 get_SC_delimitedStr = lambda delimiter: StreamingCodec((lambda x: genDelimitedStrEncode(x,delimiter)),(lambda x: genDelimitedStrDecode(x,delimiter)))
 
 assert type(get_SC_delimitedStr("&").encode((item for item in ["hello","world!"]))) == type((i for i in range(10)))
@@ -82,7 +98,8 @@ assert type(get_SC_delimitedStr("&").decode((char for char in "hello&world!"))) 
 assert [char for char in get_SC_delimitedStr("&").encode((item for item in ["hello","world!"]))] == [char for char in "hello&world!"]
 assert [word for word in get_SC_delimitedStr("&").decode((char for char in "hello&world!"))] == ["hello","world!"]
 
+del get_SC_delimitedStr
+"""
+
 del genDelimitedStrEncode
 del genDelimitedStrDecode
-del get_SC_delimitedStr
-
