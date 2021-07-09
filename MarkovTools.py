@@ -6,6 +6,9 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
+from IntSeqMath import genTakeOnly, arrTakeOnly
+
+
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
   #the output could be streamable.
@@ -45,17 +48,7 @@ def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=
   return result
 
 
-def takeOnly(inputGen,count):
-  assert count >= 0
-  if count == 0:
-    return
-  i = 0
-  for item in inputGen:
-    if i < count:
-      yield item
-      i += 1
-    else:
-      break
+
 
 
 def ordify(inputStr):
@@ -232,9 +225,8 @@ sampleTexts = ["hello, world!","123456789 123456789 123456789 123456789 12345678
 
 
 
-assert len([item for item in takeOnly(range(256),10)]) == 10
 
-assert [item for item in takeOnly(genBleedSortedArr([5,8,10,11,15,16,17]),30)] == [5,8,10,11,15,16,17,4,6,7,9,12,14,18,3,13,19,2,20,1,21,0,22,-1,23,-2,24,-3,25,-4]
+assert arrTakeOnly(genBleedSortedArr([5,8,10,11,15,16,17]),30) == [5,8,10,11,15,16,17,4,6,7,9,12,14,18,3,13,19,2,20,1,21,0,22,-1,23,-2,24,-3,25,-4]
 
 for test in [(sampleTexts[0],"rld"),(sampleTexts[1],"678")]:
   assert [item+len(test[1])-1 for item in getStartingIndicesOfSubSequence(test[0],test[1])] == getEndingIndicesOfGrowingSubSequences(test[0],test[1])[-1][1]

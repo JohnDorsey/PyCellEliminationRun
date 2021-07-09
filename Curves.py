@@ -6,6 +6,9 @@ Curves.py contains tools like the Spline class for creating curves and doing cal
 
 """
 
+import math
+
+
 DODBGPRINT = False #print debug info.
 DOVIS = False #show pretty printing, mostly for debugging.
 

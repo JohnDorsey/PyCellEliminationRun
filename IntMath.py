@@ -14,4 +14,5 @@ def OP_to_NOP(inputInt):
   return ((inputInt+1)>>1)*((-2*(inputInt%2))+1)
 
 
+
 assert [OP_to_NOP(NOP_to_OP(item)) for item in [5,99,32,1,0]] == [5,99,32,1,0]

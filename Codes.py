@@ -254,6 +254,11 @@ def unaryBitSeqToInt(inputBitSeq):
 
 
 
+def intToBinaryBitArr(inputInt):
+  return [int(char) for char in bin(inputInt)[2:]]
+
+def binaryBitArrToInt(inputBitArr):
+  return sum(2**i*inputBitArr[-1-i] for i in range(len(inputBitArr)))
 
 
 def validateBinaryBitStr(inputBitStr):
@@ -439,35 +444,6 @@ def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal
 
 
 
-class UniversalCoding:
-  #the UniversalCoding format provides organization for methods that have mostly been defined above for various universal codings. Some methods in Testing.py rely on it.
-  def __init__(self,intToBitStrFun,bitStrToIntFun,intSeqToBitStrFun,bitStrToIntSeqFun,zeroSafe=False):
-    if intToBitStrFun:
-      self.intToBitStr = intToBitStrFun
-    if bitStrToIntFun:
-      self.bitStrToInt = bitStrToIntFun
-    if intSeqToBitStrFun:
-      self.intSeqToBitStr = intSeqToBitStrFun
-    if bitStrToIntSeqFun:
-      self.bitStrToIntSeq = bitStrToIntSeqFun
-    self.zeroSafe=zeroSafe
-  def intToBitStr(self,inputInt):
-    assert False, "intToBitStr has not been implemented."
-  def bitStrToInt(self,inputBitStr):
-    assert False, "bitStrToInt has not been implemented."
-  def intSeqToBitStr(self,inputIntSeq):
-    return "".join(self.intToBitStr(item) for item in inputIntSeq)
-  def bitStrToIntSeq(self,inputBitStr):
-    offset = 0
-    parseResult = None
-    while offset < len(inputBitStr):
-      parseResult = self.bitStrToInt(inputBitStr[offset:],mode="detailed_parse")
-      offset += len(parseResult[0])
-      yield parseResult[1]
-  
-fibonacciCoding = UniversalCoding(intToFibcodeBitStr,fibcodeBitStrToInt,intSeqToFibcodeSeqStr,fibcodeSeqStrToIntArr)
-unaryCoding = UniversalCoding(intToUnaryBitStr,unaryBitStrToInt,None,None)
-eliasGammaCoding = UniversalCoding(intToEliasGammaBitStr,eliasGammaBitStrToInt,None,None)
 
 
 #these are disabled because they are broken.
@@ -481,13 +457,30 @@ codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitArr,fibcodeBitSeqToInt)
 codecs["unary"] = CodecTools.Codec((lambda x: makeArr(intToUnaryBitSeq(x))),unaryBitSeqToInt)
 codecs["eliasGamma"] = CodecTools.Codec((lambda x: makeArr(intToEliasGammaBitSeq(x))),eliasGammaBitSeqToInt)
 
+
+
+
 codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
 #intSeqToUnaryBitSeqCodec = None
 codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
 
 
+
+
+#a temporary fix for the fact that Testing.py methods expecting the old UniversalCoding class.
+codecs["fibonacci"].zeroSafe = False
+codecs["unary"].zeroSafe = True
+codecs["eliasGamma"].zeroSafe = False
+codecs["inSeq_fibonacci"].zeroSafe = False
+codecs["inSeq_eliasGamma"].zeroSafe = False
+
+
 codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
 codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
+
+#temporary fix continued.
+codecs["inStr_inSeq_fibonacci"].zeroSafe = False
+codecs["inStr_inSeq_eliasGamma"].zeroSafe = False
 
 
 

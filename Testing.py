@@ -10,6 +10,7 @@ No other files require Testing.py
 
 import CERWaves
 import Codes
+import CodecTools
 import PyCellElimRun as pcer
 import IntSeqStore
 
@@ -22,13 +23,13 @@ PEEK = 64 #these control how much information is shown in previews in the consol
 PEEEK = 2048
 
 
-havenBucketFibonacciCoding = Codes.UniversalCoding(None,None,(lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.fibonacciCoding.intToBitStr,(lambda x: len(bin(x)[2:])>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibonacciCoding.bitStrToInt(xx,mode="detailed_parse")),(lambda x: len(bin(x)[2:])>>1))),zeroSafe=True) #@ ouch.
+havenBucketFibonacciCoding = CodecTools.Codec((lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.intToFibcodeBitStr,(lambda x: len(bin(x)[2:])>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibcodeBitStrToInt(xx,mode="detailed_parse")),(lambda x: len(bin(x)[2:])>>1)))) #@ ouch.
+havenBucketFibonacciCoding.zeroSafe = True
 
 
 
 
-
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberCoding=Codes.fibonacciCoding,soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+1024]"):
+def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberSeqCodec=Codes.codecs["inSeq_fibonacci"],soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+2048]"):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")
@@ -41,9 +42,9 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
     print("Testing.test: interpolation mode " + interpolationMode + ": ")
     print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + " and the start of it looks like " + str(testSound[:PEEK])[:PEEK] + ".")
     pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
-    pressDataCodeStr = numberCoding.intSeqToBitStr(num+(0 if numberCoding.zeroSafe else 1) for num in pressDataNums)
-    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeStr)) + " and it begins with " + str(pressDataCodeStr[:PEEK])[:PEEK] + ".")
-    reconstPressDataNums = [num-(0 if numberCoding.zeroSafe else 1) for num in numberCoding.bitStrToIntSeq(pressDataCodeStr)]
+    pressDataCodeBitArr = [item for item in numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)]
+    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeBitArr)) + " and it begins with " + str(pressDataCodeBitArr[:PEEK])[:PEEK] + ".")
+    reconstPressDataNums = [num-(0 if numberSeqCodec.zeroSafe else 1) for num in numberSeqCodec.decode(pressDataCodeBitArr)]
     reconstPlainDataNums = pcer.functionalTest(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
     if reconstPlainDataNums == testSound:
       print("Testing.test: test passed.")
@@ -52,7 +53,7 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
-def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCoding):
+def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCodec):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
   QuickTimers.startTimer("compressFull")
   sound = CERWaves.sounds[soundName]
@@ -66,14 +67,14 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberCodin
     offset += blockWidth
     pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
     print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
-    pressDataBitStr = numberCoding.intSeqToBitStr([item+(0 if numberCoding.zeroSafe else 1) for item in pressDataNums]) + "\n"
+    pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.encode([item+(0 if numberSeqCodec.zeroSafe else 1) for item in pressDataNums])) + "\n"
     print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
   print("Testing.compressFull: compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
 
 
-def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding):
+def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
   #inverse of compressFull.
   QuickTimers.startTimer("decompressFull")
   print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
@@ -91,9 +92,10 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberCoding):
     except:
       break
     print("loaded a line of length " + str(len(loadedLine)) + " which starts with " + loadedLine[:PEEK] + ".")
-    pressDataNums = [item-(0 if numberCoding.zeroSafe else 1) for item in numberCoding.bitStrToIntSeq(loadedLine)]
+    pressDataBitArr = CodecTools.bitSeqToStrCodec.decode(loadedLine)
+    pressDataNums = [item-(0 if numberSeqCodec.zeroSafe else 1) for item in numberSeqCodec.decode(pressDataBitArr)]
     assert min(pressDataNums) == 0
-    if not len(pressDataNums) == blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending.
+    if not len(pressDataNums) == blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending. It is less likely to happen now that the UniversalCoding class is no longer used.
       print("pressDataNums is the wrong length. Trimming will be attempted.") 
       pressDataNums = pressDataNums[:blockWidth]
     plainDataNums = pcer.functionalTest(pressDataNums,"decode",interpolationMode,[blockWidth,SAMPLE_VALUE_UPPER_BOUND])
