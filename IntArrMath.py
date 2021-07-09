@@ -30,7 +30,7 @@ def mean(inputArr):
 
 def median(inputArr,middlePairHandlingFun=mean):
   if len(inputArr) == 0:
-    raise ValueError, "can't find the median of an empty list."
+    raise ValueError("can't find the median of an empty list.")
   elif len(inputArr) == 1:
     return inputArr[0]
   elif len(inputArr) >= 2:
@@ -125,4 +125,5 @@ def headingMedianStaggerIntArrDecode(inputIntArr):
   #the input and output could both be made streamable.
   medianVal = inputIntArr[0]
   return [IntMath.OP_to_NOP(item)+medianVal for item in inputIntArr[1:]]
+
 

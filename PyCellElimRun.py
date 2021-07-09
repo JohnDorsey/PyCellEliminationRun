@@ -239,7 +239,10 @@ class CodecState:
             for index in range(len(self.plainDataSamples)):
               if self.plainDataSamples[index] == None:
                 self.plainDataSamples[index] = self.spline[index]
+        else:
+          print("PyCellElimRun.CodecState.processBlock: no missing values exist.")
         return #finished, might be lossy if it ended while they were unequal lengths.
+    assert False
 
 
   def processRun(self): #do one run, either encoding or decoding.

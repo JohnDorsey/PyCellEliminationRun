@@ -125,10 +125,10 @@ def fibcodeBitStrToInt(inputBitStr,mode="parse"):
 
 def intToFibcodeBitArr(inputInt,startPoint=None):
   #This method hasn't been replaced with or converted to a generator because doing so has no benefits - the bits must be generated in backwards order anyway.
-  assert type(inputInt) in [int,long]
+  assert type(inputInt) == int
   assert inputInt >= 1
-  if not long(inputInt) <= fibNums[-1]:
-    raise ValueError, "input value of " + str(inputInt) + " is larger than the largest known fibonacci number, " + str(fibNums[-1]) + "."
+  if not int(inputInt) <= fibNums[-1]:
+    raise ValueError("input value of " + str(inputInt) + " is larger than the largest known fibonacci number, " + str(fibNums[-1]) + ".")
   if startPoint == None:
     startPoint = len(fibNums)-1
     """while fibNums[startPoint-1] > inputInt:

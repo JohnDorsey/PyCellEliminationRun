@@ -14,11 +14,11 @@ timerStartTimes = {"load_module":time.time()}
 
 
 def startTimer(name): #create a timer with a name, which starts immediately.
-  if timerStartTimes.has_key(name):
+  if name in timerStartTimes.keys():
     print("QuickTimers.startTimer: overwriting timer with name " + str(name) + ".")
   timerStartTimes[name] = time.time()
 
 def stopTimer(name): #destroy a timer by name and return the amount of time it existed.
-  assert timerStartTimes.has_key(name)
+  assert name in timerStartTimes.keys()
   return time.time() - timerStartTimes.pop(name,None)
 

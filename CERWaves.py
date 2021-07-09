@@ -10,8 +10,8 @@ When loaded, CERWaves.py loads sample audio for easy use in testing the codec. A
 import sys
 import wave
 
-
-sounds = {"samples/crickets8bmono44100.wav":None,"samples/moo8bmono44100.wav":None,"samples/moo8bmono44100.txt":None}
+#don't use "samples/moo8bmono44100.wav":None "samples/crickets8bmono44100.wav":None,
+sounds = {"samples/moo8bmono44100.txt":None}
 
 
 
