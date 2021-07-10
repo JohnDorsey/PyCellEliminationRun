@@ -67,6 +67,19 @@ def genLJust(inputGen,length,fillItem):
     i += 1
 """
 
+def genRecordLows(inputNumSeq):
+  recordLow = None
+  justStarted = True
+  for item in inputNumSeq:
+    if justStarted:
+      recordLow = item
+      yield item
+      justStarted = False
+      continue
+    if item < recordLow:
+      recordLow = item
+      yield item
+
 
 assert len([item for item in genTakeOnly(range(256),10)]) == 10
 assert arrTakeOnly(range(10),5) == [0,1,2,3,4]

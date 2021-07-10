@@ -91,40 +91,39 @@ Design notes:
     -Blocks.
 
 
+
 Todo:
-
-  -make a fourier interpolation mode for the Spline.
-
-  -make an integer-only linear interpolation mode for the Spline.
-
-  -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
-
-  -make an AI interpolation mode for the spline:
-
-    -a mode where the NN is included in the file.
-
-    -a mode where the NN learns as it goes.
-
+  
   -Elias Delta Iota coding.
 
   -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.
 
-  -inclusion of gzip.
-
-  -for performance:
-
-    -numba.
-
-    -spline caching.
-
-    -move to another language.
+  -inclusion of GZIP and/or LZMA.
 
 
-distant future Todo:
+Feature wish list (CR = compression ratio):
 
-  -more advanced versions might allow the prediction mode and cell scoring mode to dynamically change for certain ranges of samples, when the known samples at either end of the range both deserved a different prediction method than was used. This goes against the design goal of not searching through alternative representations of the same thing.
+  -self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
+    (complexity: low, maintenance: low, CR impact: slightly positive, performance impact: none).
 
-  -more advanced versions might allow file-globally defined custom mathematical functions.
+  -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
+    (complexity: medium, maintenance: medium, CR impact: negative, performance impact: very positive - dissociates time complexity from audio bit depth, maybe avoiding a 256x slowdown when jumping from 8bit to 16bit samples.).
+
+  -make a fourier interpolation mode for the Spline.
+    (complexity: medium, maintenance: zero, CR impact: positive, performance impact: very negative).
+
+  -make an integer-only or fraction-based linear interpolation mode for the Spline, to prove it can be done easily for better compatibility between different implementations of the codec.
+    (complexity: low, maintenance: low, CR impact: slightly negative, performance impact: none).
+
+  -make a static AI interpolation mode for the spline.
+    (complexity: high, maintenance: low, CR impact: positive, performance impact: very negative).
+
+  -make a parallel-grid variant Cell Elimination Run, where cell elimination runs are split between two or more grids representing a wave and its derivitive(s).
+    (complexity: nightmare, maintenance: high, CR impact: positive, performance impact: none).
+
+  -make a dynamically learning markov-model-like cell scoring tool.
+    -this might score cells based on their paired (x, y) displacement from each endpoint individually, as well as their absolute height, and an additional chart for approximate location scaled to the rectangle formed by the start and end points.
+    (complexity: medium, maintenance: high, CR impact: positive, performance impact: very negative).
 
 
 done:

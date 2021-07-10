@@ -33,7 +33,7 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
-  VERBOSE = False
+  VERBOSE = True
   QuickTimers.startTimer("test")
   testSound = eval(soundSourceStr)
   print("Testing.test: the sound source string is " + str(soundSourceStr) + ".")
