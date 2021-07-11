@@ -6,7 +6,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from IntSeqMath import genTakeOnly, arrTakeOnly
+from PyGenTools import genTakeOnly, arrTakeOnly
 
 
 

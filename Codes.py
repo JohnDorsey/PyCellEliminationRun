@@ -7,6 +7,7 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 """
 
 import CodecTools
+from PyGenTools import isGen,makeGen,makeArr
 
 
 """
@@ -34,18 +35,7 @@ for i in range(8192):
   fibNums.append(fibNums[-1]+fibNums[-2])
 
 
-def isGen(thing):
-  return type(thing) == type((i for i in range(1)))
 
-def makeGen(thing):
-  if isGen(thing):
-    return thing
-  return (item for item in thing)
-
-def makeArr(thing):
-  if type(thing) == list:
-    return thing
-  return [item for item in thing]
 
 
 

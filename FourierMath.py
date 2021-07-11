@@ -10,6 +10,8 @@ FourierMath.py contains tools for creating fourier transforms and manipulating a
 
 from math import e, pi, sin
 
+
+
 j = 1.0j
 
 
