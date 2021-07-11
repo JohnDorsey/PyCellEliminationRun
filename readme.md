@@ -96,6 +96,8 @@ Todo:
   
   -prepare Curves.Spline for more use cases (other than audio) with customizable endpoint handling.
 
+  -clean up Codes.py, and move havenBucketFibonacciCoding to it.
+
   -Elias Delta Iota coding.
 
   -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.

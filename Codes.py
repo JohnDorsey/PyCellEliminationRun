@@ -7,7 +7,7 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 """
 
 import CodecTools
-from PyGenTools import isGen,makeGen,makeArr
+from PyGenTools import isGen, makeGen, makeArr
 
 
 """

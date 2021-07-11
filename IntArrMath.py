@@ -81,7 +81,7 @@ def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="fa
   #print("endpoints are " + str(inputEndpoints) + ".")
   assert midpointMode in ["fail","round_down","round_up","unsubdivided"], "bad midpointMode."
   if not inputEndpoints[0] <= inputEndpoints[1]:
-    print("IntArrMath.genInterlacedIndices: the endpoints " + str(inputEndpoints) + " are in the wrong order, and nothing will be yielded. This is not always an error.")
+    #print("IntArrMath.genInterlacedIndices: the endpoints " + str(inputEndpoints) + " are in the wrong order, and nothing will be yielded. This is not always an error.")
     return
   domainSize = inputEndpoints[1]-inputEndpoints[0]+1
   if domainSize == 1:
@@ -135,19 +135,19 @@ def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=No
   if spline == None:
     spline = Curves.Spline(interpolationMode="linear&round",size=[len(inputIntArr),None])
   if interlacingProvider == None:
-    interlacingProvider = genInterlacedIndices((0,len(inputIntArr)-1),midpointMode="fail")
+    interlacingProvider = genInterlacedIndices((0,len(inputIntArr)-1),midpointMode="round_down")
   result = []
   for i,index in enumerate(interlacingProvider):
     localFocus = spline[index]
     assert type(localFocus) == int, "IntArrMath.rulerOPIntArrTranscode: Only integer foci are supported. Make sure the provided spline gives only integer outputs."
-    print("(i,index,localFocus,inputIntArr[i]) is " + str((i,index,localFocus,inputIntArr[i])) + ".")
+    #print("(i,index,localFocus,inputIntArr[i]) is " + str((i,index,localFocus,inputIntArr[i])) + ".")
     if opMode == "encode":
       spline[index] = inputIntArr[index]
       result.append(IntMath.unfocusedOP_to_focusedOP(spline[index],localFocus))
-      print("result is " + str(result) + ".")
+      #print("result is " + str(result) + ".")
     else:
       spline[index] = IntMath.focusedOP_to_unfocusedOP(inputIntArr[i],localFocus)
-      print("spline is " + str([item for item in spline]) + ".")
+      #print("spline is " + str([item for item in spline]) + ".")
   if opMode == "encode":
     return result
   else:
@@ -164,14 +164,14 @@ def headingDeltadPaletteIntArrEncode(inputIntArr):
   values = [item for item in genRunless(sorted(inputIntArr))]
   result = []
   result.append(len(values))
-  result.extend(IntSeqMath.genEncodeDelta(values))
+  result.extend(IntSeqMath.genDeltaEncode(values))
   result.extend(values.index(item) for item in inputIntArr)
   return result
 
 def headingDeltadPaletteIntArrDecode(inputIntArr):
   #both the output and the input could be made streamable.
   paletteLength = inputIntArr[0]
-  palette = [item for item in IntSeqMath.genDecodeDelta(inputIntArr[1:1+paletteLength])]
+  palette = [item for item in IntSeqMath.genDeltaDecode(inputIntArr[1:1+paletteLength])]
   return [palette[item] for item in inputIntArr[1+paletteLength:]]
 
 
