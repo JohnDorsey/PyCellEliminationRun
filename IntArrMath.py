@@ -8,10 +8,10 @@ IntArrMath.py contains tools for analyzing or manipulating arrays, and must eith
 
 
 import IntSeqMath
-
 import IntMath
+import Curves
 
-from PyGenTools import makeGen, zipGens
+from PyGenTools import makeArr, makeGen, zipGens
 
 
 def is_sorted(inputArr):
@@ -69,7 +69,8 @@ def genRunless(inputSeq):
 
 
 
-def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="round_down"):
+def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="fail"):
+  #This didn't need to be a generator, and probably doesn't save much memory by being a generator.
   #works like this:
   #1       2
   #|   3   |
@@ -80,11 +81,9 @@ def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="ro
   #print("endpoints are " + str(inputEndpoints) + ".")
   assert midpointMode in ["fail","round_down","round_up","unsubdivided"], "bad midpointMode."
   if not inputEndpoints[0] <= inputEndpoints[1]:
-    print("the endpoints " + str(inputEndpoints) + " are in the wrong order, and nothing will be yielded.")
+    print("IntArrMath.genInterlacedIndices: the endpoints " + str(inputEndpoints) + " are in the wrong order, and nothing will be yielded. This is not always an error.")
     return
-
   domainSize = inputEndpoints[1]-inputEndpoints[0]+1
-
   if domainSize == 1:
     yield inputEndpoints[0]
   elif startWithEndpoints:
@@ -97,7 +96,7 @@ def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="ro
     perfectMidpoint = ((domainSize-1)%2 == 0)
     if not perfectMidpoint:
       if midpointMode == "fail":
-        assert False, "bad midpoint."
+        assert False, "bad midpoint is not allowed when midpointMode=\"fail\""
       elif midpointMode == "unsubdivided":
         for i in range(inputEndpoints[0],inputEndpoints[1]+1):
           yield i
@@ -109,20 +108,55 @@ def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="ro
     for item in zipGens([genInterlacedIndices((inputEndpoints[0],midpoint-1),startWithEndpoints=False,midpointMode=midpointMode),genInterlacedIndices((midpoint+1,inputEndpoints[1]),startWithEndpoints=False,midpointMode=midpointMode)]):
       yield item
 
-"""
-this math won't actually be needed.
-a palettized int array arrdown has a palette of length a, a body of length b, and a length c
-a + b = c
-for all n in arrdown[-b:], n < a.
-for all n in 0..a, n is in arrdown[-b:]
-for i in 0..c:
-  if max(arrdown[i:]) > i:
-    note that a != i
-  if arrdown[i] > c-1:
-    note that a > i
-  if not all in 0..i are in also in arrdown[i:]:
-    note that a < i
-"""
+
+def genReverseIndexMap(inputMap):
+  workingMap = makeArr(inputMap) #so that .index works even if the input is a generator.
+  for i in range(len(workingMap)):
+    yield workingMap.index(i)
+
+def applyIndexMap(inputArr,inputMap):
+  return [inputArr[index] for index in inputMap]
+
+def applyIndexMapReversed(inputArr,inputMap):
+  #simply using return applyIndexMap(inputArr,genReverseIndexMap(inputMap)) would be O(N^2).
+  #the following version is O(N).
+  result = [None for i in range(len(inputArr))]
+  for i,inputIndex in enumerate(inputMap):
+    result[inputIndex] = inputArr[i]
+  return result
+
+
+def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=None):
+  #ruler interlacing is what I call the method of interlacing described in IntArrMath.genInterlacedIndices.
+  #ruler interlacing is used to add values to the array in a helpful order (no clusters). Interpolation is used to guess what a new value will be. The _Focused_ integer functions in IntMath are used to focus a new value around the prediction for it to make it easier to compress using a universal code.
+  #the interpolationProvider should be something like Curves.Spline WITH INTEGER OUTPUTS, such as by enabling the rounding output filter for Curves.Spline.
+  #the output could be made streamable.
+  assert opMode in ["encode","decode"]
+  if spline == None:
+    spline = Curves.Spline(interpolationMode="linear&round",size=[len(inputIntArr),None])
+  if interlacingProvider == None:
+    interlacingProvider = genInterlacedIndices((0,len(inputIntArr)-1),midpointMode="fail")
+  result = []
+  for i,index in enumerate(interlacingProvider):
+    localFocus = spline[index]
+    assert type(localFocus) == int, "IntArrMath.rulerOPIntArrTranscode: Only integer foci are supported. Make sure the provided spline gives only integer outputs."
+    print("(i,index,localFocus,inputIntArr[i]) is " + str((i,index,localFocus,inputIntArr[i])) + ".")
+    if opMode == "encode":
+      spline[index] = inputIntArr[index]
+      result.append(IntMath.unfocusedOP_to_focusedOP(spline[index],localFocus))
+      print("result is " + str(result) + ".")
+    else:
+      spline[index] = IntMath.focusedOP_to_unfocusedOP(inputIntArr[i],localFocus)
+      print("spline is " + str([item for item in spline]) + ".")
+  if opMode == "encode":
+    return result
+  else:
+    return [spline[i] for i in range(len(inputIntArr))]
+
+
+
+
+
 
 def headingDeltadPaletteIntArrEncode(inputIntArr):
   #store an integer array as a new array starting with a palette length, followed by a palette, followed by a finite sequence of palette indices.
@@ -184,4 +218,9 @@ def headingMedianStaggerOPIntArrDecode(inputIntArr):
   medianVal = inputIntArr[0]
   return [IntMath.focusedOP_to_unfocusedOP(item,medianVal) for item in inputIntArr[1:]]
 
+
+
+
+assert applyIndexMap("abcdefg",[0,5,6,3,2,1,4]) == [ 'a', 'f', 'g', 'd', 'c', 'b', 'e']
+assert applyIndexMapReversed("afgdcbe",[0,5,6,3,2,1,4]) == ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 

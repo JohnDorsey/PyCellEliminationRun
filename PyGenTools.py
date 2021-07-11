@@ -1,4 +1,10 @@
+"""
 
+PyGenTools.py by John Dorsey.
+
+PyGenTools.py contains tools that work on python generators without handling their items (comparing items, etc.).
+
+"""
 
 
 
@@ -18,6 +24,7 @@ def makeArr(thing):
 
 
 def genTakeOnly(inputGen,count):
+  #take ONLY _count_ items from a generator _inputGen_ and yield them, so that if other functions call .next on the generator that was shared with this function, they will pick up exactly where this function's output left off (no missing items).
   assert count >= 0
   if count == 0:
     return

@@ -29,7 +29,7 @@ havenBucketFibonacciCoding.zeroSafe = True
 
 
 
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberSeqCodec=Codes.codecs["inSeq_fibonacci"],soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+1024]"):
+def test(interpolationModesToTest=["hold","nearest-neighbor","linear","linear&round","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberSeqCodec=Codes.codecs["inSeq_fibonacci"],soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:10000+1024]"):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
@@ -46,10 +46,11 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
     while inputArr[-1-i] == 0:
       i += 1
     return i
+  
+  print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + ((" and is equal to " + str(testSound)) if VERBOSE else (" and the start of it looks like " + str(testSound[:PEEK])[:PEEK])) + ".")
 
   for interpolationMode in interpolationModesToTest: #test all specified interpolation modes.
-    print("\n\nTesting.test: interpolation mode " + interpolationMode + ": ")
-    print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + ((" and is equal to " + str(testSound)) if VERBOSE else (" and the start of it looks like " + str(testSound[:PEEK])[:PEEK])) + ".")
+    print("\nTesting.test: interpolation mode " + interpolationMode + ": ")
     pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
     print("The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
     if VERBOSE:
@@ -59,11 +60,11 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","sinusoida
     reconstPressDataNums = [num-(0 if numberSeqCodec.zeroSafe else 1) for num in numberSeqCodec.decode(pressDataCodeBitArr)]
     reconstPlainDataNums = pcer.functionalTest(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
     if reconstPlainDataNums == testSound:
-      print("Testing.test: test passed.")
+      print("Testing.test: test passed.\n")
       for i in range(len(testSound)):
         assert testSound[i] == reconstPlainDataNums[i]
     else:
-      print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.")
+      print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.\n")
 
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
