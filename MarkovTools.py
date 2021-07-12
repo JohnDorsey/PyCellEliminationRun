@@ -155,58 +155,50 @@ class Hist:
     return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=keyFun)[::-1]]
 
 
-def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16):
+def extendWithoutDupes(arrToExtend,extensionSrc):
+  arrToExtend.extend(item for item in extensionSrc if not item in arrToExtend)
+
+
+def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(l,f,x_last,y**-1)"):
   assert opMode in ["encode","decode"]
+  #assert construct in ["length>frequency>recentness","length*frequency"]
+  assert scoreMode in ["(l,f,x_last,y**-1)","(l*f,x_last,y**-1)"]
   history = []
   contextualHist = None
   singleUsageHist = Hist()
   for inputItem in inputSeq:
-    print("history: " + str(history))
-    print("inputItem: " + str(inputItem))
+    #print("history: " + str(history))
+    #print("inputItem: " + str(inputItem))
     predictedItems = []
-    #two versions of the same prediction generation code exist - the first was much easier to get working, but it is now disabled in favor of the second which stores temporary information in a way that will make the addition of huffman coding much easier in the future.
-    """
-    for contextLength in range(maxContextLength,0,-1):
-      if contextLength > len(history)-1:
-        continue #simpler than making a more complicated for loop range statement.
-      contextLocations = [location+contextLength for location in getStartingIndicesOfSubSequence(history[:-1],history[-contextLength:])]
-      contextualHist = Hist()
-      for contextLocation in contextLocations:
-        if history[contextLocation] not in predictedItems:
-          contextualHist.register(history[contextLocation])
-      extension = [key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems]
-      print("(predictedItems,extension untrimmed,extension) for contextLength of " + str(contextLength) + " = " + str((predictedItems,contextualHist.keysInDescendingRelevanceOrder(),extension)))
-      predictedItems.extend(extension)
-    
-    """
-    #this version of the prediction generation code is huffman-coding ready because it gives all context matches organized by frequency and length in one giant array.
-    for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
-      contextualHist = Hist()
-      for matchEndLocation in matchesOfCurrentLength:
-        if history[matchEndLocation+1] not in predictedItems:
-          contextualHist.register(history[matchEndLocation+1])
-      extension = [key for key in contextualHist.keysInDescendingRelevanceOrder() if key not in predictedItems]
-      print("(predictedItems,extension untrimmed,extension) for currentLength of " + str(currentLength) + " = " + str((predictedItems,contextualHist.keysInDescendingRelevanceOrder(),extension)))
-      predictedItems.extend(extension)
-    
-    print("predictedItems without general history = " + str(predictedItems))
-    print("general history = " + str(singleUsageHist.data))
-    predictedItems.extend(key for key in singleUsageHist.keysInDescendingRelevanceOrder() if key not in predictedItems)
-    print("predictedItems = " + str(predictedItems))
+    if scoreMode == "(l,f,x_last,y**-1)":
+      for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
+        contextualHist = Hist()
+        for matchEndLocation in matchesOfCurrentLength:
+          if history[matchEndLocation+1] not in predictedItems:
+            contextualHist.register(history[matchEndLocation+1])
+        extendWithoutDupes(predictedItems,contextualHist.keysInDescendingRelevanceOrder())
+      #print("predictedItems without general history = " + str(predictedItems))
+      #print("general history = " + str(singleUsageHist.data))
+      extendWithoutDupes(predictedItems,singleUsageHist.keysInDescendingRelevanceOrder())
+    elif scoreMode == "(l*f,x_last,y**-1)":
+      assert False, "unfinished."
+
     resultItem = None
-    if opMode == "encode":
-      if inputItem in predictedItems:
-        resultItem = predictedItems.index(inputItem)
+    if scoreMode.endswith(",y**-1)"):
+      if opMode == "encode":
+        if inputItem in predictedItems:
+          resultItem = predictedItems.index(inputItem)
+        else:
+          resultItem = inputItem + len(predictedItems) - len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
+      elif opMode == "decode":
+        if inputItem < len(predictedItems):
+          resultItem = predictedItems[inputItem]
+        else:
+          resultItem = inputItem - len(predictedItems) + len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
       else:
-        resultItem = inputItem + len(predictedItems) - len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
-    elif opMode == "decode":
-      if inputItem < len(predictedItems):
-        resultItem = predictedItems[inputItem]
-      else:
-        resultItem = inputItem - len(predictedItems) + len([predictedItem for predictedItem in predictedItems if predictedItem < inputItem])
+        assert False
     else:
-      assert False
-    print("resultItem = " + str(resultItem))
+      assert False, "unfinished."
     yield resultItem
     if opMode == "encode":
       history.append(inputItem)
@@ -231,3 +223,7 @@ assert arrTakeOnly(genBleedSortedArr([5,8,10,11,15,16,17]),30) == [5,8,10,11,15,
 for test in [(sampleTexts[0],"rld"),(sampleTexts[1],"678")]:
   assert [item+len(test[1])-1 for item in getStartingIndicesOfSubSequence(test[0],test[1])] == getEndingIndicesOfGrowingSubSequences(test[0],test[1])[-1][1]
   continue
+
+assert [item for item in genDynamicMarkovTranscode([5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100],"encode")] == [5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+assert [item for item in genDynamicMarkovTranscode([5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],"decode")] == [5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100,5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100]
+

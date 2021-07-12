@@ -94,8 +94,14 @@ Design notes:
 
 Todo:
   
-  -prepare Curves.Spline for more use cases (other than audio) with customizable endpoint handling.
+  -in genDynamicMarkovTranscode, move each possible item into the search sequence so that the search directly decides the probability of that item being the next item, instead of needing a separate singleUsageHistogram.
+  
+  -add huffman coding to markov tools.
 
+  -add more output file formats, including plaintext python integer lists.
+
+  -prepare Curves.Spline for more use cases (other than audio) with customizable endpoint handling.
+  
   -clean up Codes.py, and move havenBucketFibonacciCoding to it.
 
   -Elias Delta Iota coding.
