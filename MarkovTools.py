@@ -137,11 +137,16 @@ class Hist:
       return (None,None,None)
 
   def register(self,key):
+    #add 1 to the frequency of any item.
+    self.registerMany(key,1)
+
+  def registerMany(self,key,amount):
+    #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
     self.writeCount += 1
     currentValue = self.__getitem__(key)
     if None in currentValue:
       currentValue = (0,self.writeCount,self.writeCount)
-    self.data[key] = (currentValue[0]+1,currentValue[1],self.writeCount)
+    self.data[key] = (currentValue[0]+amount,currentValue[1],self.writeCount)
     assert len(self.data[key]) == 3
 
   def keysInDescendingFreqOrder(self):
@@ -159,32 +164,47 @@ def extendWithoutDupes(arrToExtend,extensionSrc):
   arrToExtend.extend(item for item in extensionSrc if not item in arrToExtend)
 
 
-def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(l,f,x_last,y**-1)"):
+def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(max(l),f(max(l)),max(x(max(l))),-y)"):
   assert opMode in ["encode","decode"]
-  #assert construct in ["length>frequency>recentness","length*frequency"]
-  assert scoreMode in ["(l,f,x_last,y**-1)","(l*f,x_last,y**-1)"]
+  #in a scoreMode definition, l is the set of all unique lengths of all matches (to what? it varies), the function f gives the frequency of matches of a length, the function x gives all positions of all matches of a length, and y is just the value of the item being analyzed.
+  assert scoreMode in ["(max(l),f(max(l)),max(x(max(l))),-y)","(max(l)*f(max(l)),max(x(max(l))),-y)"]
   history = []
-  contextualHist = None
   singleUsageHist = Hist()
+
   for inputItem in inputSeq:
     #print("history: " + str(history))
     #print("inputItem: " + str(inputItem))
     predictedItems = []
-    if scoreMode == "(l,f,x_last,y**-1)":
+
+    #analyze phase:
+    #all known history, but NOT the current plainData or pressData item, is used to create a map that can be used to convert between a plainData item and a pressData item. This map will LATER be used to transcode whatever the current item is, in whichever direction it must be transcoded.
+    if scoreMode == "(max(l),f(max(l)),max(x(max(l))),-y)":
+      #the following code really is incompatible with the idea of merging the single analyzed item into the search term, because it needs to add things to predictedItems in strictly descending match length order.
+      currentLengthContextHist = None
       for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
-        contextualHist = Hist()
+        currentLengthContextHist = Hist()
         for matchEndLocation in matchesOfCurrentLength:
           if history[matchEndLocation+1] not in predictedItems:
-            contextualHist.register(history[matchEndLocation+1])
-        extendWithoutDupes(predictedItems,contextualHist.keysInDescendingRelevanceOrder())
+            currentLengthContextHist.register(history[matchEndLocation+1])
+        extendWithoutDupes(predictedItems,currentLengthContextHist.keysInDescendingRelevanceOrder())
       #print("predictedItems without general history = " + str(predictedItems))
       #print("general history = " + str(singleUsageHist.data))
       extendWithoutDupes(predictedItems,singleUsageHist.keysInDescendingRelevanceOrder())
-    elif scoreMode == "(l*f,x_last,y**-1)":
-      assert False, "unfinished."
+    elif scoreMode == "(max(l)*f(max(l)),max(x(max(l))),-y)":
+      #the following code is a change towards including the search item in the search term, and it avoids needing to apply a singleUsageHist at the end, because the main search includes these items when its match length is 1.
+      assert False, "NOT FINISHED!"
+      allLengthSearchItemHist = Hist()
+      for searchItem in singleUsageHist.keysInDescendingRelevanceOrder():
+        for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history,history[-maxContextLength:]+[searchItem])[::-1]:
+          for matchEndLocation in matchesOfCurrentLength:
+            assert history[matchEndLocation] == searchItem
+            if history[matchEndLocation] not in predictedItems:
+              allLengthSearchItemHist.registerMany(history[matchEndLocation],currentLength) #this currentLength is the "l" in "l*f", and the "f" is the result of repeatedly running this line.
+          extendWithoutDupes(predictedItems,contextualHist.keysInDescendingRelevanceOrder())
 
+    #transcode phase.
     resultItem = None
-    if scoreMode.endswith(",y**-1)"):
+    if scoreMode.endswith(",-y)"):
       if opMode == "encode":
         if inputItem in predictedItems:
           resultItem = predictedItems.index(inputItem)
@@ -199,7 +219,11 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(l,
         assert False
     else:
       assert False, "unfinished."
+
+    #yield phase.
     yield resultItem
+
+    #update phase.
     if opMode == "encode":
       history.append(inputItem)
       singleUsageHist.register(inputItem)
