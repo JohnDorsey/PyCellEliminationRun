@@ -6,9 +6,19 @@ CodecTools.py contains classes and other tools that might help make it easier to
 
 """
 
+from PyGenTools import makeArr, isGen
+
+
 
 def roundTripTest(testCodec, testData):
-  return testCodec.decode(testCodec.encode(testData)) == testData
+  reconstData = testCodec.decode(testCodec.encode(testData))
+  if isGen(reconstData):
+    reconstData = makeArr(reconstData)
+  result = (reconstData == testData)
+  if not result:
+    print("CodecTools.roundTripTest: Test failed.")
+    print("CodecTools.roundTripTest: Lengths " + ("do not" if len(reconstData)==len(testData) else "") + " differ. testData is " + str(testData) + " and reconstData is " + str(reconstData) + ".")
+  return result
 
 def makePlatformCodec(platCodec, mainCodec):
   return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda x: platCodec.encode(mainCodec.decode(platCodec.decode(x)))))
