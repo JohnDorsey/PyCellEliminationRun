@@ -35,17 +35,34 @@ def makeChainedPairCodec(codec1,codec2):
 
 
 class Codec:
-  def __init__(self,encodeFun,decodeFun):
-    self.encode, self.decode = (encodeFun, decodeFun)
-  
-  def encode(self,data):
-    assert False, "Codec.encode not implemented."
+  def __init__(self,encodeFun,decodeFun,extraArgs=None,extraKwargs=None):
+    #self.encode, self.decode = (encodeFun, decodeFun)
+    self.encodeFun, self.decodeFun = (encodeFun, decodeFun)
+    self.extraArgs, self.extraKwargs = (extraArgs if extraArgs != None else [], extraKwargs if extraKwargs != None else {})
 
-  def decode(self,data):
-    assert False, "Codec.decode not implemented."
+  def encode(self,data,*args,**kwargs):
+    #assert False, "Codec.encode not implemented."
+    argsToUse = args if args else self.extraArgs #a single extra argument specified when calling Codec.encode will override ALL stored values in Codec.extraArgs.
+    kwargsToUse = kwargs if kwargs else self.extraKwargs #a single extra keyword argument specified when calling Codec.encode will override ALL stored values in Codec.extraKwargs.
+    return self.encodeFun(data,*argsToUse,**kwargsToUse)
 
-  def getReversedCopy(self):
-    return Codec(self.decode,self.encode)
+  def decode(self,data,*args,**kwargs):
+    #assert False, "Codec.decode not implemented."
+    argsToUse = args if args else self.extraArgs
+    kwargsToUse = kwargs if kwargs else self.extraKwargs
+    return self.decodeFun(data,*argsToUse,**kwargsToUse)
+
+  def clone(self,extraArgs=None,extraKwargs=None):
+    if self.extraArgs != [] and extraArgs != None:
+      print("CodecTools.Codec.clone: warning: some existing extraArgs will not be cloned.")
+    if self.extraKwargs != {} and extraKwargs != None:
+      print("CodecTools.Codec.clone: warning: some existing extraKwargs will not be cloned.")
+    argsToUse = extraArgs if extraArgs else self.extraArgs
+    kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
+    return Codec(self.encodeFun,self.decodeFun,extraArgs=argsToUse,extraKwargs=kwargsToUse)
+
+  #def getReversedCopy(self):
+  #  return Codec(self.decode,self.encode)
 
 
 """

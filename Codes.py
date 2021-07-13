@@ -7,26 +7,8 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 """
 
 import CodecTools
-from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly
+from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, ExhaustionError
 
-
-"""
-from wikipedia:
-  Symbol 	Fibonacci representation 	Fibonacci code word 	Implied probability
-1 	F ( 2 ) {\displaystyle F(2)} F(2) 	11 	1/4
-2 	F ( 3 ) {\displaystyle F(3)} F(3) 	011 	1/8
-3 	F ( 4 ) {\displaystyle F(4)} F(4) 	0011 	1/16
-4 	F ( 2 ) + F ( 4 ) {\displaystyle F(2)+F(4)} F(2)+F(4) 	1011 	1/16
-5 	F ( 5 ) {\displaystyle F(5)} F(5) 	00011 	1/32
-6 	F ( 2 ) + F ( 5 ) {\displaystyle F(2)+F(5)} F(2)+F(5) 	10011 	1/32
-7 	F ( 3 ) + F ( 5 ) {\displaystyle F(3)+F(5)} F(3)+F(5) 	01011 	1/32
-8 	F ( 6 ) {\displaystyle F(6)} F(6) 	000011 	1/64
-9 	F ( 2 ) + F ( 6 ) {\displaystyle F(2)+F(6)} F(2)+F(6) 	100011 	1/64
-10 	F ( 3 ) + F ( 6 ) {\displaystyle F(3)+F(6)} F(3)+F(6) 	010011 	1/64
-11 	F ( 4 ) + F ( 6 ) {\displaystyle F(4)+F(6)} F(4)+F(6) 	001011 	1/64
-12 	F ( 2 ) + F ( 4 ) + F ( 6 ) {\displaystyle F(2)+F(4)+F(6)} F(2)+F(4)+F(6) 	101011 	1/64
-13 	F ( 7 ) {\displaystyle F(7)} F(7) 	0000011 	1/128
-14 	F ( 2 ) + F ( 7 ) {\displaystyle F(2)+F(7)} F(2)+F(7) 	1000011 	1/128 """
 
 
 fibNums = [1,1]
@@ -36,56 +18,8 @@ for i in range(8192):
 
 
 
-
-
-
-def parsePrefix(inputStr,conditionFun):
-  #this slow method can search the beginning of an input string for the proper slice length to satisfy a condition, and then return it.
-  prefixLength = None
-  #print("parsePrefix starts.")
-  #print([inputStr,prefixLength,inputStr[:prefixLength],conditionFun(inputStr[:prefixLength])])
-  if len(inputStr) == 1:
-    if conditionFun(inputStr):
-      return inputStr
-    else:
-      return None
-  for i in range(1,len(inputStr)+1):
-    #print([inputStr,i,prefixLength,inputStr[:i],inputStr[:prefixLength],conditionFun(inputStr[:i]),conditionFun(inputStr[:prefixLength])])
-    if conditionFun(inputStr[:i]):
-      #print("condition true, ")
-      #print([inputStr,i,prefixLength,inputStr[:i],inputStr[:prefixLength],conditionFun(inputStr[:i]),conditionFun(inputStr[:prefixLength])])
-      prefixLength = i
-      assert conditionFun(inputStr[:prefixLength])
-    else:
-      #print("condition false, ")
-      #print([inputStr,i,prefixLength,inputStr[:i],inputStr[:prefixLength],conditionFun(inputStr[:i]),conditionFun(inputStr[:prefixLength])])
-
-      if not prefixLength == None:
-        assert conditionFun(inputStr[:prefixLength])
-        assert prefixLength == i-1
-        assert not conditionFun(inputStr[:i])
-        return inputStr[:prefixLength]
-      assert prefixLength == None
-  if prefixLength == None:
-    #assert False
-    return None
-  #assert False
-  return None
-
-
-
-
-
-def intToHybridCodeBitStr(inputInt,prefixConverterFun,prefixValueGetterFun=(lambda payloadString: len(payloadString)),payloadConverterFun=(lambda payloadInt: bin(payloadInt)[3:])): #not tested thoroughly.
-  payloadString = payloadConverterFun(inputInt)
-  prefixValue = prefixValueGetterFun(payloadString)
-  return prefixConverterFun(prefixValue) + payloadString
-
-def hybridCodeBitStrToInt(inputBitStr,prefixParserFun,prefixConverterFun,payloadConverterFun=(lambda payloadString: int("1"+payloadString,2))): #not tested thoroughly.
-  #prefixRaw = prefixParserFun(inputBitStr)
-  #prefixValue = prefixConverterFun(prefixRaw) #this duplicates work.
-  #prefixValue = prefixParserFun(inputBitStr)
-  return payloadConverterFun(inputBitStr[len(prefixRaw):len(prefixRaw)+prefixValue])
+class ParseError(StandardError):
+  pass
 
 
 
@@ -106,7 +40,7 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
     if i >= bitCount:
       return result
   if onExhaustion == "fail":
-    raise ValueError("Codes.extendIntByBits ran out of bits, and its onExhaustion action is \"fail\".")
+    raise ExhaustionError("Codes.extendIntByBits ran out of bits, and its onExhaustion action is \"fail\".")
   if "warn" in onExhaustion:
     print("Codes.extendIntByBits ran out of bits, and may return an undesired value.")
   if "partial" in onExhaustion:
@@ -117,140 +51,27 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
     raise ValueError("Codes.extendIntByBits: the value of keyword argument onExhaustion is invalid.")
 
 
-
-
-
 def intSeqToBitSeq(inputIntSeq,inputFun):
   for inputInt in inputIntSeq:
     for outputBit in inputFun(inputInt):
       yield outputBit
 
+
 def bitSeqToIntSeq(inputBitSeq,inputFun):
   inputBitSeq = makeGen(inputBitSeq)
   outputInt = None
   while True:
-    outputInt = inputFun(inputBitSeq)
+    try:
+      outputInt = inputFun(inputBitSeq)
+    except ExhaustionError:
+      #print("bitSeqToIntSeq is stopping.")
+      return
     if outputInt == None:
-      break
+      raise ParseError("The inputFun did not properly terminate.")
     yield outputInt
 
 
 
-
-
-
-
-def intToFibcodeBitStr(inputInt,startPoint=None):
-  print("Codes.intToFibcodeBitStr: string-based methods like this one are deprecated.") 
-  return CodecTools.bitSeqToStrCodec.encode(intToFibcodeBitArr(inputInt,startPoint=startPoint))
-  #old:
-  #return "".join(str(item) for item in intToFibcodeBitArr(inputInt,startPoint=startPoint))
-
-def fibcodeBitStrToInt(inputBitStr,mode="parse"):
-  print("Codes.fibcodeBitStrToInt: string-based methods like this one are deprecated.")
-  #return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr],mode=mode)
-  if mode == "convert":
-    return fibcodeBitArrToInt([int(bitChr) for bitChr in inputBitStr])
-  elif mode == "detailed_parse":
-    for offset in range(0,len(inputBitStr)):
-      if inputBitStr[offset:offset+2] == "11":
-        return [inputBitStr[:offset+2],fibcodeBitStrToInt(inputBitStr[:offset+2],mode="convert")]
-  elif mode == "parse":
-    return fibcodeBitStrToInt(inputBitStr,mode="detailed_parse")[1] #maybe this is simpler.
-  else:
-    assert False, "bad mode."
-
-def intSeqToFibcodeSeqStr(inputIntSeq,addDebugCommas=False):
-  print("Codes.intSeqToFibcodeSeqStr: string-based methods like this one are deprecated.")
-  return ("," if addDebugCommas else "").join(intToFibcodeBitStr(inputInt) for inputInt in inputIntSeq)
-
-def fibcodeSeqStrToIntArr(inputFibcodeSeqStr):
-  print("Codes.fibcodeSeqStrToIntArr: string-based methods like this one are deprecated.")
-  #the input isn't generator safe, but it could be.
-  skipLastItem = inputFibcodeSeqStr.endswith("11")
-  return [fibcodeBitStrToInt(item+"11") for item in (inputFibcodeSeqStr.split("11")[:-1] if skipLastItem else inputFibcodeSeqStr.split("11"))]
-
-def fibcodeBitArrToInt(inputBitArr,mode="parse"):
-  print("Codes.fibcodeBitArrToInt is deprecated. please use a streaming version like fibcodeBitSeqToInt instead.")
-  assert mode=="parse"
-  return sum([fibNums[i+1]*inputBitArr[i] for i in range(len(inputBitArr)-1)])
-  #for i in range(len(inputBitArr))
-
-def intToUnaryBitStr(inputNum):
-  print("Codes.intToUnaryBitStr: string-based methods like this one are deprecated.")
-  return ("0"*inputNum)+"1"
-
-def unaryBitStrToInt(inputBitStr,mode="parse"):
-  print("Codes.unaryBitStrToInt: string-based methods like this one are deprecated.")
-  assert mode in ["convert","parse","detailed_parse"]
-  result = 0
-  for char in inputBitStr:
-    if char == "0":
-      result += 1
-    else:
-      assert char == "1"
-      break
-  if mode=="convert":
-    assert inputBitStr[result+1:]=="1"
-  if mode == "detailed_parse":
-    return [intToUnaryBitStr(result),result]
-  return result
-
-def validateUnaryBitStr(inputBitStr):
-  print("Codes.validateUnaryBitStr: string-based methods like this one are deprecated.")
-  if len(inputBitStr) < 1:
-    return False
-  if not "1" in inputBitStr:
-    return False
-  for item in inputBitStr[:-1]:
-    if item!="0":
-      return False
-  if inputBitStr[-1] != "1":
-    return False
-  return True
-
-
-def intToEliasGammaBitStr(inputNum):
-  print("Codes.intToEliasGammaBitStr: string-based methods like this one are deprecated.")
-  assert inputNum >= 1
-  return (("0"*(inputNum.bit_length()-1))+bin(inputNum)[3:]) if inputNum > 1 else "1"
-
-def eliasGammaBitStrToInt(inputBitStr,mode="parse"):
-  assert False, "Codes.eliasGammaBitStrToInt: this method is broken."
-  print("Codes.eliasGammaBitStrToInt: string-based methods like this one are deprecated.")
-  assert mode in ["convert","parse","detailed_parse"]
-  if mode == "convert":
-    return int(inputBitStr,2) #special case of this format of method. Usually the convert branch would look like parsing and then making sure that the rest of the data is empty.
-  elif mode in ["parse","detailed_parse"]:
-    prefixValue = unaryBitStrToInt(inputBitStr,mode="parse")
-    result = inputBitStr[prefixValue+1:prefixValue+prefixValue+1]
-    if mode == "detailed_parse":
-      return [inputBitStr[:prefixValue+prefixValue+1],int("1"+result,2)]
-    return int("1"+result,2)
-  else:
-    assert False, "reality error."
-
-def validateEliasGammaBitStr(inputBitStr):
-  print("Codes.validateEliasGammaBitStr: string-based methods like this one are deprecated.")
-  if inputBitStr == "1":
-    return True
-  prefix = parsePrefix(inputBitStr,validateUnaryBitStr)
-  if prefix == None:
-    return False
-  prefixLength = len(prefix)
-  if len(inputBitStr)-prefixLength != unaryBitStrToInt(prefix):
-    return False
-  return validateBinaryBitStr(inputBitStr[prefixLength:])
-  
-def eliasGammaSeqStrToIntArr(inputBitStr):
-  print("Codes.eliasGammaSeqStrToIntArr: string-based methods like this one are deprecated.")
-  startIndex = 0
-  result = []
-  while startIndex < len(inputBitStr):
-    prefix = parsePrefix(inputBitStr[startIndex:],validateEliasGammaBitStr) #could be faster by breaking down this task into finding the unary prefix and following steps.
-    result.append(eliasGammaBitStrToInt(prefix))
-    startIndex += len(prefix)
-  return result
 
 
 
@@ -264,7 +85,7 @@ def eliasGammaSeqStrToIntArr(inputBitStr):
 
 
 def intToFibcodeBitArr(inputInt,startPoint=None):
-  #This method hasn't been replaced with or converted to a generator because doing so has no benefits - the bits must be generated in backwards order anyway.
+  #This function hasn't been replaced with or converted to a generator because doing so has no benefits - the bits must be generated in backwards order anyway, so it makes no sense to convert to a generator and then convert back.
   assert type(inputInt) == int
   assert inputInt >= 1
   if not int(inputInt) <= fibNums[-1]:
@@ -288,6 +109,12 @@ def intToFibcodeBitArr(inputInt,startPoint=None):
   result.append(1)
   return result[1:] #I don't know why this is necessary.
 
+
+def intToFibcodeBitSeq(inputInt):
+  #exists only for uniform naming of functions.
+  for outputBit in intToFibcodeBitArr(inputInt):
+    yield outputBit
+
 def fibcodeBitSeqToInt(inputBitSeq):
   #this function only eats as much of the provided generator as it needs.
   inputBitSeq = makeGen(inputBitSeq)
@@ -299,8 +126,11 @@ def fibcodeBitSeqToInt(inputBitSeq):
     previousBit = inputBit
     result += fibNums[i+1] * inputBit
   if result != 0:
-    print("Codes.fibcodeBitSeqToInt: ran out of input bits midword. Returning None instead of " + str(result) + ".")
-  return None
+    raise ParseError("Codes.fibcodeBitSeqToInt ran out of input bits midword.")
+    #print("Codes.fibcodeBitSeqToInt ran out of input bits midword. Returning None instead of " + str(result) + ".")
+    #return None
+  raise ExhaustionError("Codes.fibcodeBitSeqToInt received an empty generator.")
+
 
 def intSeqToFibcodeBitSeq(inputIntSeq):
   return intSeqToBitSeq(inputIntSeq,intToFibcodeBitArr)
@@ -325,8 +155,9 @@ def unaryBitSeqToInt(inputBitSeq):
     else:
       return result
   if result != 0:
-    print("Codes.unaryBitSeqToInt: ran out of input bits midword. Returning None instead of " + str(result) + ".")
-  return None
+    raise ParseError("Codes.unaryBitSeqToInt ran out of input bits midword.")
+  raise ExhaustionError("Codes.unaryBitSeqToInt ran out of bits.")
+
 
 
 
@@ -336,12 +167,12 @@ def intToBinaryBitArr(inputInt):
 def binaryBitArrToInt(inputBitArr):
   return sum(2**i*inputBitArr[-1-i] for i in range(len(inputBitArr)))
 
+
 def validateBinaryBitStr(inputBitStr):
   if len(inputBitStr.replace("0","").replace("1","")) > 0:
     return False
   return True
-#def unaryBitStrFromStr(inputBitStr):
- # pass
+
 
 
 
@@ -355,13 +186,13 @@ def intToEliasGammaBitSeq(inputInt):
 def eliasGammaBitSeqToInt(inputBitSeq):
   inputBitSeq = makeGen(inputBitSeq)
   prefixValue = unaryBitSeqToInt(inputBitSeq)
-  if prefixValue == None: #if the inputBitSeq was empty to begin with...
-    return None
+  assert prefixValue != None, "None-based termination is being phased out."
   #print("Codes.eliasGammaBitSeqToInt: prefixValue is " + str(prefixValue) + ".")
-  result = extendIntByBits(1,inputBitSeq,prefixValue)
+  try:
+    return extendIntByBits(1,inputBitSeq,prefixValue)
+  except ExhaustionError:
+    raise ParseError("Codes.eliasGammaBitSeqToInt ran out of input bits before receiving as many as its unary prefix promised.")
   #print("Codes.eliasGammaBitSeqToInt: result is " + str(result) + ".")
-  return result
-
 
 
 def intSeqToEliasGammaBitSeq(inputIntSeq):
@@ -369,6 +200,8 @@ def intSeqToEliasGammaBitSeq(inputIntSeq):
 
 def eliasGammaBitSeqToIntSeq(inputBitSeq):
   return bitSeqToIntSeq(inputBitSeq,eliasGammaBitSeqToInt)
+
+
 
 
 def intToEliasDeltaBitSeq(inputInt):
@@ -382,11 +215,13 @@ def intToEliasDeltaBitSeq(inputInt):
 def eliasDeltaBitSeqToInt(inputBitSeq):
   inputBitSeq = makeGen(inputBitSeq)
   prefixValue = eliasGammaBitSeqToInt(inputBitSeq)
-  if prefixValue == None:
-    return None
+  assert prefixValue != None, "None-based termination is being phased out."
   payloadBitCount = prefixValue - 1
   #print("payloadBitCount is " + str(payloadBitCount))
-  return extendIntByBits(1,inputBitSeq,payloadBitCount)
+  try:
+    return extendIntByBits(1,inputBitSeq,payloadBitCount)
+  except ExhaustionError:
+    raise ParseError("Codes.eliasDeltaBitSeqToInt ran out of input bits before receiving as many as its Elias Gamma prefix promised.")
 
 
 def intSeqToEliasDeltaBitSeq(inputIntSeq):
@@ -394,12 +229,15 @@ def intSeqToEliasDeltaBitSeq(inputIntSeq):
 
 def eliasDeltaBitSeqToIntSeq(inputBitSeq):
   return bitSeqToIntSeq(inputBitSeq,eliasDeltaBitSeqToInt)
-    
+
+
+
+#eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
 
 def rjustArr(inputArr,length,fillItem=0,crop=False):
   return [fillItem for i in range(length-len(inputArr))] + (inputArr[-length:] if crop else inputArr)
 
-def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
+def intToEliasGammaIotaBitSeq(inputInt,maxInputInt=None):
   assert inputInt > 0
   assert inputInt <= maxInputInt
   maxPayloadLength = len(bin(maxInputInt)[3:])
@@ -414,60 +252,26 @@ def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
   for outputBit in result:
     yield outputBit
 
-def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt):
+def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt=None):
   inputBitSeq = makeGen(inputBitSeq)
   maxPayloadLength = len(bin(maxInputInt)[3:])
   prefixLength = len(bin(maxPayloadLength)[2:])
-  prefixValue = binaryBitArrToInt(arrTakeOnly(inputBitSeq,prefixLength))
-  return extendIntByBits(1,inputBitSeq,prefixValue)
+  prefixValue = binaryBitArrToInt(arrTakeOnly(inputBitSeq,prefixLength,onExhaustion="fail"))
+  assert prefixValue != None, "None-based termination is being phased out."
+  try:
+    return extendIntByBits(1,inputBitSeq,prefixValue)
+  except ExhaustionError:
+    raise ParseError("Codes.eliasGammaIotaBitSeqToInt ran out of input bits before receiving as many as its prefix promised.")
+  
+
+def intSeqToEliasGammaIotaBitSeq(inputIntSeq,maxInputInt=None):
+  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasGammaIotaBitSeq(x,maxInputInt=maxInputInt)))
+
+def eliasGammaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt=None):
+  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt=maxInputInt)))
 
 
 
-def intSeqToEliasGammaIotaBitSeq(inputIntSeq):
-  return intSeqToBitSeq(inputIntSeq,intToEliasGammaIotaBitSeq)
-
-def eliasGammaIotaBitSeqToIntSeq(inputBitSeq):
-  return bitSeqToIntSeq(inputBitSeq,eliasGammaIotaBitSeqToInt)
-
-
-
-#eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
-#they have not been tested much.
-"""
-def intToEliasGammaIotaBitStr(inputInt,maxPayload):
-  print("Codes.intToEliasGammaIotaBitStr: string-based methods like this one are deprecated.")
-  assert type(inputInt) == int
-  maxPayloadLength = len(bin(maxPayload)[3:])
-  #print("maxPayloadLength="+str(maxPayloadLength))
-  prefixLength = len(bin(maxPayloadLength)[2:])
-  #print("prefixLength="+str(prefixLength))
-  return bin(len(bin(inputInt)[3:]))[2:].rjust(prefixLength,"0") + bin(inputInt)[3:]
-
-def eliasGammaIotaBitStrToInt(inputBitStr,maxPayload,mode="parse"):
-  print("Codes.eliasGammaIotaBitStrToInt: string-based methods like this one are deprecated.")
-  assert type(inputBitStr) == str
-  if not mode == "parse":
-    print("WARNING: for eliasGammaIotaBitStrToInt, modes other than parse are not implemented, and parse mode be used in their stead. This might cause slower execution and incorrect results.")
-  maxPayloadLength = len(bin(maxPayload)[3:])
-  #print("maxPayloadLength="+str(maxPayloadLength))
-  prefixLength = len(bin(maxPayloadLength)[2:])
-  #print("prefixLength="+str(prefixLength))
-  prefixValue = int(inputBitStr[:prefixLength],2)
-  #print("prefixValue="+str(prefixValue))
-  return int("1"+inputBitStr[prefixLength:prefixLength+prefixValue],2)
-
-def intToEliasDeltaIotaBitStr(inputInt,maxPayload): #@ not yet proven optimal.
-  #print("Codes.intToEliasDeltaIotaBitStr: string-based methods like this one are deprecated.")
-  assert type(inputInt) == int
-  return intToHybridCodeBitStr(inputInt,(lambda x: intToEliasGammaIotaBitStr(x+1,len(bin(maxPayload)[3:])+1)))
-
-def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal.
-  #print("Codes.eliasDeltaIotaBitStrToInt: string-based methods like this one are deprecated.")
-  assert type(inputBitStr) == str
-  parseFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="parse")-1)
-  convertFun = (lambda x: eliasGammaIotaBitStrToInt(x,len(bin(maxPayload)[3:])+1,mode="convert")-1)
-  return hybridCodeBitStrToInt(inputBitStr,parseFun,convertFun)
-"""
 
 
 
@@ -475,32 +279,29 @@ def eliasDeltaIotaBitStrToInt(inputBitStr,maxPayload): #@ not yet proven optimal
 
 print("defining codecs...")
 
-#these are disabled because they are broken.
-#eliasDeltaCoding = UniversalCoding(intToEliasDeltaBitStr,eliasDeltaBitStrToInt,None,None)
-
 codecs = {}
 
-codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitArr,fibcodeBitSeqToInt)
-codecs["unary"] = CodecTools.Codec((lambda x: makeArr(intToUnaryBitSeq(x))),unaryBitSeqToInt)
-codecs["eliasGamma"] = CodecTools.Codec((lambda x: makeArr(intToEliasGammaBitSeq(x))),eliasGammaBitSeqToInt)
-codecs["eliasDelta"] = CodecTools.Codec((lambda x: makeArr(intToEliasDeltaBitSeq(x))),eliasDeltaBitSeqToInt)
-#codecs["eliasGammaIota"] = CodecTools.Codec((lambda x: makeArr(intToEliasGammaIotaBitSeq(x))),eliasGammaIotaBitSeqToInt)
+codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitSeq,fibcodeBitSeqToInt)
+codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt)
+codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt)
+codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt)
+codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt)
 
 codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
 codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
 codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq)
-#codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
+codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq)
 
 #a temporary fix for the fact that Testing.py methods expecting the old UniversalCoding class.
 codecs["fibonacci"].zeroSafe = False
 codecs["unary"].zeroSafe = True
 codecs["eliasGamma"].zeroSafe = False
 codecs["eliasDelta"].zeroSafe = False
-#codecs["eliasGammaIota"].zeroSafe = False
+codecs["eliasGammaIota"].zeroSafe = False
 codecs["inSeq_fibonacci"].zeroSafe = False
 codecs["inSeq_eliasGamma"].zeroSafe = False
 codecs["inSeq_eliasDelta"].zeroSafe = False
-#codecs["inSeq_eliasGammaIota"].zeroSafe = False
+codecs["inSeq_eliasGammaIota"].zeroSafe = False
 
 codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
 codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
@@ -513,19 +314,7 @@ codecs["inStr_inSeq_eliasDelta"].zeroSafe = False
 
 
 
-
-print("performing unary tests...")
-
-assert parsePrefix("00001Hello",validateUnaryBitStr) == "00001"
-assert parsePrefix("101101101World",validateBinaryBitStr) == "101101101"
-
-#assert sum([validateEliasGammaBitStr(bin(item)[2:]) for item in range(1,100) if bin(item)[2:] not in [intToEliasGammaBitStr(i) for i in range(1,10)]]) == 0
-#assert sum([validateEliasGammaBitStr(item) for item in [intToEliasGammaBitStr(i) for i in range(1,100)]]) == 99
-
-#assert [eliasDeltaBitStrToInt(intToEliasDeltaBitStr(i)) for i in range(1,32)] == [i for i in range(1,32)]
-
-
-print("performing overeating tests...")
+print("performing over-eating tests...")
 
 #the following 3 tests check to make sure functions that accept generators as arguments do not overeat from those generators.
 testGen = makeGen(CodecTools.bitSeqToStrCodec.decode("10110011"))
@@ -539,6 +328,7 @@ assert makeArr(testGen) == [0,0,1]
 testGen = makeGen([0,0,1,1,1,0,0,1])
 assert eliasGammaBitSeqToInt(testGen) == 7
 assert makeArr(testGen) == [0,0,1]
+
 
 
 print("performing full codec tests...")
@@ -562,3 +352,11 @@ for testCodecName in ["inStr_inSeq_fibonacci","inStr_inSeq_eliasGamma","inStr_in
   assert type(pressData) == str
   reconstPlainData = [item for item in testCodec.decode(pressData)]
   assert reconstPlainData == testArr
+
+
+
+print("performing tests of Iota codings...")
+
+assert CodecTools.roundTripTest(codecs["inSeq_eliasGammaIota"].clone(extraKwargs={"maxInputInt":15}),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+
+

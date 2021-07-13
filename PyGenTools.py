@@ -6,6 +6,8 @@ PyGenTools.py contains tools that work on python generators without handling the
 
 """
 
+class ExhaustionError(StandardError):
+  pass
 
 
 def isGen(thing):
@@ -21,7 +23,11 @@ def makeGen(thing):
 def makeArr(thing):
   if type(thing) == list:
     return thing
-  return [item for item in thing]
+  try:
+    result = [item for item in thing]
+  except KeyboardInterrupt:
+    raise KeyboardInterrupt("PyGenTools.makeArr was stuck on " + str(thing) + ".")
+  return result
 
 
 
@@ -38,9 +44,22 @@ def genTakeOnly(inputGen,count):
     if not i < count:
       return
 
-def arrTakeOnly(inputGen,count):
+def arrTakeOnly(inputGen,count,onExhaustion="partial"):
   #just like genTakeOnly, but bundle the taken items together into an array.
-  return [item for item in genTakeOnly(inputGen,count)]
+  assert onExhaustion in ["fail","warn+partial","partial","warn+None","None"]
+  result = [item for item in genTakeOnly(inputGen,count)]
+  if len(result) < count:
+    if onExhaustion == "fail":
+      raise ExhaustionError("PyGenTools.arrTakeOnly ran out of items, and its onExhaustion action is \"fail\".")
+    elif "warn" in onExhaustion:
+      print("PyGenTools.arrTakeOnly ran out of items, and will return only part of the requested array.")
+    if "partial" in onExhaustion:
+      return result
+    elif "None" in onExhaustion:
+      return None
+    else:
+      raise ValueError("PyGenTools.arrTakeOnly: the value of keyword argument onExhaustion is invalid.")
+  return result
 
 
 def zipGens(inputGens):
