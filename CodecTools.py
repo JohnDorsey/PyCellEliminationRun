@@ -12,13 +12,17 @@ from PyGenTools import makeArr, isGen
 
 def roundTripTest(testCodec, testData):
   #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
+  if isGen(testData):
+    testData = makeArr(testData)
   reconstData = testCodec.decode(testCodec.encode(testData))
   if isGen(reconstData):
     reconstData = makeArr(reconstData)
   result = (reconstData == testData)
   if not result:
     print("CodecTools.roundTripTest: Test failed.")
-    print("CodecTools.roundTripTest: Lengths " + ("do not" if len(reconstData)==len(testData) else "") + " differ. testData is " + str(testData) + " and reconstData is " + str(reconstData) + ".")
+    print("CodecTools.roundTripTest: testData is " + str(testData) + " and reconstData is " + str(reconstData) + ".")
+    if type(testData) == list and type(reconstData) == list:
+      print("CodecTools.roundTripTest: Lengths " + ("do not" if len(reconstData)==len(testData) else "") + " differ.")
   return result
 
 
