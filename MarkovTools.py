@@ -11,8 +11,9 @@ from PyGenTools import genTakeOnly, arrTakeOnly
 
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
+  #search an entire input array and output a list of all indices where matches with a specified subSequence start.
   #the output could be streamable.
-  #this method could be much faster.
+  #this method could be much faster. The faster version _is_ MarkovTools.getEndingIndicesOfGrowingSubSequences.
   assert len(subSequence) > 0
   result = []
   for i in range(len(inputArr)-len(subSequence)+1):
@@ -22,7 +23,9 @@ def getStartingIndicesOfSubSequence(inputArr,subSequence):
 
 
 def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=True):
-  #the output of this could be made streamable.
+  #search an entire input array, and output all ending indices of matches with any portion of searchTerm which ends at the end of searchTerm. So searching for [2,3,4,5] is the same as searching for [5], and then searching among those matches for places that also match [4,5], and so on. The time complexity is O(total number of matches). This makes it superior to using getStartingIndicesOfSubSequence repeatedly.
+  #the keepOnlyLongest option is useful for avoiding double-counting. With it enabled, a search for "34567" in "1234567" finds only one match of length 5 instead of one match for each length in [1,2,3,4,5].
+  #the output of this could be made streamable. But there is little use - most of the ways it is used require reversing the order of the items of its output.
   if len(searchTerm) == 0:
     return [(0,[])]
   result = [(0,[]),(1,[])]

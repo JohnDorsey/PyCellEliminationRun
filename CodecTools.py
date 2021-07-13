@@ -11,6 +11,7 @@ from PyGenTools import makeArr, isGen
 
 
 def roundTripTest(testCodec, testData):
+  #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
   reconstData = testCodec.decode(testCodec.encode(testData))
   if isGen(reconstData):
     reconstData = makeArr(reconstData)
@@ -20,8 +21,10 @@ def roundTripTest(testCodec, testData):
     print("CodecTools.roundTripTest: Lengths " + ("do not" if len(reconstData)==len(testData) else "") + " differ. testData is " + str(testData) + " and reconstData is " + str(reconstData) + ".")
   return result
 
+
 def makePlatformCodec(platCodec, mainCodec):
   return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda x: platCodec.encode(mainCodec.decode(platCodec.decode(x)))))
+
 
 def makeChainedPairCodec(codec1,codec2):
   return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda x: codec1.decode(codec2.decode(x))))
@@ -73,6 +76,14 @@ bitSeqToStrCodec = Codec((lambda x: "".join(str(item) for item in x)),(lambda x:
 
 
 
+
+
+
+
+
+
+
+#tests:
 
 get_delimitedStr_codec = lambda delimiter: Codec((lambda x: delimiter.join(x)),(lambda x: x.split(delimiter)))
 

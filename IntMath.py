@@ -35,5 +35,7 @@ def focusedOP_to_unfocusedOP(inputInt,focus):
   return OP_to_NOP(inputInt) + focus
 
 
-
+#tests:
 assert [OP_to_NOP(NOP_to_OP(item)) for item in [5,99,32,1,0]] == [5,99,32,1,0]
+assert [focusedOP_to_unfocusedOP(i,6) for i in range(20)] == [6,5,7,4,8,3,9,2,10,1,11,0,12,13,14,15,16,17,18,19]
+assert [unfocusedOP_to_focusedOP(i,6) for i in [6,5,7,4,8,3,9,2,10,1,11,0,12,13,14,15,16,17,18,19]] == [i for i in range(20)]

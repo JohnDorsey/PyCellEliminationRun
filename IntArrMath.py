@@ -15,6 +15,7 @@ from PyGenTools import makeArr, makeGen, zipGens
 
 
 def is_sorted(inputArr):
+  #test whether the input array is sorted.
   if len(inputArr) <= 1:
     return True
   for i in range(1,len(inputArr)):
@@ -24,13 +25,16 @@ def is_sorted(inputArr):
 
 
 def mean(inputArr):
+  #find the mean of the input array. Might mishandle long type items in python2.
   inputArrSum = sum(inputArr)
-  if type(inputArrSum) in [int,long] and inputArrSum%len(inputArr) == 0:
+  if type(inputArrSum)==int and inputArrSum%len(inputArr) == 0:
     return inputArrSum / len(inputArr)
   else:
     return float(inputArrSum)/len(inputArr)
 
+
 def median(inputArr,middlePairHandlingFun=mean):
+  #find the median of the input array. Uses middlePairHandlingFun as the function to process the middle pair in even-length inputArrs to get the result.
   if len(inputArr) == 0:
     raise ValueError("can't find the median of an empty list.")
   elif len(inputArr) == 1:
@@ -42,19 +46,13 @@ def median(inputArr,middlePairHandlingFun=mean):
       return workingArr[len(workingArr)>>1]
     else:
       middlePair = workingArr[(len(workingArr)>>1)-1:(len(workingArr)>>1)+1]
-      """if middlePairHandling == "mean":
-        middlePairSum = sum(middlePair)
-        if type(middlePairSum) == int and middlePairSum%2==0:
-          return middlePairSum/2
-        else:
-          return middlePairSum/2.0
-      elif middlePairHandling == "min"
-      """
       return middlePairHandlingFun(middlePair)
   assert False, "reality error."
 
 
 def genRunless(inputSeq):
+  #this generator takes an input sequence and yields only the items that aren't the same as the previous item.
+  #this generator eats only as much as it yields.
   previousItem = None
   justStarted = True
   for item in inputSeq:
@@ -110,7 +108,7 @@ def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="fa
 
 
 def genReverseIndexMap(inputMap):
-  workingMap = makeArr(inputMap) #so that .index works even if the input is a generator.
+  workingMap = makeArr(inputMap) #so that calls to .index works even if the input is a generator.
   for i in range(len(workingMap)):
     yield workingMap.index(i)
 

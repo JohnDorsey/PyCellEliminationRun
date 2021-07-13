@@ -9,9 +9,11 @@ PyGenTools.py contains tools that work on python generators without handling the
 
 
 def isGen(thing):
+  #test whether something is a generator. Compatible with python2 and python3.
   return type(thing) == type((i for i in range(1)))
 
 def makeGen(thing):
+  #make anything iterable into a generator. This is useful for when certain functions are supposed to take only as many items as they need from the beginning of some data and leave the rest in a way that further iteration will begin where the first function stopped iterating, such as in parsing universal codes in Codes.py.
   if isGen(thing):
     return thing
   return (item for item in thing)
@@ -37,27 +39,31 @@ def genTakeOnly(inputGen,count):
       return
 
 def arrTakeOnly(inputGen,count):
+  #just like genTakeOnly, but bundle the taken items together into an array.
   return [item for item in genTakeOnly(inputGen,count)]
 
 
-def zipGens(inputGenArr):
-  gensRunning = [True for i in range(len(inputGenArr))] #this map prevents needing to catch the same StopIteration many times for each generator that stops sooner than the last one to stop.
-  workingGenArr = [makeGen(item) for item in inputGenArr] #in case the inputGenArr contains things that aren't generators.
+def zipGens(inputGens):
+  #This function gives a generator whose items are taken one at a time from each generator provided in a circular order. It runs until all the provided generators are empty. Technically, it can be given arrays instead of generators and it will correct for this. The array of generators may also be a generator instead of an array.
+  gensRunning = [True for i in range(len(inputGens))] #this map prevents needing to catch the same StopIteration many times for each generator that stops sooner than the last one to stop.
+  workingGenArr = [makeGen(item) for item in inputGens] #in case the inputGens contains things that aren't generators _or_ inputGens itself is a generator, this fixes that.
   while not all(not genIsRunning for genIsRunning in gensRunning):
     for genIndex in range(len(workingGenArr)):
       if gensRunning[genIndex]:
         try:
           yield workingGenArr[genIndex].next()
         except StopIteration:
-          gensRunning[genIndex] = False
+          gensRunning[genIndex] = False #don't check this generator for items again.
 
 
 
 
 
 
-
+#tests:
 
 assert len([item for item in genTakeOnly(range(256),10)]) == 10
 assert arrTakeOnly(range(10),5) == [0,1,2,3,4]
 assert arrTakeOnly(range(5),10) == [0,1,2,3,4]
+
+assert "".join(zipGens(["hello","123456789","ABC"])) == "h1Ae2Bl3Cl4o56789"
