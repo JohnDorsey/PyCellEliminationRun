@@ -112,18 +112,19 @@ class CellCatalogue:
       assert False, "unknown storage mode."
 
 
-  def prettyPrint(self):
-    if not DOVIS:
-      return
-    dbgPrint("CellCatalogue.prettyPrint():")
-    for y in range(self.size[1]):
-      print("prettyPrinting disabled for python2 compatibility.")
-      #print("  ",end="")
+  def toPrettyStr(self):
+    alignmentError = False
+    result = "PyCellElimRun.CellCatalogue.toPrettyStr generated string representation."
+    sidebarWidth = len(str(self.size[1]))
+    for y in range(self.size[1]-1,-1,-1):
+      result += "\n"+str(y).rjust(sidebarWidth," ")+": "
       for x in range(self.size[0]):
-        #print(self.getCell((x,y)),end="")
-        pass
-      #print(" ",end="")
-    return
+        addition = str(self.getCell((x,y)))
+        if len(addition) != 1:
+          alignmentError = True
+        result += addition
+    result += "\nalignmentError="+str(alignmentError)
+    return result
 
 
   def getCell(self,cell):
@@ -131,8 +132,7 @@ class CellCatalogue:
       return CellCatalogue.UNKVAL if (self.limits[cell[0]][0] < cell[1]) and (cell[1] < self.limits[cell[0]][1]) else CellCatalogue.ELIMVAL
     elif self.storageMode == "grid":
       return self.grid[cell[0]][cell[1]]
-    else:
-      assert False, "unknown storage mode."
+    assert False, "unknown storage mode."
 
 
   def eliminateColumn(self,columnIndex):
@@ -150,16 +150,14 @@ class CellCatalogue:
   def eliminateCell(self,cell):
     #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
     if self.getCell(cell) == CellCatalogue.ELIMVAL:
-      print("CellCatalogue.eliminateCell: cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
-      self.prettyPrint()
+      print("PyCellElimRun.CellCatalogue.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
     if self.storageMode == "limits":
       if cell[1] == self.limits[cell[0]][0]+1:
         self.limits[cell[0]][0] += 1
       elif cell[1] == self.limits[cell[0]][1]-1:
         self.limits[cell[0]][1] -= 1
       else:
-        print("The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
-        self.prettyPrint()
+        print("PyCellElimRun.CellCatalogue.eliminateCell: The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
         return
     elif self.storageMode == "grid":
       self.grid[cell[0]][cell[1]] = CellCatalogue.ELIMVAL
@@ -195,10 +193,10 @@ class CellCatalogue:
 
 
 
-class CodecState:
+class CellElimRunCodecState:
   #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
-  DO_COLUMN_ELIMINATION = True
+  DO_COLUMN_ELIMINATION = True #this should not be turned off, because it affects the output.
 
   def __init__(self, size, plainDataSamples=None, pressDataNums=None, opMode="encode"):
     self.size = size
@@ -226,27 +224,31 @@ class CodecState:
     self.cellCatalogue = CellCatalogue(size=self.size)
 
 
-  def processBlock(self,interpolateMissingValues=True):
+  def processBlock(self,allowMissingValues=False):
     #encode or decode. This method processes all the data that is currently loaded into the CodecState, which is supposed to be one block. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way.
     self.runIndex = 0
     while True:
       self.processRun()
       self.runIndex += 1
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataSamples)) or (self.opMode == "decode" and self.runIndex >= len(self.pressDataNums)):
-        if self.opMode == "decode" and interpolateMissingValues:
-          if None in self.plainDataSamples:
-            print("PyCellElimRun.CodecState.processBlock: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
-            for index in range(len(self.plainDataSamples)):
-              if self.plainDataSamples[index] == None:
-                self.plainDataSamples[index] = self.spline[index]
-        else:
-          print("PyCellElimRun.CodecState.processBlock: no missing values exist.")
-        return #finished, might be lossy if it ended while they were unequal lengths.
-    assert False
+        break
+    if self.opMode == "decode" and not allowMissingValues:
+      self.interpolateMissingValues()
+    return #finished, might be lossy if it ended while they were unequal lengths.
+
+
+  def interpolateMissingValues(self):
+    if None in self.plainDataSamples:
+      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
+      for index in range(len(self.plainDataSamples)):
+        if self.plainDataSamples[index] == None:
+          self.plainDataSamples[index] = self.spline[index]
+    else:
+      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
 
 
   def processRun(self): #do one run, either encoding or decoding.
-    dbgPrint("PyCellElimRun.CodecState.processRun: runIndex = " + str(self.runIndex))
+    dbgPrint("PyCellElimRun.CellElimRunCodecState.processRun: runIndex = " + str(self.runIndex) + ".")
     self.stepIndex = 0
     breakRun = False
     for cellToCheck in self.getGenCellCheckOrder():
@@ -267,10 +269,10 @@ class CodecState:
           self.stepIndex += 1
       else:
         assert False, "invalid opMode."
-      assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "PyCellElimRun.CodecState.processRun: this loop has run for an impossibly long time."
+      assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "This loop has run for an impossibly long time."
       if breakRun:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
-        if CodecState.DO_COLUMN_ELIMINATION:
+        if CellElimRunCodecState.DO_COLUMN_ELIMINATION:
           self.cellCatalogue.eliminateColumn(cellToCheck[0])
         dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return
@@ -285,7 +287,7 @@ class CodecState:
         def scoreFun(cell):
           return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
       else:
-        assert False, "not all scoreFuns are yet supported."
+        assert False, "Not all scoreFuns are yet supported."
     else:
       assert type(scoreFun) == type(lambda x: x) #works in python3, untested in python2.
     rankings = [] #rankings array will store items in format [(index, value), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
@@ -303,44 +305,28 @@ class CodecState:
       #print([replacementCell, scoreFun(replacementCell)]) #debug.
       #print(rankings) #debug.
       insort(rankings, [replacementCell, scoreFun(replacementCell)], keyFun=rankingsInsortKeyFun)
-    #^ this code caches cell scores and is much faster.
-    #the below code, which recalculates the cell score for every compare of every insort, is around 8x slower for 128x256 cell randomish data tests.
-    """for cell in self.cellCatalogue.getExtremeUnknownCells():
-      insort(rankings, cell, keyFun=scoreFun)
-    while True: #the generator loop.
-      outputCell = rankings[0]
-      dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
-      yield outputCell
-      del rankings[0]
-      self.cellCatalogue.eliminateCell(outputCell)
-      replacementCell = self.cellCatalogue.clampCell(outputCell)
-      assert str(outputCell) != str(replacementCell) #debug.
-      #print([replacementCell, scoreFun(replacementCell)]) #debug.
-      #print(rankings) #debug.
-      insort(rankings, replacementCell, keyFun=scoreFun)"""
+    #^ this code caches cell scores and is up to 8x faster than not doing so in some tests.
     dbgPrint("getGenCellCheckOrder has ended.")
 
 
 
-def functionalTest(inputData,opMode,splineInterpolationMode,size,dbgReturnWholeCS=False):
+def cellElimRunTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturnCERCS=False):
   if size[0] == None:
     dbgPrint("PyCellElimRun.functionalTest: assuming size.")
     size[0] = len(inputData)
-  assert opMode in ["encode","decode","encode_then_decode"]
-  if opMode == "encode_then_decode":
-    return functionalTest(functionalTest(inputData,"encode",splineInterpolationMode,size),"decode",splineInterpolationMode,size)
-  tempCS = None
+  assert opMode in ["encode","decode"]
+  tempCERCS = None
   outputData = []
   if opMode == "encode":
-    tempCS = CodecState(size,plainDataSamples=[item for item in inputData],pressDataNums=outputData,opMode=opMode)
+    tempCERCS = CellElimRunCodecState(size,plainDataSamples=[item for item in inputData],pressDataNums=outputData,opMode=opMode)
   elif opMode == "decode":
-    tempCS = CodecState(size,plainDataSamples=outputData,pressDataNums=[item for item in inputData],opMode=opMode)
+    tempCERCS = CellElimRunCodecState(size,plainDataSamples=outputData,pressDataNums=[item for item in inputData],opMode=opMode)
   else:
-    assert False
-  tempCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
-  tempCS.processBlock()
-  if dbgReturnWholeCS:
-    return tempCS
+    assert False, "invalid opMode."
+  tempCERCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
+  tempCERCS.processBlock()
+  if dbgReturnCERCS:
+    return tempCERCS
   else:
     return outputData
   assert False

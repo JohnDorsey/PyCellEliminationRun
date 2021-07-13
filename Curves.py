@@ -99,20 +99,30 @@ class Spline:
     return t**3-t**2
 
 
-  def prettyPrint(self):
-    if not DOVIS:
-      return
-    dbgPrint("Curves.Spline.prettyPrint:")
+  def toPrettyStr(self):
+    alphabet = [["~","-"],["%","#"]] #access like alphabet[known?][exact?]
+    result = "Curves.Spline.prettyPrint generated string representation."
     assert self.endpoints[0][0] == 0
     tempValues = [self.__getitem__(index) for index in range(self.endpoints[1][0]+1)]
-    valueRange = (min(tempValues),max(tempValues))
-    for value in range(valueRange[1],valueRange[0]-1,-1):
-      #print(str(value).rjust(10)+": ",end="")
-      print("Curves.Spline.prettyPrint: prettyPrinting disabled for python2 compatibility.")
-      for index in range(self.endpoints[1][0]+1):
-        #print("#" if (tempValues[index] == value) else "-",end="")
-        pass
-      print("")
+    roundedTempValues = [int(round(value)) for value in tempValues]
+    valueRange = (min(roundedTempValues),max(roundedTempValues))
+    for y in range(valueRange[1],valueRange[0]-1,-1):
+      if not y in roundedTempValues: #@ slow.
+        if not result.endswith("\n..."):
+          result += "\n..."
+        continue
+      result += "\n"+str(y).rjust(10," ")+": "
+      #print("Curves.Spline.prettyPrint: prettyPrinting disabled for python2 compatibility.")
+      for index in range(self.size[0]):
+        if not roundedTempValues[index] == y:
+          result += " "
+          continue
+        known = (self.data[index] != None)
+        exact = (tempValues[index] == y)
+        addition = alphabet[known][exact]
+        result += addition
+    result += "\nend of generated string representation."
+    return result
 
 
   def getPointInDirection(self,location,direction,skipStart=True):
@@ -251,6 +261,7 @@ class Spline:
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
+    assert not (value == None and Spline.CACHE_BONE_DISTANCE_ABS), "None values can't be set while bone distance abs caching is enabled."
     if self.data[index] != None:
       dbgPrint("Curves.Spline.__setitem__: overwriting an item at index " + str(index) + ".")
     self.data[index] = value

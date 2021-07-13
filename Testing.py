@@ -51,14 +51,14 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","linear&ro
 
   for interpolationMode in interpolationModesToTest: #test all specified interpolation modes.
     print("\nTesting.test: interpolation mode " + interpolationMode + ": ")
-    pressDataNums = pcer.functionalTest(testSound,"encode",interpolationMode,testSoundSize)
+    pressDataNums = pcer.cellElimRunTranscode(testSound,"encode",interpolationMode,testSoundSize)
     print("The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
     if VERBOSE:
       print("The pressDataNums are " + str(pressDataNums))
     pressDataCodeBitArr = [item for item in numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)]
     print("Testing.test: the length of the coded data is " + str(len(pressDataCodeBitArr)) + " and it begins with " + str(pressDataCodeBitArr[:PEEK])[:PEEK] + ".")
     reconstPressDataNums = [num-(0 if numberSeqCodec.zeroSafe else 1) for num in numberSeqCodec.decode(pressDataCodeBitArr)]
-    reconstPlainDataNums = pcer.functionalTest(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
+    reconstPlainDataNums = pcer.cellElimRunTranscode(reconstPressDataNums,"decode",interpolationMode,testSoundSize)
     if reconstPlainDataNums == testSound:
       print("Testing.test: test passed.\n")
       for i in range(len(testSound)):
@@ -82,7 +82,7 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCo
     print(str((100.0*offset)/float(len(sound)))[:6]+"%...")
     audioData = sound[offset:offset+blockWidth]
     offset += blockWidth
-    pressDataNums = pcer.functionalTest(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
+    pressDataNums = pcer.cellElimRunTranscode(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
     print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
     pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.encode([item+(0 if numberSeqCodec.zeroSafe else 1) for item in pressDataNums])) + "\n"
     print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
@@ -115,7 +115,7 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
     if not len(pressDataNums) == blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending. It is less likely to happen now that the UniversalCoding class is no longer used.
       print("pressDataNums is the wrong length. Trimming will be attempted.") 
       pressDataNums = pressDataNums[:blockWidth]
-    plainDataNums = pcer.functionalTest(pressDataNums,"decode",interpolationMode,[blockWidth,SAMPLE_VALUE_UPPER_BOUND])
+    plainDataNums = pcer.cellElimRunTranscode(pressDataNums,"decode",interpolationMode,[blockWidth,SAMPLE_VALUE_UPPER_BOUND])
     if not len(plainDataNums) == blockWidth:
       print("plainDataNums is the wrong length. Trimming will be attempted. This has never happened before.")
       plainDataNums = plainDataNums[:blockWidth]
@@ -131,7 +131,7 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
 assert len(CERWaves.sounds["samples/moo8bmono44100.txt"]) > 0
 
 #old non-codec-tools-based test.
-assert pcer.functionalTest([item-1 for item in Codes.fibcodeBitSeqToIntSeq(Codes.intSeqToFibcodeBitSeq([item+1 for item in pcer.functionalTest(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
+assert pcer.cellElimRunTranscode([item-1 for item in Codes.fibcodeBitSeqToIntSeq(Codes.intSeqToFibcodeBitSeq([item+1 for item in pcer.cellElimRunTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
 
-assert pcer.functionalTest([2,2,2,2,2],"encode","linear",[5,5]) == [20,0,0,0,0]
-assert pcer.functionalTest([20],"decode","linear",[5,5]) == [2,2,2,2,2]
+assert pcer.cellElimRunTranscode([2,2,2,2,2],"encode","linear",[5,5]) == [20,0,0,0,0]
+assert pcer.cellElimRunTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
