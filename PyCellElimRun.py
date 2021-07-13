@@ -219,7 +219,7 @@ class CellElimRunCodecState:
   #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
   DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it affects the output.
-  DO_CRITICAL_COLUMN_ROUTINE = False
+  DO_CRITICAL_COLUMN_ROUTINE = True
 
   def __init__(self, size, plainDataSamples=None, pressDataNums=None, opMode="encode"):
     self.size = size
@@ -262,7 +262,8 @@ class CellElimRunCodecState:
 
   def interpolateMissingValues(self):
     if None in self.plainDataSamples:
-      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding. The missing values are at the indices " + str([i for i in range(len(self.plainDataSamples)) if self.plainDataSamples[i] == None]) + ".")
+      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
+      #print("The missing values are at the indices " + str([i for i in range(len(self.plainDataSamples)) if self.plainDataSamples[i] == None]) + ".")
       for index in range(len(self.plainDataSamples)):
         if self.plainDataSamples[index] == None:
           self.plainDataSamples[index] = self.spline[index]
@@ -274,7 +275,14 @@ class CellElimRunCodecState:
     dbgPrint("PyCellElimRun.CellElimRunCodecState.processRun: runIndex = " + str(self.runIndex) + ".")
     self.stepIndex = 0
     breakRun = False
-    for cellToCheck in self.getGenCellCheckOrder():
+    for orderEntry in self.getGenCellCheckOrder():
+      cellToCheck = orderEntry[1]
+      if orderEntry[0] == "fix":
+        #print("order entry " + str(orderEntry) + " won't be addressed because fixing is not yet implemented.")
+        assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "fix is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
+        self.spline[cellToCheck[0]] = cellToCheck[1]
+        continue
+      assert orderEntry[0] == "visit"
       #dbgPrint("CodecState.processRun: (runIndex,stepIndex,cellToCheck) = " + str((self.runIndex,self.stepIndex,cellToCheck))) 
       if self.opMode == "encode":
         if self.plainDataSamples[cellToCheck[0]] == cellToCheck[1]: #if hit...
@@ -323,6 +331,7 @@ class CellElimRunCodecState:
       insort(rankings, [scoreFun(cell), cell], keyFun=rankingsInsortKeyFun)
     if len(rankings) == 0:
       #print("getGenCellCheckOrder ran out of items before its main loop.")
+      assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
       return
     while True: #the generator loop.
       #the following slow duplicate checker is disabled because dupes are now considered impossible.
@@ -332,10 +341,11 @@ class CellElimRunCodecState:
       #    print("a dupe exists at " + str(i) + "! the compared entries are " + str(rankings[i]) + " and " + str(rankings[i]) + ".")
       if len(rankings) == 0:
         print("getGenCellCheckOrder ran out of items in its main loop. This has never happened before.")
+        assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
         return
       outputCell = rankings[0][1]
       #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
-      yield outputCell
+      yield ("visit", outputCell)
       del rankings[0] #@ room for optimization.
       columnCritical = self.cellCatalogue.eliminateCell(outputCell)
       replacementCell = self.cellCatalogue.clampCell(outputCell)
@@ -344,6 +354,7 @@ class CellElimRunCodecState:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
         self.cellCatalogue.eliminateColumn(outputCell[0],dbgCustomValue=-7)
         #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
+        yield ("fix",replacementCell)
       else:
         insort(rankings, [scoreFun(replacementCell), replacementCell], keyFun=rankingsInsortKeyFun)
     print("getGenCellCheckOrder has ended.")
