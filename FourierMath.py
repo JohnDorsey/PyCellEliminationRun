@@ -22,8 +22,8 @@ def compare(arr1,arr2):
     return
   difference = subtractArrs(arr1,arr2)
   print(str(len([item for item in difference if item != 0])) + " of " + str(len(arr1)) + " item pairs differ.")
-  print("The sum of the differences is " + str(sum(differences)) + " and the sum of their absolute values is " + str(sum(absOverArr(differences))) + ".")
-  print("The most extreme differences are " + str(min(differences)) + " and " + str(max(differences)) + ".")
+  print("The sum of the differences is " + str(sum(difference)) + " and the sum of their absolute values is " + str(sum(absOverArr(difference))) + ".")
+  print("The most extreme differences are " + str(min(difference)) + " and " + str(max(difference)) + ".")
   return
 
 

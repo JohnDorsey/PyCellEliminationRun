@@ -133,5 +133,3 @@ assert len(CERWaves.sounds["samples/moo8bmono44100.txt"]) > 0
 #old non-codec-tools-based test.
 assert pcer.cellElimRunTranscode([item-1 for item in Codes.fibcodeBitSeqToIntSeq(Codes.intSeqToFibcodeBitSeq([item+1 for item in pcer.cellElimRunTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
 
-assert pcer.cellElimRunTranscode([2,2,2,2,2],"encode","linear",[5,5]) == [20,0,0,0,0]
-assert pcer.cellElimRunTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
