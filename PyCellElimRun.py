@@ -10,6 +10,7 @@ import math
 
 import Curves
 
+from PyGenTools import isGen,makeArr,makeGen
 
 
 
@@ -221,80 +222,97 @@ class CellElimRunCodecState:
   DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it affects the output.
   DO_CRITICAL_COLUMN_ROUTINE = True
 
-  def __init__(self, size, plainDataSamples=None, pressDataNums=None, opMode="encode"):
+  def __init__(self, inputData, opMode, size):
     self.size = size
-    self.plainDataSamples, self.pressDataNums = (plainDataSamples, pressDataNums)
-    if self.plainDataSamples == None:
-      self.plainDataSamples = []
-    if self.pressDataNums == None:
-      self.pressDataNums = []
-    self.opMode = opMode
-    assert self.opMode in ["encode","decode"], "That opMode is nonexistent or not allowed"
-    if self.opMode == "encode":
-      assert len(self.plainDataSamples) > 0
-      assert len(self.pressDataNums) == 0
-    elif self.opMode == "decode":
-      if len(self.plainDataSamples) == 0:
-        #defaultSampleValue = int(self.size[1]/2) #<- do not switch back to this without fixing the processBlock method!
-        defaultSampleValue = None
-        self.plainDataSamples.extend([defaultSampleValue for i in range(self.size[0])])
-      assert len(self.pressDataNums) > 0
-    else:
-      assert False, "invalid opMode."
+    self.prepMode(inputData,opMode)
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
     self.spline = Curves.Spline(size=self.size)
     self.cellCatalogue = CellCatalogue(size=self.size)
 
 
+  def prepMode(self,inputData,opMode):
+    self.opMode = opMode
+    if not self.opMode in ["encode","decode"]:
+      raise ValueError("That opMode is nonexistent or not allowed.")
+    self.plainDataInputArr, self.pressDataInputGen = (None,None)
+    self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
+    if self.opMode == "encode":
+      assert type(inputData) == list
+      self.plainDataInputArr = inputData
+      assert len(self.plainDataInputArr) > 0
+      self.pressDataOutputArr = []
+    elif self.opMode == "decode":
+      assert isGen(inputData)
+      self.pressDataInputGen = inputData
+      self.plainDataOutputArr = []
+      defaultSampleValue = None
+      self.plainDataOutputArr.extend([defaultSampleValue for i in range(self.size[0])])
+    else:
+      assert False, "invalid opMode."
+
+
   def processBlock(self,allowMissingValues=False):
     #encode or decode. This method processes all the data that is currently loaded into the CodecState, which is supposed to be one block. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way.
     self.runIndex = 0
     while True:
-      self.processRun()
+      if (self.opMode == "encode" and self.runIndex >= len(self.plainDataInputArr)) or (self.opMode == "decode" and self.runIndex >= self.size[0]):
+        break
+      shouldContinue = self.processRun()
       self.runIndex += 1
-      if (self.opMode == "encode" and self.runIndex >= len(self.plainDataSamples)) or (self.opMode == "decode" and self.runIndex >= len(self.pressDataNums)):
+      if not shouldContinue:
         break
     if self.opMode == "decode" and not allowMissingValues:
-      self.interpolateMissingValues()
+      self.interpolateMissingValues(self.plainDataOutputArr)
     return #finished, might be lossy if it ended while they were unequal lengths.
 
 
-  def interpolateMissingValues(self):
-    if None in self.plainDataSamples:
-      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(self.plainDataSamples.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
+  def interpolateMissingValues(self,targetArr):
+    if None in targetArr:
+      print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(targetArr.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
       #print("The missing values are at the indices " + str([i for i in range(len(self.plainDataSamples)) if self.plainDataSamples[i] == None]) + ".")
-      for index in range(len(self.plainDataSamples)):
-        if self.plainDataSamples[index] == None:
-          self.plainDataSamples[index] = self.spline[index]
+      for index in range(len(targetArr)):
+        if targetArr[index] == None:
+          targetArr[index] = self.spline[index]
     else:
       print("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
 
 
   def processRun(self): #do one run, either encoding or decoding.
-    dbgPrint("PyCellElimRun.CellElimRunCodecState.processRun: runIndex = " + str(self.runIndex) + ".")
+    #print("PyCellElimRun.CellElimRunCodecState.processRun: runIndex = " + str(self.runIndex) + ".")
     self.stepIndex = 0
+    
     breakRun = False
+    justStarted = True #so that (if decoding) pressDataInputGen.next() may be called only once and only after the loop starts successfully, since getGenCellCheckOrder yielding no items is one way that the end of processing is signalled.
     for orderEntry in self.getGenCellCheckOrder():
+      if justStarted:
+        currentPressDataNum = None
+        if self.opMode == "decode":
+          try:
+            currentPressDataNum = self.pressDataInputGen.next()
+          except StopIteration:
+            print("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
+            return False #indicate that processing should stop.
+        justStarted = False #don't run this block again.
       cellToCheck = orderEntry[1]
       if orderEntry[0] == "fix":
-        #print("order entry " + str(orderEntry) + " won't be addressed because fixing is not yet implemented.")
+        print("order entry " + str(orderEntry) + " will be fixed")
         assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "fix is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
         self.spline[cellToCheck[0]] = cellToCheck[1]
         continue
       assert orderEntry[0] == "visit"
-      #dbgPrint("CodecState.processRun: (runIndex,stepIndex,cellToCheck) = " + str((self.runIndex,self.stepIndex,cellToCheck))) 
+      #print("CodecState.processRun: (runIndex,stepIndex,cellToCheck) = " + str((self.runIndex,self.stepIndex,cellToCheck))) 
       if self.opMode == "encode":
-        if self.plainDataSamples[cellToCheck[0]] == cellToCheck[1]: #if hit...
+        if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...
           #then a new run length is now known and should be added to the compressed data number list.
-          self.pressDataNums.append(self.stepIndex)
+          self.pressDataOutputArr.append(self.stepIndex)
           breakRun = True
         else:
           self.stepIndex += 1
       elif self.opMode == "decode":
-        if self.pressDataNums[self.runIndex] == self.stepIndex: #if run is ending...
+        if currentPressDataNum == self.stepIndex: #if run is ending...
           #then a new hit is known.
-          self.plainDataSamples[cellToCheck[0]] = cellToCheck[1]
+          self.plainDataOutputArr[cellToCheck[0]] = cellToCheck[1]
           breakRun = True
         else:
           self.stepIndex += 1
@@ -302,13 +320,14 @@ class CellElimRunCodecState:
         assert False, "invalid opMode."
       assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "This loop has run for an impossibly long time."
       if breakRun:
-        dbgPrint("found " + str(cellToCheck) + ".")
+        #print("found " + str(cellToCheck) + ".")
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
         if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
           self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
-        dbgPrint("breaking run; cellToCheck is " + str(cellToCheck) + ".")
-        return
-    #print("PyCellElimRun.processRun ended abnormally.")
+        #print("breaking run; cellToCheck is " + str(cellToCheck) + ".")
+        return True #indicate that processing should continue.
+    #print("PyCellElimRun.processRun ended by running out of options.")
+    return False #indicate that processing should stop.
 
   
   def getGenCellCheckOrder(self,scoreFun="vertical_distance"):
@@ -367,11 +386,10 @@ def cellElimRunTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturn
     size[0] = len(inputData)
   assert opMode in ["encode","decode"]
   tempCERCS = None
-  outputData = []
   if opMode == "encode":
-    tempCERCS = CellElimRunCodecState(size,plainDataSamples=[item for item in inputData],pressDataNums=outputData,opMode=opMode)
+    tempCERCS = CellElimRunCodecState(makeArr(inputData),"encode",size)
   elif opMode == "decode":
-    tempCERCS = CellElimRunCodecState(size,plainDataSamples=outputData,pressDataNums=[item for item in inputData],opMode=opMode)
+    tempCERCS = CellElimRunCodecState(makeGen(inputData),"decode",size)
   else:
     assert False, "invalid opMode."
   tempCERCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
@@ -379,7 +397,7 @@ def cellElimRunTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturn
   if dbgReturnCERCS:
     return tempCERCS
   else:
-    return outputData
+    return tempCERCS.plainDataOutputArr if opMode=="decode" else tempCERCS.pressDataOutputArr
   assert False
 
 
