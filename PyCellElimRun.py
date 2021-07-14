@@ -289,7 +289,7 @@ class CellElimRunCodecState:
         currentPressDataNum = None
         if self.opMode == "decode":
           try:
-            currentPressDataNum = self.pressDataInputGen.next()
+            currentPressDataNum = next(self.pressDataInputGen)
           except StopIteration:
             print("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
             return False #indicate that processing should stop.
