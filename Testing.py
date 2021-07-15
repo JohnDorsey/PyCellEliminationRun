@@ -26,15 +26,15 @@ PEEEK = 2048
 
 
 
-def test(interpolationModesToTest=["hold","nearest-neighbor","linear","linear&round","sinusoidal","finite difference cubic hermite","finite difference cubic hermite&clip"],numberSeqCodec=Codes.codecs["inSeq_fibonacci"],soundSourceStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][10000:]",soundLength=1024):
+def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], numberSeqCodec=Codes.codecs["inSeq_fibonacci"], soundSrcStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   VERBOSE = True
 
   QuickTimers.startTimer("test")
-  testSound = eval(soundSourceStr)[:soundLength]
-  print("Testing.test: the sound source string is " + str(soundSourceStr) + ".")
+  testSound = eval(soundSrcStr)[:soundLength]
+  print("Testing.test: the sound source string is " + str(soundSrcStr) + ".")
   testSoundSize = [None,SAMPLE_VALUE_UPPER_BOUND] #leaving the length in samples equal to None allows the codec to decide this for itself. @ This could go wrong if the codec is provided incomplete data that would otherwise lead to proper decompression.
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
@@ -50,7 +50,7 @@ def test(interpolationModesToTest=["hold","nearest-neighbor","linear","linear&ro
     if VERBOSE:
       print("Testing.test: The pressDataNums are " + str(pressDataNums))
     pressDataCodeBitArr = [item for item in numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)]
-    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeBitArr)) + " and it begins with " + str(pressDataCodeBitArr[:PEEK])[:PEEK] + ".")
+    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeBitArr)) + " and it begins with " + str(CodecTools.bitSeqToStrCodec.encode(pressDataCodeBitArr[:PEEK*2]))[:PEEK*2] + ".")
 
     CodecTools.printComparison(testSound,pressDataCodeBitArr)
 

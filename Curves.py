@@ -26,8 +26,10 @@ class Spline:
 
   ENDPOINTS_AT_ZERO = False
   CACHE_BONE_DISTANCE_ABS = True
+  SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite"]
+  SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
 
-  def __init__(self, interpolationMode="finite difference cubic hermite", size=None, endpoints=None):
+  def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpoints=None):
     
     self.setInterpolationMode(interpolationMode)
     self.setSizeAndEndpoints(size,endpoints)
@@ -43,17 +45,17 @@ class Spline:
 
   def setSizeAndEndpoints(self,size,endpoints):
     self.endpoints = endpoints
-    assert self.endpoints == None, "Curves.Spline: avoid using preset endpoints for this stage of testing."
+    assert self.endpoints == None, "avoid using preset Spline endpoints for this stage of testing."
     self.size = size
     assert not (self.size == None and self.endpoints == None)
     if self.size == None:
       self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
-      dbgPrint("Curves.Spline: self.size is incomplete.")
+      dbgPrint("Curves.Spline.setSizeAndEndpoints: self.size is incomplete.")
     elif self.endpoints == None:
       if Spline.ENDPOINTS_AT_ZERO or self.size[1] == None:
         self.endpoints = ((0,0),(self.size[0]-1,0))
         if self.size[1] == None:
-          dbgPrint("Curves.Spline: size[1]==None sets endpoints to zero.")
+          dbgPrint("Curves.Spline.setSizeAndEndpoints: size[1]==None sets endpoints to zero.")
       else:
         self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
     else:
@@ -68,24 +70,27 @@ class Spline:
     self.outputFilters = []
     if "&" in interpolationMode:
       self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
-    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite","fourier"], "this interpolation mode is not supported."
-    assert self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal","finite difference cubic hermite"], "this interpolation mode is not supported, but support is planned."
+    if not self.interpolationMode in Spline.SUPPORTED_INTERPOLATION_MODES:
+      raise ValueError("The interpolationMode " + interpolationMode + " is not supported.")
     for outputFilter in self.outputFilters:
-      assert outputFilter in ["round","clip","monotonic"], "that output filter is not supported."
+      if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
+        raise ValueError("The outputFilter " + outputFilter + " is not supported.")
     self.findPerformanceWarnings()
 
 
   def findPerformanceWarnings(self):
     def warn(filterName,modeName):
       print("Curves.Spline.findPerformanceWarnings: outputFilter \"" + filterName + "\" and interpolationMode \"" + modeName + "\" are both enabled, but that filter doesn't affect the results of that method of interpolation.")
-    for outputFilter in ["clip","monotonic"]:
+    for outputFilter in ["span_clip","global_clip","monotonic"]:
       if outputFilter in self.outputFilters:
-        if self.interpolationMode in ["hold","nearest-neighbor","linear","sinusoidal"]:
+        if self.interpolationMode in ["hold","nearest_neighbor","linear","sinusoidal"]:
           warn(outputFilter,self.interpolationMode)
     for outputFilter in ["round"]:
       if outputFilter in self.outputFilters:
-        if self.interpolationMode in ["hold","nearest-neighbor"]:
+        if self.interpolationMode in ["hold","nearest_neighbor"]:
           warn(outputFilter,self.interpolationMode)
+    if "span_clip" in self.outputFilters and "global_clip" in self.outputFilters:
+      print("Curves.Spline.findPerformanceWarnings: global_clip and span_clip are both enabled, but span_clip always does the job of global_clip, assuming no Spline bones are outside of the size of the spline.")
 
 
   #these functions are used in constructing cubic hermite splines.
@@ -101,7 +106,7 @@ class Spline:
 
   def toPrettyStr(self):
     alphabet = [["~","-"],["%","#"]] #access like alphabet[known?][exact?]
-    result = "Curves.Spline.prettyPrint generated string representation."
+    result = "Curves.Spline.toPrettyStr generated string representation."
     assert self.endpoints[0][0] == 0
     tempValues = [self.__getitem__(index) for index in range(self.endpoints[1][0]+1)]
     roundedTempValues = [int(round(value)) for value in tempValues]
@@ -165,7 +170,7 @@ class Spline:
 
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
-    #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow linear time searches of a mostly empty array are used.
+    #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow searches of a mostly empty array are used. Caching the value of the spline at every position would probably be faster in almost all situations.
     if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
     elif self.interpolationMode == "hold":
@@ -175,7 +180,7 @@ class Spline:
       result = self.getPointInDirection(index,1)
       assert result != None, "Curves.Spline.__getitem__: zero known points is not enough to work with."
       return result[1]
-    elif self.interpolationMode == "nearest-neighbor":
+    elif self.interpolationMode == "nearest_neighbor":
       #when two neighbors are equal distances away, the one on the left will be chosen.
       leftItemIndex,rightItemIndex = (index, index) #@ these don't really need to be separate variables.
       while True:
@@ -221,9 +226,9 @@ class Spline:
       elif self.interpolationMode == "sinusoidal":
         result = self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
     
-    elif self.interpolationMode in ["finite difference cubic hermite","fourier"]:
+    elif self.interpolationMode in ["finite_difference_cubic_hermite","fourier"]:
       sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None] #sur is defined out here so that the "clip" outputFilter can access it. Sur could be moved to the top of this method and its values used by all interpolation modes for simplicity, but that could be around 40% slower based on testing with the linear mode.
-      if self.interpolationMode == "finite difference cubic hermite":
+      if self.interpolationMode == "finite_difference_cubic_hermite":
         sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
         if None in sur[1:3]:
           assert False, "an important (inner) item is missing from the surroundings."
@@ -244,7 +249,7 @@ class Spline:
         assert False, "fourier interpolationMode isn't fully supported."
 
       #apply some outputFilters:
-      if "clip" in self.outputFilters:
+      if "span_clip" in self.outputFilters:
         result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #@ not tested.
 
     else:
@@ -252,6 +257,8 @@ class Spline:
       assert False, "The current interpolationMode isn't fully supported."
     
     #apply some outputFilters:
+    if "global_clip" in self.outputFilters:
+      result = max(min(result,self.size[1]),0)
     if "round" in self.outputFilters:
       result = int(round(result))
 

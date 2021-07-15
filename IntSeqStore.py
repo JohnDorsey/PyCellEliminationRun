@@ -87,9 +87,14 @@ def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialH
 
 
 
-havenBucketFibonacciCoding = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,extraArgs=[Codes.codecs["fibonacci"],(lambda x: len(bin(x)[2:])>>1)])
-havenBucketFibonacciCoding.zeroSafe = True
+havenBucketCodecs = {}
+havenBucketCodecs["base"] = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,zeroSafe=True)
+#HLL = half last length.
+havenBucketCodecs["HLL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: len(bin(x)[2:])>>1)])
+havenBucketCodecs["HLL_eliasGamma"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["eliasGamma"],(lambda x: len(bin(x)[2:])>>1)])
+havenBucketCodecs["HLL_eliasDelta"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["eliasDelta"],(lambda x: len(bin(x)[2:])>>1)])
 
+havenBucketCodecs["0.75LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.75))])
 
 
 
@@ -123,5 +128,5 @@ class StatefulFunctionHost:
     return state[-1] + (state[-1]-state[-2])
 
 
-assert [item for item in havenBucketFibonacciCoding.encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
+assert [item for item in havenBucketCodecs["HLL_fibonacci"].encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
 
