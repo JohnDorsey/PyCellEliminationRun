@@ -13,7 +13,7 @@ from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, ExhaustionError
 
 fibNums = [1,1]
 
-for i in range(8192):
+for i in range(4096):
   fibNums.append(fibNums[-1]+fibNums[-2])
 
 
@@ -23,11 +23,17 @@ class ParseError(Exception):
 
 
 
+
+def intToBinaryBitArr(inputInt):
+  return [int(char) for char in bin(inputInt)[2:]]
+
+def binaryBitArrToInt(inputBitArr):
+  return sum(2**i*inputBitArr[-1-i] for i in range(len(inputBitArr)))
+
 def rjustArr(inputArr,length,fillItem=0,crop=False):
   if length < 0:
     raise ValueError("length cannot be negative.")
   return [fillItem for i in range(length-len(inputArr))] + (([] if length == 0 else inputArr[-length:]) if crop else inputArr)
-
 
 def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
   #this function eats up to bitCount bits from an inputBitSeq and returns an integer based on the input headInt followed by those generated bits.
@@ -56,12 +62,10 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
   else:
     raise ValueError("Codes.extendIntByBits: the value of keyword argument onExhaustion is invalid.")
 
-
 def intSeqToBitSeq(inputIntSeq,inputFun):
   for inputInt in inputIntSeq:
     for outputBit in inputFun(inputInt):
       yield outputBit
-
 
 def bitSeqToIntSeq(inputBitSeq,inputFun):
   inputBitSeq = makeGen(inputBitSeq)
@@ -73,14 +77,27 @@ def bitSeqToIntSeq(inputBitSeq,inputFun):
       #print("bitSeqToIntSeq is stopping.")
       return
     if outputInt == None:
-      raise ParseError("The inputFun did not properly terminate.")
+      raise ParseError("The inputFun " + str(inputFun) + " did not properly terminate.")
     yield outputInt
 
 
+def intToHybridCodeBitSeq(inputInt,prefixEncoderFun,zeroSafe): #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
+  bodyBitArr = intToBinaryBitArr(inputInt)[1:]
+  prefixBitSeq = prefixEncoderFun(len(bodyBitArr) + (0 if zeroSafe else 1))
+  for outputBit in prefixBitSeq:
+    yield outputBit
+  for outputBit in bodyBitArr:
+    yield outputBit
 
-
-
-
+def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe): #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
+  inputBitSeq = makeGen(inputBitSeq)
+  prefixParseResult = prefixDecoderFun(inputBitSeq) - (0 if zeroSafe else 1)
+  decodedValue = None
+  try:
+    decodedValue = extendIntByBits(1,inputBitSeq,prefixParseResult)
+  except ExhaustionError:
+    raise ParseError("Codes.hybridCodeBitSeqToInt ran out of bits before receiving as many as its prefix promised.")
+  return decodedValue
 
 
 
@@ -167,17 +184,6 @@ def unaryBitSeqToInt(inputBitSeq):
 
 
 
-def intToBinaryBitArr(inputInt):
-  return [int(char) for char in bin(inputInt)[2:]]
-
-def binaryBitArrToInt(inputBitArr):
-  return sum(2**i*inputBitArr[-1-i] for i in range(len(inputBitArr)))
-
-
-def validateBinaryBitStr(inputBitStr):
-  if len(inputBitStr.replace("0","").replace("1","")) > 0:
-    return False
-  return True
 
 
 
@@ -239,8 +245,9 @@ def eliasDeltaBitSeqToIntSeq(inputBitSeq):
 
 
 #eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
+#they are not perfect. When the maxInputInt looks like 10000010 and the prefix indicates that the body is 7 bits long, 7 bits are used to define the body when 2 would suffice.
 
-def intToEliasGammaIotaBitSeq(inputInt,maxInputInt=None):
+def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
   assert inputInt > 0
   assert inputInt <= maxInputInt
   maxPayloadLength = len(bin(maxInputInt)[3:])
@@ -255,7 +262,7 @@ def intToEliasGammaIotaBitSeq(inputInt,maxInputInt=None):
   for outputBit in result:
     yield outputBit
 
-def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt=None):
+def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt):
   inputBitSeq = makeGen(inputBitSeq)
   maxPayloadLength = len(bin(maxInputInt)[3:])
   prefixLength = len(bin(maxPayloadLength)[2:])
@@ -267,14 +274,34 @@ def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt=None):
     raise ParseError("Codes.eliasGammaIotaBitSeqToInt ran out of input bits before receiving as many as its prefix promised.")
   
 
-def intSeqToEliasGammaIotaBitSeq(inputIntSeq,maxInputInt=None):
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasGammaIotaBitSeq(x,maxInputInt=maxInputInt)))
+def intSeqToEliasGammaIotaBitSeq(inputIntSeq,maxInputInt):
+  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasGammaIotaBitSeq(x,maxInputInt)))
 
-def eliasGammaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt=None):
-  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt=maxInputInt)))
+def eliasGammaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
+  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt)))
 
 
+def intToEliasDeltaIotaBitSeq(inputInt,maxInputInt):
+  assert inputInt > 0
+  assert inputInt <= maxInputInt
+  maxBodyLength = len(bin(maxInputInt)[3:])
+  result = intToHybridCodeBitSeq(inputInt,(lambda x: intToEliasGammaIotaBitSeq(x,maxBodyLength+1)),False)
+  assert result != None
+  return result
 
+def eliasDeltaIotaBitSeqToInt(inputBitSeq,maxInputInt):
+  assert maxInputInt > 0
+  maxBodyLength = len(bin(maxInputInt)[3:])
+  result = hybridCodeBitSeqToInt(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxBodyLength+1)),False)
+  assert result != None
+  return result
+
+
+def intSeqToEliasDeltaIotaBitSeq(inputIntSeq,maxInputInt):
+  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasDeltaIotaBitSeq(x,maxInputInt)))
+
+def eliasDeltaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
+  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasDeltaIotaBitSeqToInt(x,maxInputInt)))
 
 
 
@@ -289,11 +316,14 @@ codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt)
 codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt)
 codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt)
 codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt)
+codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToInt)
 
 codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
 codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
 codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq)
 codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq)
+
+codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq)
 
 #a temporary fix for the fact that Testing.py methods expecting the old UniversalCoding class.
 codecs["fibonacci"].zeroSafe = False
@@ -301,10 +331,13 @@ codecs["unary"].zeroSafe = True
 codecs["eliasGamma"].zeroSafe = False
 codecs["eliasDelta"].zeroSafe = False
 codecs["eliasGammaIota"].zeroSafe = False
+codecs["eliasDeltaIota"].zeroSafe = False
 codecs["inSeq_fibonacci"].zeroSafe = False
 codecs["inSeq_eliasGamma"].zeroSafe = False
 codecs["inSeq_eliasDelta"].zeroSafe = False
 codecs["inSeq_eliasGammaIota"].zeroSafe = False
+
+codecs["inSeq_eliasDeltaIota"].zeroSafe = False
 
 codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
 codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
