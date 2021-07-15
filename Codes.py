@@ -13,9 +13,80 @@ from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, ExhaustionError
 
 fibNums = [1,1]
 
-for i in range(4096):
-  fibNums.append(fibNums[-1]+fibNums[-2])
+def expandFibNums():
+  for i in range(256):
+    fibNums.append(fibNums[-1]+fibNums[-2])
 
+expandFibNums()
+
+def genFibNums():
+  i = 0
+  while i < len(fibNums):
+    yield fibNums[i]
+    i += 1
+  a, b = (fibNums[-2],fibNums[-1])
+  while True:
+    a, b = (b, a+b)
+    yield b
+
+def getFibNumAtIndexAndPredecessor(n):
+  assert n > 0
+  if n < len(fibNums):
+    return (fibNums[n-1],fibNums[n])
+  ib, a, b = (len(fibNums)-1,fibNums[-2],fibNums[-1])
+  while ib < n:
+    ib, a, b = (ib+1, b, a+b)
+  return (a,b)
+
+def getFibNumAboveValueAndPredecessor(value):
+  index = len(fibNums)-1
+  if value < fibNums[index]:
+    assert index - 1 >= 0
+    while value < fibNums[index-1]:
+      index -= 1
+    assert fibNums[index-1] <= value
+    assert fibNums[index] > value
+    return ((index-1,fibNums[index-1]),(index,fibNums[index]))
+  ib, a, b = (len(fibNums)-1,fibNums[-2],fibNums[-1])
+  while b <= value:
+    ib, a, b = (ib+1, b, a+b)
+  return ((ib-1,a),(ib,b))
+
+def genFibNumsDescendingFromIndex(ib):
+  a, b = getFibNumAtIndexAndPredecessor(ib)
+  yield (ib,b)
+  ia = ib - 1
+  while a > 1:
+    yield (ia,a)
+    a, b, ia = (b-a, a, ia-1)
+  assert ia == 1
+  assert a == 1
+  yield (1,1)
+  yield (0,1)
+    
+def genFibNumsDescendingFromValue(value):
+  aTup, bTup = getFibNumAboveValueAndPredecessor(value)
+  a, b = (aTup[1], bTup[1])
+  ia, ib = (aTup[0], bTup[0])
+  assert ia == ib - 1
+  yield (ib,b)
+  while a > 1:
+    yield (ia,a)
+    a, b, ia = (b-a, a, ia-1)
+  assert ia == 1
+  assert a == 1
+  yield (1,1)
+  yield (0,1)
+
+
+def isInt(x):
+  return type(x) in [int,long]
+try:
+  assert isInt(2**128)
+except NameError:
+  print("Codes: long type does not exist in this version of python, so isInt(x) will not check for it.")
+  def isInt(x):
+    return type(x) == int
 
 
 class ParseError(Exception):
@@ -62,8 +133,14 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
   else:
     raise ValueError("Codes.extendIntByBits: the value of keyword argument onExhaustion is invalid.")
 
-def intSeqToBitSeq(inputIntSeq,inputFun):
+def intSeqToBitSeq(inputIntSeq,inputFun,addDbgChars=False):
+  justStarted = True
   for inputInt in inputIntSeq:
+    if addDbgChars:
+      if justStarted:
+        justStarted = False
+      else:
+        yield ","
     for outputBit in inputFun(inputInt):
       yield outputBit
 
@@ -81,15 +158,19 @@ def bitSeqToIntSeq(inputBitSeq,inputFun):
     yield outputInt
 
 
-def intToHybridCodeBitSeq(inputInt,prefixEncoderFun,zeroSafe): #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
+def intToHybridCodeBitSeq(inputInt,prefixEncoderFun,zeroSafe,addDbgChars=False):
+  #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
   bodyBitArr = intToBinaryBitArr(inputInt)[1:]
   prefixBitSeq = prefixEncoderFun(len(bodyBitArr) + (0 if zeroSafe else 1))
   for outputBit in prefixBitSeq:
     yield outputBit
+  if addDbgChars:
+    yield "."
   for outputBit in bodyBitArr:
     yield outputBit
 
-def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe): #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
+def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe):
+  #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
   inputBitSeq = makeGen(inputBitSeq)
   prefixParseResult = prefixDecoderFun(inputBitSeq) - (0 if zeroSafe else 1)
   decodedValue = None
@@ -107,29 +188,37 @@ def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe): #the resulting
 
 
 
-def intToFibcodeBitArr(inputInt,startPoint=None):
+def intToFibcodeBitArr(inputInt):
   #This function hasn't been replaced with or converted to a generator because doing so has no benefits - the bits must be generated in backwards order anyway, so it makes no sense to convert to a generator and then convert back.
-  assert type(inputInt) == int
+  assert isInt(inputInt)
   assert inputInt >= 1
-  if not int(inputInt) <= fibNums[-1]:
-    raise ValueError("input value of " + str(inputInt) + " is larger than the largest known fibonacci number, " + str(fibNums[-1]) + ".")
-  if startPoint == None:
-    startPoint = len(fibNums)-1
-    """while fibNums[startPoint-1] > inputInt:
-      startPoint -= 1"""
-  index = startPoint
-  currentInt = inputInt
   result = []
-  while index >= 0:
-    if fibNums[index] <= currentInt:
-      currentInt -= fibNums[index]
-      result.append(1)
-    else:
-      if len(result) > 0:
-        result.append(0)
-    index -= 1
+  currentInt = inputInt
+  if (inputInt.bit_length() < fibNums[-1].bit_length()):
+    index = len(fibNums)-1
+    while index >= 0:
+      if fibNums[index] <= currentInt:
+        currentInt -= fibNums[index]
+        result.append(1)
+      else:
+        if len(result) > 0:
+          result.append(0)
+      index -= 1
+  else:
+    #justStarted = True #just for testing.
+    for index,fibNum in genFibNumsDescendingFromValue(inputInt*2+10):
+      #if justStarted:
+      #  assert fibNum > currentInt
+      #  justStarted = False
+      if fibNum <= currentInt:
+        currentInt -= fibNum
+        result.append(1)
+      else:
+        if len(result) > 0:
+          result.append(0)
   result.reverse()
   result.append(1)
+  assert len(result) > 1
   return result[1:] #I don't know why this is necessary.
 
 
@@ -143,16 +232,26 @@ def fibcodeBitSeqToInt(inputBitSeq):
   inputBitSeq = makeGen(inputBitSeq)
   result = 0
   previousBit = None
+  fibNumGen = genFibNums()
+  currentFibNum = next(fibNumGen)
+  assert currentFibNum == 1
+  loopRan = False
   for i,inputBit in enumerate(inputBitSeq):
+    loopRan = True
     if inputBit == 1 and previousBit == 1:
       return result
     previousBit = inputBit
-    result += fibNums[i+1] * inputBit
+    currentFibNum = next(fibNumGen)
+    assert currentFibNum > 0
+    result += currentFibNum * inputBit
   if result != 0:
     raise ParseError("Codes.fibcodeBitSeqToInt ran out of input bits midword.")
     #print("Codes.fibcodeBitSeqToInt ran out of input bits midword. Returning None instead of " + str(result) + ".")
     #return None
-  raise ExhaustionError("Codes.fibcodeBitSeqToInt received an empty generator.")
+  if loopRan:
+    assert False, "impossible error."
+  else:
+    raise ExhaustionError("Codes.fibcodeBitSeqToInt received an empty generator.")
 
 
 def intSeqToFibcodeBitSeq(inputIntSeq):
@@ -281,6 +380,7 @@ def eliasGammaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
   return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt)))
 
 
+
 def intToEliasDeltaIotaBitSeq(inputInt,maxInputInt):
   assert inputInt > 0
   assert inputInt <= maxInputInt
@@ -306,6 +406,216 @@ def eliasDeltaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
 
 
 
+def intToEliasGammaFibBitSeq(inputInt,addDbgChars=False):
+  assert inputInt > 0
+  result = intToHybridCodeBitSeq(inputInt,intToFibcodeBitSeq,False,addDbgChars=addDbgChars)
+  assert result != None
+  return result
+
+def eliasGammaFibBitSeqToInt(inputBitSeq):
+  result = hybridCodeBitSeqToInt(inputBitSeq,fibcodeBitSeqToInt,False)
+  assert result != None
+  return result
+
+def intSeqToEliasGammaFibBitSeq(inputIntSeq):
+  return intSeqToBitSeq(inputIntSeq,intToEliasGammaFibBitSeq)
+
+def eliasGammaFibBitSeqToIntSeq(inputBitSeq):
+  return bitSeqToIntSeq(inputBitSeq,eliasGammaFibBitSeqToInt)
+
+
+
+def intToEliasDeltaFibBitSeq(inputInt,addDbgChars=False):
+  assert inputInt > 0
+  result = intToHybridCodeBitSeq(inputInt,intToEliasGammaFibBitSeq,False,addDbgChars=addDbgChars)
+  assert result != None
+  return result
+
+def eliasDeltaFibBitSeqToInt(inputBitSeq):
+  result = hybridCodeBitSeqToInt(inputBitSeq,eliasGammaFibBitSeqToInt,False)
+  assert result != None
+  return result
+
+def intSeqToEliasDeltaFibBitSeq(inputIntSeq):
+  return intSeqToBitSeq(inputIntSeq,intToEliasDeltaFibBitSeq)
+
+def eliasDeltaFibBitSeqToIntSeq(inputBitSeq):
+  return bitSeqToIntSeq(inputBitSeq,eliasDeltaFibBitSeqToInt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+def compareEfficiencies(codecArr,valueGen):
+  previousScores = [None for i in range(len(codecArr))]
+  currentScores = [None for i in range(len(codecArr))]
+  codecRecords = [[] for i in range(len(codecArr))]
+  for testIndex,testValue in enumerate(valueGen):
+    for ci,testCodec in enumerate(codecArr):
+      previousScores[ci] = currentScores[ci]
+      currentScores[ci] = len(makeArr(testCodec.encode(testValue)))
+      if previousScores[ci] != currentScores[ci]:
+        codecRecords[ci].append((testIndex,testValue,currentScores[ci]))
+  return codecRecords
+"""
+def getNextSizeIncreaseBounded(numberCodec,startValue,endValue):
+  assert startValue < endValue
+  startLength = len(makeArr(numberCodec.encode(startValue)))
+  endLength = len(makeArr(numberCodec.encode(endValue)))
+  assert startLength <= endLength
+  if startLength == endLength:
+    return None
+  if startValue + 1 == endValue:
+    assert startLength < endLength
+    return endValue
+  midpoint = int((startValue+endValue)/2)
+  assert midpoint not in [startValue,endValue]
+  lowerResult = getNextSizeIncreaseBounded(numberCodec,startValue,midpoint)
+  if lowerResult != None:
+    return lowerResult
+  upperResult = getNextSizeIncreaseBounded(numberCodec,midpoint,endValue)
+  return upperResult
+
+
+def getNextSizeIncreaseBoundedIterAction(numberCodec,startValue,endValue):
+  assert startValue < endValue
+  startLength = len(makeArr(numberCodec.encode(startValue)))
+  endLength = len(makeArr(numberCodec.encode(endValue)))
+  assert startLength <= endLength
+  if startLength == endLength:
+    return ("fail",None,startValue,endValue)
+  if startValue + 1 == endValue:
+    assert startLength < endLength
+    return ("finished",endValue,None,None)
+  midpoint = int((startValue+endValue)/2)
+  assert midpoint not in [startValue,endValue]
+  return ("recycle",None,startValue,midpoint)
+  #return (None,midpoint,endValue)
+
+def getNextSizeIncreaseBoundedIterative(numberCodec,startValue,endValue):
+  result = None
+  previousValues = (None,None)
+  currentValues = (startValue,endValue)
+  while True:
+    result = getNextSizeIncreaseBoundedIterAction(numberCodec,currentValues[0],currentValues[1])
+    if result[0] == "finished":
+      return result[1]
+    elif result[0] == "recycle":
+      previousValues = currentValues
+      currentValues = (result[2],result[3])
+      assert currentValues[0] < currentValues[1]
+      continue
+    elif result[0] == "fail":
+      currentValues = (result[3],previousValues[1])
+      if not currentValues[0] < currentValues[1]:
+        return None
+      if currentValues[0] == currentValues[1]:
+        return None
+      previousValues = (None,None)
+      assert currentValues[0] < currentValues[1]
+      continue
+  assert False
+
+def getNextSizeIncrease(numberCodec,startValue):
+  result = None
+  i = 0
+  try:
+    while result == None:
+      result = getNextSizeIncreaseBoundedIterative(numberCodec,startValue*(i+1),startValue*(i+2))
+      i += 1
+    if i > 2:
+      print("getNextSizeIncrease: warning: i is " + str(i) + ".")
+    return result
+  except KeyboardInterrupt:
+    raise KeyboardInterrupt("Codes.getNextSizeIncrease: i was " + str(i) + ".")
+
+
+def compareEfficienciesLinear(codecDict,valueGen):
+  previousScores = {}
+  currentScores = {}
+  codecHistory = {}
+  recordHolderHistory = []
+  for key in codecDict.keys():
+    previousScores[key] = None
+    currentScores[key] = None
+    codecHistory[key] = []
+  updateRankings = False
+  for testIndex,testValue in enumerate(valueGen):
+    for key in codecDict.keys():
+      testCodec = codecDict[key]
+      previousScores[key] = currentScores[key]
+      currentScores[key] = (testIndex,testValue,len(makeArr(testCodec.encode(testValue))))
+      if previousScores[key] != currentScores[key]:
+        codecHistory[key].append((testIndex,testValue,currentScores[key]))
+        updateRankings = True
+    if updateRankings:
+      updateRankings = False
+      currentBest = min(currentScores.values())
+      recordHolders = [key for key in codecDict.keys() if currentScores[key] == currentBest]
+      if len(recordHolderHistory) == 0 or recordHolders != recordHolderHistory[-1][3]:
+        recordHolderHistory.append((testIndex,testValue,currentBest,recordHolders))
+  return recordHolderHistory
+
+
+def getEfficiencyDict(numberCodec,startValue,endValue):
+  spot = startValue
+  result = {}
+  while True:
+    spot = getNextSizeIncreaseBoundedIterative(numberCodec,spot,endValue)
+    if spot == None:
+      break
+    result[spot] = len(makeArr(numberCodec.encode(spot)))
+  return result
+
+
+def compareEfficiencies(codecDict,startValue,endValue):
+  codecEfficiencies = {}
+  for key in codecDict.keys():
+    codecEfficiencies[key] = getEfficiencyDict(codecDict[key],startValue,endValue)
+  events = {}
+
+  #construct majorEvents:
+  for codecKey in codecEfficiencies.keys():
+    for numberKey in codecEfficiencies[codecKey].keys():
+      eventToAdd = (codecKey,numberKey,codecEfficiencies[codecKey][numberKey])
+      if numberKey in events.keys():
+        events[numberKey].append(eventToAdd)
+      else:
+        events[numberKey] = [eventToAdd]
+
+  currentScores = dict([(key,(None,None)) for key in codecDict.keys()])
+  recordHolderHistory = [(None,None,[])]
+  #traverse majorEvents:
+  for eventKey in sorted(events.keys()): #the eventKey is the unencoded integer input value.
+    for currentEvent in events[eventKey]: #multiple events may happen at the same input value.
+      assert len(currentEvent) == 3
+      currentScores[currentEvent[0]] = (currentEvent[1],currentEvent[2]) #currentScores[name of codec] = (input value, length of code).
+      currentBest = min(item[1] for item in currentScores.values() if item[1] != None)
+      currentRecordHolders = [key for key in currentScores.keys() if currentScores[key][1] == currentBest]
+      if currentRecordHolders != recordHolderHistory[-1][2]:
+        #add new recordHolderHistory entry.
+        recordHolderHistory.append((eventKey,currentBest,currentRecordHolders))
+  return recordHolderHistory
+
+
+
+
+
+
+
+
+
+
+
 
 print("defining codecs...")
 
@@ -317,20 +627,20 @@ codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqTo
 codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt,zeroSafe=False)
 codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt,zeroSafe=False)
 codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToInt,zeroSafe=False)
+codecs["eliasGammaFib"] = CodecTools.Codec(intToEliasGammaFibBitSeq,eliasGammaFibBitSeqToInt,zeroSafe=False)
+codecs["eliasDeltaFib"] = CodecTools.Codec(intToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToInt,zeroSafe=False)
 
 codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq,zeroSafe=False)
-
 codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq,zeroSafe=False)
+codecs["inSeq_eliasGammaFib"] = CodecTools.Codec(intSeqToEliasGammaFibBitSeq,eliasGammaFibBitSeqToIntSeq,zeroSafe=False)
+codecs["inSeq_eliasDeltaFib"] = CodecTools.Codec(intSeqToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToIntSeq,zeroSafe=False)
 
-"""
-codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
-codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
-codecs["inStr_inSeq_eliasDelta"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasDelta"],CodecTools.bitSeqToStrCodec)
-"""
-
+#fibonacci coding is more efficient than eliasGamma coding for numbers 16..(10**60), so it's likely that eliasDeltaFib is more efficient than eliasDelta for numbers (2**15)..(2**(10**60-1)).
+#eliasDelta coding is more efficient than fibonacci coding for numbers 317811..(10**60).
+#it seems like eliasDeltaFib must be more efficient than EliasDelta eventually, but they trade blows all the way up to 10**606, with EDF seemingly being the only one able to break the tie.
 
 
 print("performing over-eating tests...")

@@ -13,7 +13,7 @@ from PyGenTools import arrTakeOnly, makeGen, makeArr, ExhaustionError
 import CodecTools
 
 
-def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer sequence truncated.
+def lewisTrunc(seqSum,seqSrc,addDbgCommas=False): #left-weighted integer sequence truncated.
   #this generator processes a sequence of integers, and compares the provided sum of the entire sequence with the sum of items processed so far to determine the maximum value the current item could have, and truncates it to that length in the generated output.
   #it is generally much less efficient than fibonacci coding for storing the pressdata numbers produced by PyCellElimRun.
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
@@ -22,7 +22,7 @@ def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer seque
   for num in seqSrc:
     storeLength = int.bit_length(seqSum-sumSoFar)
     strToOutput = str(bin(num)[2:]).rjust(storeLength,'0')
-    if addDebugCommas:
+    if addDbgCommas:
       if not justStarted:
         yield ","
       else:
@@ -65,18 +65,18 @@ def genDecodeWithHavenBucket(inputBitSeq,numberCodec,havenBucketSizeFun,initialH
     havenBucketSize = havenBucketSizeFun(decodedValue)
 
 
-def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0,addDebugCommas=False):
+def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0,addDbgCommas=False):
   #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
   justStarted = True #used only to control debug commas.
   for num in inputIntSeq:
     assert havenBucketSize >= 0
     encodedBitArr = makeArr(numberCodec.encode((num >> havenBucketSize) + (0 if numberCodec.zeroSafe else 1)))
-    if addDebugCommas:
+    if addDbgCommas:
       encodedBitArr.append(".")
     havenBucketData = rjustArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
     encodedBitArr.extend(havenBucketData)
-    if addDebugCommas:
+    if addDbgCommas:
       if not justStarted:
         yield ","
       else:

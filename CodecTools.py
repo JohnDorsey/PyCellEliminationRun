@@ -26,18 +26,28 @@ def countTrailingZeroes(inputArr):
   return i
 
 
+
 def roundTripTest(testCodec, plainData, showDetails=False):
   #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
   if isGen(plainData):
     plainData = makeArr(plainData)
+  if type(plainData) == list:
+    if len(plainData) == 0:
+      print("CodecTools.roundTripTest: warning: plainData is empty.")
   pressData = testCodec.encode(plainData)
   if isGen(pressData):
     pressData = makeArr(pressData)
+  if type(pressData) == list:
+    if len(pressData) == 0:
+      print("CodecTools.roundTripTest: warning: pressData is empty.")
   if showDetails:
     printComparison(plainData,pressData)
   reconstPlainData = testCodec.decode(pressData)
   if isGen(reconstPlainData):
     reconstPlainData = makeArr(reconstPlainData)
+  if type(reconstPlainData) == list:
+    if len(reconstPlainData) == 0:
+      print("CodecTools.roundTripTest: warning: reconstPlainData is empty.")
   result = (reconstPlainData == plainData)
   if not result:
     print("CodecTools.roundTripTest: Test failed.")
