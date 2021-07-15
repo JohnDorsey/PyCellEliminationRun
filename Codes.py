@@ -23,6 +23,12 @@ class ParseError(Exception):
 
 
 
+def rjustArr(inputArr,length,fillItem=0,crop=False):
+  if length < 0:
+    raise ValueError("length cannot be negative.")
+  return [fillItem for i in range(length-len(inputArr))] + (([] if length == 0 else inputArr[-length:]) if crop else inputArr)
+
+
 def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
   #this function eats up to bitCount bits from an inputBitSeq and returns an integer based on the input headInt followed by those generated bits.
   assert onExhaustion in ["fail","warn+partial","warn+None","partial","None"]
@@ -233,9 +239,6 @@ def eliasDeltaBitSeqToIntSeq(inputBitSeq):
 
 
 #eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
-
-def rjustArr(inputArr,length,fillItem=0,crop=False):
-  return [fillItem for i in range(length-len(inputArr))] + (inputArr[-length:] if crop else inputArr)
 
 def intToEliasGammaIotaBitSeq(inputInt,maxInputInt=None):
   assert inputInt > 0

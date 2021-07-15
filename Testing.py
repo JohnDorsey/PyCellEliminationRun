@@ -24,8 +24,6 @@ PEEK = 64 #these control how much information is shown in previews in the consol
 PEEEK = 2048
 
 
-havenBucketFibonacciCoding = CodecTools.Codec((lambda inputSeq: "".join(IntSeqStore.genEncodeWithHavenBucket(inputSeq,Codes.intToFibcodeBitStr,(lambda x: len(bin(x)[2:])>>1)))),(lambda inputBitStr: IntSeqStore.genDecodeWithHavenBucket(inputBitStr,(lambda xx: Codes.fibcodeBitStrToInt(xx,mode="detailed_parse")),(lambda x: len(bin(x)[2:])>>1)))) #@ ouch.
-havenBucketFibonacciCoding.zeroSafe = True
 
 
 

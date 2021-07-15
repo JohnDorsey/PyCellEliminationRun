@@ -219,6 +219,8 @@ def headingMedianStaggerOPIntArrDecode(inputIntArr):
 
 
 
+
+
 assert applyIndexMap("abcdefg",[0,5,6,3,2,1,4]) == [ 'a', 'f', 'g', 'd', 'c', 'b', 'e']
 assert applyIndexMapReversed("afgdcbe",[0,5,6,3,2,1,4]) == ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 

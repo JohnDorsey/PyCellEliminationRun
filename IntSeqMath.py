@@ -6,7 +6,7 @@ IntSeqMath.py contains tools for transforming integer sequences into other integ
 
 """
 
-from PyGenTools import genTakeOnly,arrTakeOnly
+from PyGenTools import genTakeOnly, arrTakeOnly
 
 
 
@@ -41,17 +41,6 @@ def genDeltaDecode(inputNumSeq):
 
 
 
-
-"""
-def genLJust(inputGen,length,fillItem):
-  i = 0
-  for item in genTakeOnly(inputGen,length):
-    yield item
-    i += 0
-  while i < length:
-    yield fillItem
-    i += 1
-"""
 
 def genRecordLows(inputNumSeq):
   recordLow = None

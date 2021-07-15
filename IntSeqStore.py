@@ -8,7 +8,9 @@ IntSeqStore.py contains tools for storing integer sequences with as little overh
 """
 
 import Codes #for haven bucket.
-from IntSeqMath import arrTakeOnly
+from Codes import rjustArr
+from PyGenTools import arrTakeOnly, makeGen, makeArr, ExhaustionError
+import CodecTools
 
 
 def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer sequence truncated.
@@ -30,7 +32,6 @@ def lewisTrunc(seqSum,seqSrc,addDebugCommas=False): #left-weighted integer seque
     sumSoFar += num
 
 
-
 def lewisDeTrunc(seqSum,seqSrc):
   sumSoFar = 0
   bitBufferStr = ""
@@ -46,54 +47,35 @@ def lewisDeTrunc(seqSum,seqSrc):
 
 
 
-def genDecodeWithHavenBucket(inputSeq,parseFun,havenBucketSizeFun,initialHavenBucketSize=0):
-  #parseFun MUST be a parser (taking any length of string and reacting to the beginning of it only) in detailed mode (giving the result in form [the accepted input, result]).
-  ASSUMEZEROSAFE = False
-  inputSeq = Codes.makeGen(inputSeq)
-  #offset = 0
+def genDecodeWithHavenBucket(inputBitSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0):
+  #parseFun must take only as many bits as it needs and return an integer.
+  inputBitSeq = makeGen(inputBitSeq)
   havenBucketSize = initialHavenBucketSize
   while True:
-    parseResult = parseFun(inputSeq)
-    print("parseResult = " + str(parseResult))
-    if parseResult == None:
-      #out of data.
-      break
-    #offset += len(parseResult[0])
-    havenBucketData = arrTakeOnly(inputSeq,havenBucketSize)
-    print("havenBucketData = " + str(havenBucketData))
-    #havenBucketData = inputStr[offset:offset+havenBucketSize]
-    #offset += len(havenBucketData)
-    decodedValue = None
-    if ASSUMEZEROSAFE:
-      #decodedValue = int(bin(parseResult)[2:]+havenBucketData,2)
-      decodedValue = ((parseResult)<<len(havenBucketData)) + Codes.binaryBitArrToInt(havenBucketData)
-    else:
-      #decodedValue = (int(bin(parseResult[1])[2:],2)-1)*(2**len(havenBucketData)) + int("0"+havenBucketData,2)
-      decodedValue = ((parseResult-1)<<len(havenBucketData)) + Codes.binaryBitArrToInt(havenBucketData)
+    assert havenBucketSize >= 0
+    parseResult = None
+    try:
+      parseResult = numberCodec.decode(inputBitSeq)
+    except ExhaustionError:
+      break #out of data.
+    assert parseResult != None, "None-based generator stopping should be phased out."
+    havenBucketBits = arrTakeOnly(inputBitSeq,havenBucketSize)
+    decodedValue = ((parseResult-(0 if numberCodec.zeroSafe else 1))<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
     yield decodedValue
     havenBucketSize = havenBucketSizeFun(decodedValue)
 
 
-def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHavenBucketSize=0,addDebugCommas=False):
-  #parseFun MUST be a parser (taking any length of string and reacting to the beginning of it only) in detailed mode (giving the result in form [the accepted input, result]).
-  ASSUMEZEROSAFE = False
+def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0,addDebugCommas=False):
+  #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
   justStarted = True #used only to control debug commas.
   for num in inputIntSeq:
-    havenBucketData = None
-    if havenBucketSize == 0: #this special case is necessary because when python array slices start at negative zero, they contain the whole array.
-      havenBucketData = []
-    else:
-      #havenBucketData = bin(num)[2:].rjust(havenBucketSize,"0")[-havenBucketSize:]
-      havenBucketData = ([0 for i in range(havenBucketSize)] + Codes.intToBinaryBitArr(num))[-havenBucketSize:] #@ this could be more efficient.
-    if ASSUMEZEROSAFE:
-      encodedBitArr = encodeFun(num >> havenBucketSize)
-    else:
-      encodedBitArr = encodeFun((num >> havenBucketSize) + 1)
+    assert havenBucketSize >= 0
+    encodedBitArr = makeArr(numberCodec.encode((num >> havenBucketSize) + (0 if numberCodec.zeroSafe else 1)))
     if addDebugCommas:
       encodedBitArr.append(".")
+    havenBucketData = rjustArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
     encodedBitArr.extend(havenBucketData)
-    #print([havenBucketSize,havenBucketData,encodedStr])
     if addDebugCommas:
       if not justStarted:
         yield ","
@@ -104,6 +86,9 @@ def genEncodeWithHavenBucket(inputIntSeq,encodeFun,havenBucketSizeFun,initialHav
     havenBucketSize = havenBucketSizeFun(num)
 
 
+
+havenBucketFibonacciCoding = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,extraArgs=[Codes.codecs["fibonacci"],(lambda x: len(bin(x)[2:])>>1)])
+havenBucketFibonacciCoding.zeroSafe = True
 
 
 
@@ -136,4 +121,7 @@ class StatefulFunctionHost:
     if len(state) == 1:
       return state[0]
     return state[-1] + (state[-1]-state[-2])
+
+
+assert [item for item in havenBucketFibonacciCoding.encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
 
