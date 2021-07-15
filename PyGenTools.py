@@ -6,7 +6,7 @@ PyGenTools.py contains tools that work on python generators without handling the
 
 """
 
-class ExhaustionError(StandardError):
+class ExhaustionError(Exception):
   pass
 
 
@@ -70,7 +70,7 @@ def zipGens(inputGens):
     for genIndex in range(len(workingGenArr)):
       if gensRunning[genIndex]:
         try:
-          yield workingGenArr[genIndex].next()
+          yield next(workingGenArr[genIndex])
         except StopIteration:
           gensRunning[genIndex] = False #don't check this generator for items again.
 

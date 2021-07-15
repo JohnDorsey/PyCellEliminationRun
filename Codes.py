@@ -18,7 +18,7 @@ for i in range(8192):
 
 
 
-class ParseError(StandardError):
+class ParseError(Exception):
   pass
 
 

@@ -4,7 +4,7 @@
 
 Usage:
 
-  launch a python 3 or python 2 interpreter, preferrably Pypy (which executes PyCellEliminationRun about 4 to 8 times faster).
+  launch a python 3 or python 2 interpreter, preferably Pypy (which executes PyCellEliminationRun about 4 to 8 times faster).
   
 
   initialize:
@@ -20,7 +20,7 @@ Usage:
 
   compress the demo file "samples/moo8bmono44100.txt":
 
-    >>> Testing.compressFull("samples/moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.fibonacciCoding)
+    >>> Testing.compressFull("samples/moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.codecs["inSeq_fibonacci"])
     
     The output file will be created in the same directory as the project, and will have the interpolation mode and block size appended to the end of its name.
     
@@ -29,7 +29,7 @@ Usage:
 
   decompress a compressed file:
 
-    >>> reconstructedSound = Testing.decompressFull("<name of the compressed file>","linear",256,Testing.Codes.fibonacciCoding)
+    >>> reconstructedSound = Testing.decompressFull("<name of the compressed file>","linear",256,Testing.Codes.codecs["inSeq_fibonacci"])
 
 
   verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
