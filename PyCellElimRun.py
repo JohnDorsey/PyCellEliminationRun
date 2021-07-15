@@ -9,6 +9,7 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 import math
 
 import Curves
+import CodecTools
 
 from PyGenTools import isGen,makeArr,makeGen
 
@@ -296,7 +297,7 @@ class CellElimRunCodecState:
         justStarted = False #don't run this block again.
       cellToCheck = orderEntry[1]
       if orderEntry[0] == "fix":
-        print("order entry " + str(orderEntry) + " will be fixed")
+        #print("order entry " + str(orderEntry) + " will be fixed")
         assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "fix is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
         self.spline[cellToCheck[0]] = cellToCheck[1]
         continue
@@ -380,7 +381,7 @@ class CellElimRunCodecState:
 
 
 
-def cellElimRunTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturnCERCS=False):
+def cellElimRunBlockTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturnCERCS=False):
   if size[0] == None:
     dbgPrint("PyCellElimRun.functionalTest: assuming size.")
     size[0] = len(inputData)
@@ -401,16 +402,17 @@ def cellElimRunTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturn
   assert False
 
 
+cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode)
 
 
 
 
-testResult = cellElimRunTranscode([2,2,2,2,2],"encode","linear",[5,5])
+testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",[5,5])
 assert testResult[0] == 20
 assert sum(testResult[1:]) == 0
-assert cellElimRunTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
+assert cellElimRunBlockTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
 
-testResult = cellElimRunTranscode([5,6,7,6,5],"encode","linear",[5,10])
+testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",[5,10])
 assert testResult[:2] == [32,10]
 assert sum(testResult[2:]) == 0
-assert cellElimRunTranscode([32,10,0,0,0],"decode","linear",[5,10]) == [5,6,7,6,5]
+assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",[5,10]) == [5,6,7,6,5]

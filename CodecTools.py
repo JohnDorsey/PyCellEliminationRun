@@ -10,8 +10,14 @@ from PyGenTools import makeArr, isGen
 
 
 def measureIntArray(inputIntArr):
-  rectSize = (len(inputIntArr),len(bin(max(inputIntArr))[2:]))
-  return {"length":rectSize[0],"bit_depth":rectSize[1],"area":rectSize[0]*rectSize[1]}
+  rectBitSize = (len(inputIntArr),len(bin(max(inputIntArr))[2:]))
+  return {"length":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectSize[1]}
+
+def countTrailingZeroes(inputArr):
+  i = 0
+  while inputArr[-1-i] == 0:
+    i += 1
+  return i
 
 
 def roundTripTest(testCodec, plainData, showDetails=False):
@@ -22,8 +28,8 @@ def roundTripTest(testCodec, plainData, showDetails=False):
   if isGen(pressData):
     pressData = makeArr(pressData)
   if showDetails:
-    print("plainData measures " + str(measureIntArray(plainData)) + ".")
-    print("pressData measures " + str(measureIntArray(pressData)) + ".")
+    print("CodecTools.roundTripTest: plainData measures " + str(measureIntArray(plainData)) + ".")
+    print("CodecTools.roundTripTest: pressData measures " + str(measureIntArray(pressData)) + ".")
   reconstPlainData = testCodec.decode(pressData)
   if isGen(reconstPlainData):
     reconstPlainData = makeArr(reconstPlainData)
@@ -45,20 +51,32 @@ def makeChainedPairCodec(codec1,codec2):
 
 
 class Codec:
-  def __init__(self,encodeFun,decodeFun,extraArgs=None,extraKwargs=None):
-    self.encodeFun, self.decodeFun = (encodeFun, decodeFun)
+  def __init__(self,encodeFun,decodeFun,transcodeFun=None,extraArgs=None,extraKwargs=None):
+    self.encodeFun, self.decodeFun, self.transcodeFun = (encodeFun, decodeFun, transcodeFun)
+    if not (self.encodeFun or self.decodeFun or self.transcodeFun):
+      raise ValueError("No functions for encoding, decoding, or transcoding were specified!")
     self.extraArgs, self.extraKwargs = (extraArgs if extraArgs else [], extraKwargs if extraKwargs else {})
 
   def encode(self,data,*args,**kwargs):
+    if not (self.encodeFun or self.transcodeFun):
+      raise AttributeError("Either encodeFun or transcodeFun must be defined to decode.")
     argsToUse = args if args else self.extraArgs #a single extra argument specified when calling Codec.encode will override ALL stored values in Codec.extraArgs.
     kwargsToUse = kwargs if kwargs else self.extraKwargs #a single extra keyword argument specified when calling Codec.encode will override ALL stored values in Codec.extraKwargs.
-    return self.encodeFun(data,*argsToUse,**kwargsToUse)
+    if self.encodeFun:
+      return self.encodeFun(data,*argsToUse,**kwargsToUse)
+    else:
+      return self.transcodeFun(data,"encode",*argsToUse,**kwargsToUse)
 
   def decode(self,data,*args,**kwargs):
+    if not (self.decodeFun or self.transcodeFun):
+      raise AttributeError("Either decodeFun or transcodeFun must be defined to decode.")
     argsToUse = args if args else self.extraArgs
     kwargsToUse = kwargs if kwargs else self.extraKwargs
-    return self.decodeFun(data,*argsToUse,**kwargsToUse)
-
+    if self.decodeFun:
+      return self.decodeFun(data,*argsToUse,**kwargsToUse)
+    else:
+      return self.transcodeFun(data,"decode",*argsToUse,**kwargsToUse)
+ 
   def clone(self,extraArgs=None,extraKwargs=None):
     if self.extraArgs != [] and extraArgs != None:
       print("CodecTools.Codec.clone: warning: some existing extraArgs will not be cloned.")
@@ -66,7 +84,7 @@ class Codec:
       print("CodecTools.Codec.clone: warning: some existing extraKwargs will not be cloned.")
     argsToUse = extraArgs if extraArgs else self.extraArgs
     kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
-    return Codec(self.encodeFun,self.decodeFun,extraArgs=argsToUse,extraKwargs=kwargsToUse)
+    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,extraArgs=argsToUse,extraKwargs=kwargsToUse)
 
 
 
