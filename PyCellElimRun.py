@@ -402,7 +402,8 @@ def cellElimRunBlockTranscode(inputData,opMode,splineInterpolationMode,size,dbgR
   assert False
 
 
-cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode)
+
+cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode,zeroSafe=True)
 
 
 

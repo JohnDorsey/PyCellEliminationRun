@@ -311,42 +311,25 @@ print("defining codecs...")
 
 codecs = {}
 
-codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitSeq,fibcodeBitSeqToInt)
-codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt)
-codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt)
-codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt)
-codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt)
-codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToInt)
+codecs["fibonacci"] = CodecTools.Codec(intToFibcodeBitSeq,fibcodeBitSeqToInt,zeroSafe=False)
+codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt,zeroSafe=True)
+codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt,zeroSafe=False)
+codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt,zeroSafe=False)
+codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt,zeroSafe=False)
+codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToInt,zeroSafe=False)
 
-codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq)
-codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq)
-codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq)
-codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq)
+codecs["inSeq_fibonacci"] = CodecTools.Codec(intSeqToFibcodeBitSeq,fibcodeBitSeqToIntSeq,zeroSafe=False)
+codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq,zeroSafe=False)
+codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq,zeroSafe=False)
+codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq,zeroSafe=False)
 
-codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq)
+codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq,zeroSafe=False)
 
-#a temporary fix for the fact that Testing.py methods expecting the old UniversalCoding class.
-codecs["fibonacci"].zeroSafe = False
-codecs["unary"].zeroSafe = True
-codecs["eliasGamma"].zeroSafe = False
-codecs["eliasDelta"].zeroSafe = False
-codecs["eliasGammaIota"].zeroSafe = False
-codecs["eliasDeltaIota"].zeroSafe = False
-codecs["inSeq_fibonacci"].zeroSafe = False
-codecs["inSeq_eliasGamma"].zeroSafe = False
-codecs["inSeq_eliasDelta"].zeroSafe = False
-codecs["inSeq_eliasGammaIota"].zeroSafe = False
-
-codecs["inSeq_eliasDeltaIota"].zeroSafe = False
-
+"""
 codecs["inStr_inSeq_fibonacci"] = CodecTools.makeChainedPairCodec(codecs["inSeq_fibonacci"],CodecTools.bitSeqToStrCodec)
 codecs["inStr_inSeq_eliasGamma"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasGamma"],CodecTools.bitSeqToStrCodec)
 codecs["inStr_inSeq_eliasDelta"] = CodecTools.makeChainedPairCodec(codecs["inSeq_eliasDelta"],CodecTools.bitSeqToStrCodec)
-
-#temporary fix continued.
-codecs["inStr_inSeq_fibonacci"].zeroSafe = False
-codecs["inStr_inSeq_eliasGamma"].zeroSafe = False
-codecs["inStr_inSeq_eliasDelta"].zeroSafe = False
+"""
 
 
 
@@ -379,6 +362,7 @@ for testCodecName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta"]:
   testArr = [1,2,3,4,5,100,1000,100,5,4,3,2,1]
   assert CodecTools.roundTripTest(codecs[testCodecName],testArr)
 
+"""
 for testCodecName in ["inStr_inSeq_fibonacci","inStr_inSeq_eliasGamma","inStr_inSeq_eliasDelta"]:
   print("testing " + testCodecName)
   testArr = [1,2,3,4,5,100,1000,100,5,4,3,2,1]
@@ -388,7 +372,7 @@ for testCodecName in ["inStr_inSeq_fibonacci","inStr_inSeq_eliasGamma","inStr_in
   assert type(pressData) == str
   reconstPlainData = [item for item in testCodec.decode(pressData)]
   assert reconstPlainData == testArr
-
+"""
 
 
 print("performing tests of Iota codings...")

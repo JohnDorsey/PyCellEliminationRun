@@ -11,7 +11,13 @@ from PyGenTools import makeArr, isGen
 
 def measureIntArray(inputIntArr):
   rectBitSize = (len(inputIntArr),len(bin(max(inputIntArr))[2:]))
-  return {"length":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectSize[1]}
+  return {"length":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectBitSize[1]}
+
+def printComparison(plainData,pressData):
+  plainDataMeasures, pressDataMeasures = (measureIntArray(plainData), measureIntArray(pressData))
+  estimatedCR = float(plainDataMeasures["bit_area"])/float(pressDataMeasures["bit_area"])
+  estimatedSaving = 1.0 - 1.0/estimatedCR
+  print("CodecTools.printComparison: plainData measures " + str(plainDataMeasures) + ". pressData measures " + str(pressDataMeasures) + ". Estimated CR is " + str(estimatedCR)[:8] + ". Estimated saving rate is " + str(estimatedSaving*100.0)[:8] + "%.")
 
 def countTrailingZeroes(inputArr):
   i = 0
@@ -28,8 +34,7 @@ def roundTripTest(testCodec, plainData, showDetails=False):
   if isGen(pressData):
     pressData = makeArr(pressData)
   if showDetails:
-    print("CodecTools.roundTripTest: plainData measures " + str(measureIntArray(plainData)) + ".")
-    print("CodecTools.roundTripTest: pressData measures " + str(measureIntArray(pressData)) + ".")
+    printComparison(plainData,pressData)
   reconstPlainData = testCodec.decode(pressData)
   if isGen(reconstPlainData):
     reconstPlainData = makeArr(reconstPlainData)
@@ -51,8 +56,8 @@ def makeChainedPairCodec(codec1,codec2):
 
 
 class Codec:
-  def __init__(self,encodeFun,decodeFun,transcodeFun=None,extraArgs=None,extraKwargs=None):
-    self.encodeFun, self.decodeFun, self.transcodeFun = (encodeFun, decodeFun, transcodeFun)
+  def __init__(self,encodeFun,decodeFun,transcodeFun=None,zeroSafe=None,extraArgs=None,extraKwargs=None):
+    self.encodeFun, self.decodeFun, self.transcodeFun, self.zeroSafe = (encodeFun, decodeFun, transcodeFun, zeroSafe)
     if not (self.encodeFun or self.decodeFun or self.transcodeFun):
       raise ValueError("No functions for encoding, decoding, or transcoding were specified!")
     self.extraArgs, self.extraKwargs = (extraArgs if extraArgs else [], extraKwargs if extraKwargs else {})
@@ -76,7 +81,7 @@ class Codec:
       return self.decodeFun(data,*argsToUse,**kwargsToUse)
     else:
       return self.transcodeFun(data,"decode",*argsToUse,**kwargsToUse)
- 
+
   def clone(self,extraArgs=None,extraKwargs=None):
     if self.extraArgs != [] and extraArgs != None:
       print("CodecTools.Codec.clone: warning: some existing extraArgs will not be cloned.")
@@ -84,9 +89,7 @@ class Codec:
       print("CodecTools.Codec.clone: warning: some existing extraKwargs will not be cloned.")
     argsToUse = extraArgs if extraArgs else self.extraArgs
     kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
-    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,extraArgs=argsToUse,extraKwargs=kwargsToUse)
-
-
+    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,zeroSafe=self.zeroSafe,extraArgs=argsToUse,extraKwargs=kwargsToUse)
 
 
 
