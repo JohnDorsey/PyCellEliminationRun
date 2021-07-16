@@ -51,7 +51,7 @@ def roundTripTest(testCodec, plainData, showDetails=False):
   result = (reconstPlainData == plainData)
   if not result:
     print("CodecTools.roundTripTest: Test failed.")
-    print("CodecTools.roundTripTest: testData is " + str(plainData) + " and reconstData is " + str(reconstPlainData) + ".")
+    print("CodecTools.roundTripTest: testData is " + str(plainData) + " and reconstData is " + str(reconstPlainData) + ". pressData is " + str(pressData) + ".")
     if type(plainData) == list and type(reconstPlainData) == list:
       print("CodecTools.roundTripTest: Lengths " + ("do not" if len(reconstPlainData)==len(plainData) else "") + " differ.")
   return result

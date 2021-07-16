@@ -58,6 +58,11 @@ def genTakeOnly(inputGen,count,onExhaustion="partial"):
   else:
     raise ValueError("PyGenTools.genTakeOnly: the value of keyword argument onExhaustion is invalid.")
 
+def genSkipFirst(inputGen,count):
+  assert isGen(inputGen)
+  for i in range(count):
+    forget = next(inputGen)
+  return inputGen
 
 def arrTakeOnly(inputGen,count,onExhaustion="partial"):
   #just like genTakeOnly, but bundle the taken items together into an array.
