@@ -25,8 +25,16 @@ def offsetEnum(inputGen,offset):
   for i,item in enumerate(inputGen):
     yield (i+offset,item)
 
+def arrEndsWith(inputArr,testArr):
+  testStartIndex = len(inputArr)-len(testArr)
+  if testStartIndex < 0:
+    raise ValueError("This test can't be performed because testArr is longer than inputArr.")
+  return all((inputArr[testStartIndex+i]==testArr[i]) for i in range(len(testArr)))
 
-fibNums = [1,1]
+
+
+
+fibNums = [0,1,1,2,3,5,8,13,21,34,55]
 
 def expandFibNums():
   for i in range(256):
@@ -34,11 +42,99 @@ def expandFibNums():
 
 expandFibNums()
 
+tribNums = [0, 0, 1, 1, 2, 4, 7, 13, 24, 44, 81, 149, 274, 504, 927, 1705, 3136, 5768, 10609, 19513, 35890, 66012]
 
+"""
+11 = 1
+011 = 2
+0011 = 3
+1011 = 4 = 3 + 1
+00011 = 5
+10011 = 6 = 5 + 1
+01011 = 7 = 5 + 2
+000011 = 8
+100011 = 9 = 8 + 1
+010011 = 10 = 8 + 2
+001011 = 11 = 8 + 3
+101011 = 12 = 8 + 3 + 1
+0000011 = 13
+
+111, = 1
+0111, = 2
+00111, = 3
+10111, = 4 = 3 + 1
+000111, = 5
+100111, = 6 = 5 + 1
+010111, = 7 = 5 + 2
+110111, = 8 = 5 + 2 + 1
+0000111, = 9
+1000111, = 10 = 9 + 1
+0100111, = 11 = 9 + 2
+1100111 = ??? is this order correct?
+0010111
+1010111
+0110111
+00000111 = 16
+10000111
+01000111
+11000111
+00100111
+10100111
+01100111
+00010111
+10010111
+01010111
+11010111
+00110111
+10110111
+000000111
+100000111
+010000111
+110000111
+001000111
+101000111
+011000111
+000100111
+100100111
+010100111
+110100111
+001100111
+101100111
+000010111
+100010111
+010010111
+110010111
+001010111
+101010111
+011010111
+000110111
+100110111
+010110111
+110110111
+(length, versions):
+  (3, 1)
+  (4, 1)
+  (5, 2)
+  (6, 4)
+  (7, 7)
+  these are the tribonacci numbers as expected.
+(digit index from 1, apparent value at first appearance):
+  (1, 1)
+  (2, 2)
+  (3, 3)
+  (4, 5)
+  (5, 9)
+  (6, 16)
+  This sequence is found by adding tribonacci numbers.
+  Can each digit place really be given a fixed value?
+"""
 
 def getEnbonacciStartArr(order=2):
   assert order > 1
   return [0 for i in range(order-1)] + [1]
+
+assert getEnbonacciStartArr(order=2) == [0,1]
+assert getEnbonacciStartArr(order=3) == [0,0,1]
   
 
 def genEnbonacciNums(order=2):
@@ -55,16 +151,13 @@ def genEnbonacciNums(order=2):
     yield workingArr[i]
     i += 1
 
+assert arrTakeOnly(genEnbonacciNums(order=2),8) == [0,1,1,2,3,5,8,13]
+assert arrTakeOnly(genEnbonacciNums(order=3),8) == [0,0,1,1,2,4,7,13]
+
+
 def getEnboNumAtIndexAndPredecessors(n,order=2):
   assert n > 0
-  """
-  if n < len(fibNums):
-    return (fibNums[n-1],fibNums[n])
-  ib, a, b = (len(fibNums)-1,fibNums[-2],fibNums[-1])
-  while ib < n:
-    ib, a, b = (ib+1, b, a+b)
-  return (a,b)
-  """
+  assert order > 1
   startArr = getEnbonacciStartArr(order=order)
   if n < len(startArr):
     result = rjustArr(startArr[:n+1],order,crop=True)
@@ -75,8 +168,8 @@ def getEnboNumAtIndexAndPredecessors(n,order=2):
     i += 1
     ii = i%order
     workingArr[ii] = sum(workingArr)
-  assert order == 2
-  return (workingArr[(i-1)%order],workingArr[i%order])
+  assert i == n
+  return makeArr(offsetEnum(unwrapArr(workingArr,i%order),i))
 
 def getEnboNumAboveValueAndPredecessors(value,order=2):
   assert order > 1
@@ -94,54 +187,57 @@ def getEnboNumAboveValueAndPredecessors(value,order=2):
       assert item[i][0] == i
     return result
   workingArr = [item for item in startArr]
-  assert order == 2
-  i = order
+  i = order-1
   #ii = None
   while True:
+    i += 1
     ii = i%order
     workingArr[ii] = sum(workingArr)
     if not workingArr[ii] < value:
       break
-    i += 1
-  return makeArr(offsetEnum(unwrapArr(workingArr,((i+1)%order)),i))
+  return makeArr(offsetEnum(unwrapArr(workingArr,(i+1)%order),i-(order-1)))
 
 def genEnboNumsDescendingFromIndex(iEnd,order=2):
-  assert order == 2
+  assert order > 1
   workingArr = getEnboNumAtIndexAndPredecessors(iEnd,order=order)
   return genEnboNumsDescendingFromPreset(workingArr,iEnd,order=order)  
 
 def genEnboNumsDescendingFromPreset(presetArr,iEnd=None,order=2):
-  assert order == 2
+  assert order > 1
+  print("genEnboNumsDescendingFromPreset: on call: (presetArr,iEnd,order)=" + str((presetArr,iEnd,order)) + ".")
   isEnumerated = all(type(item) == tuple for item in presetArr)
   if isEnumerated and (iEnd != None):
     assert presetArr[-1][0] == iEnd
   else:
     iEnd = presetArr[-1][0]
+  print("genEnboNumsDescendingFromPreset: after adjustment: (presetArr,iEnd,order)=" + str((presetArr,iEnd,order)) + ".")
   workingArr = None
   if isEnumerated:
     workingArr = [item[1] for item in presetArr]
   else:
     workingArr = [item for item in presetArr] #make copy.
   yield (iEnd, workingArr[-1])
-  #print("(workingArr,iEnd,order)="+str((workingArr,iEnd,order))+".")
-  while iEnd > order:
+  print("(workingArr,iEnd,order)="+str((workingArr,iEnd,order))+".")
+  while iEnd >= order:
     workingArr.insert(0,workingArr[-1]-sum(workingArr[:-1]))
     del workingArr[-1]
     iEnd -= 1
+    print("genEnboNumsDescendingFromPreset: yielding " + str((iEnd, workingArr[-1])) + ".")
     yield (iEnd, workingArr[-1])
-    #print("in loop, (workingArr,iEnd,order)="+str((workingArr,iEnd,order))+".")
+    print("in loop, (workingArr,iEnd,order)="+str((workingArr,iEnd,order))+".")
   assert workingArr[0] == 0
-  assert iEnd == order
+  assert iEnd == order - 1
   #for i,item in makeArr(enumerate(getEnbonacciStartArr(order=order)))[::-1]:
   #  yield (i,item)
   for i,item in makeArr(enumerate(workingArr))[::-1]:
-    if i == iEnd:
+    if i == iEnd or i == iEnd-1:
       continue
+    print("genEnboNumsDescendingFromPreset: yielding " + str((i, item)) + ".")
     yield (i,item)
 
 def genEnboNumsDescendingFromValue(value,order=2):
-  assert order == 2
   presetArr = getEnboNumAboveValueAndPredecessors(value,order=order)
+  print("getEnboNumsDescendingFromValue: (value,order,presetArr)=" + str((value,order,presetArr))+".")
   return genEnboNumsDescendingFromPreset(presetArr,iEnd=None,order=order)
 
 
@@ -256,62 +352,117 @@ def intToEnbocodeBitArr(inputInt,order=2):
   assert inputInt >= 1
   result = []
   currentInt = inputInt
-  #justStarted = True #just for testing.
   for index,enboNum in genEnboNumsDescendingFromValue(inputInt*2+10,order=order):
-    #if justStarted:
-    #  assert fibNum > currentInt
-    #  justStarted = False
+
+    print("intToEnbocodeBitArr: before loop body: (inputInt,order,index,enboNum,result)=" + str((inputInt,order,index,enboNum,result)) + ".")
+    if index < order:
+      print("intToEnbocodeBitArr: breaking loop because of index.")
+      break
+    assert enboNum > 0
     if enboNum <= currentInt:
+      print("intToEnbocodeBitArr: enboNum will be subtracted from currentInt. (currentInt,index,enboNum)"+str((currentInt,index,enboNum))+".")
       currentInt -= enboNum
       result.append(1)
+      print("intToEnbocodeBitArr: enboNum has been subtracted from currentInt. (currentInt,index,enboNum,result)"+str((currentInt,index,enboNum,result))+".")
     else:
       if len(result) > 0:
         result.append(0)
-    if index <= order: #this should NOT be necessary.
-      break
+        print("intToEnbocodeBitArr: nothing has been subtracted from currentInt this time around. (currentInt,index,enboNum,result)"+str((currentInt,index,enboNum,result))+".")
+    if currentInt == 0:
+      print("intToEnbocodeBitArr: it is possible to break the loop because of currentInt. The loop won't be broken.")
+      pass
+    print("intToEnbocodeBitArr: after loop body: (inputInt,order,index,enboNum,result)=" + str((inputInt,order,index,enboNum,result)) + ".")
+
   result.reverse()
+  assert len(result) > 0
   result.extend([1 for i in range(order-1)])
   assert len(result) >= order
-  return result[1:] #I don't know why this is necessary.
+  #return result[1:] #I don't know why this is necessary.
+  
+  print("fix intToEnbocodeBitArr")
+  if order == 2:
+    if inputInt <= 4:
+      if not result == [None,[1,1],[0,1,1],[0,0,1,1],[1,0,1,1]][inputInt]:
+        raise ValueError("intToEnbocodeBitArr: {}->{}".format(inputInt,result)+".")
+  elif order == 3:
+    if inputInt <= 4:
+      if not result == [None,[1,1,1],[0,1,1,1],[0,0,1,1,1],[1,0,1,1,1]][inputInt]:
+        raise ValueError("intToEnbocodeBitArr: order={}, {}->{}".format(order, inputInt,result)+".")
+
+  
+  print("intToEnbocodeBitArr: before final tests: (inputInt,order,result)=" + str((inputInt,order,result)) + ".")
+
+  if len(result) > order:
+    if not arrEndsWith(result,[0]+[1 for i in range(order)]):
+      print("intToEnbocodeBitArr: result ends the wrong way. This is never supposed to happen. (inputInt,order,result)=" + str((inputInt,order,result)) + ".")
+  return result
 
 
 def intToEnbocodeBitSeq(inputInt,order=2):
   #exists only for uniform naming of functions.
-  assert order == 2
   for outputBit in intToEnbocodeBitArr(inputInt,order=order):
     yield outputBit
 
+
 def enbocodeBitSeqToInt(inputBitSeq,order=2):
   #this function only eats as much of the provided generator as it needs.
-  assert order == 2
+  #it used to be more memory efficient by not keeping a bitHistory, but that design made upgrading to any-order fibonacci harder, so it was written out. It could be brought back now.
+  assert order > 1
   inputBitSeq = makeGen(inputBitSeq)
-  result = 0
-  previousBit = None
-  enboNumGen = genSkipFirst(genEnbonacciNums(order),order)
-  currentEnboNum = None
-  loopRan = False
+  bitHistory = [] 
   for i,inputBit in enumerate(inputBitSeq):
-    loopRan = True
-    if inputBit == 1 and previousBit == 1:
-      return result
-    previousBit = inputBit
-    currentEnboNum = next(enboNumGen)
+    assert inputBit in [0,1]
+    bitHistory.append(inputBit)
+    if sum(bitHistory[-order:]) == order:
+      break
+  
+  print("enbocodeBitSeqToInt: (order,bitHistory)="+str((order,bitHistory))+".")
+
+  if len(bitHistory) == 0:
+    raise ExhaustionError("enbocodeBitSeqToInt received an empty inputBitSeq.")
+  if len(bitHistory) > 0 and len(bitHistory) < order:
+    raise ParseError("The inputBitSeq did not end in an enbonacci code.")
+  
+  #temp:
+  if len(bitHistory) >= order:
+    assert arrEndsWith(bitHistory,[1 for i in range(order)])
+  if len(bitHistory) >= order+1:
+    assert arrEndsWith(bitHistory,[0]+[1 for i in range(order)])
+
+  enboNumGen = genSkipFirst(genEnbonacciNums(order),order) #@ cleanup.
+  result = 0
+  for i,currentEnboNum in enumerate(enboNumGen): #this might generate one more enboNum than is needed.
     assert currentEnboNum > 0
-    result += currentEnboNum * inputBit
+    if i == len(bitHistory) - (order-1): #if this was the last bit that wasn't part of the stopcode...
+      break
+    result += currentEnboNum * bitHistory[i]
+
+  #temp:
+  print("fix enbocodeBitSeqToInt.")
+  if all(bitHistory):
+    assert len(bitHistory) == order
+    assert result == 1
+  elif bitHistory == [0] + [1 for i in range(order)]:
+    assert result == 2
+  elif bitHistory == [0,0] + [1 for i in range(order)]:
+    assert result == 3
+  assert result > 0
+  return result
+  """
   if result != 0:
     raise ParseError("Codes.enbocodeBitSeqToInt ran out of input bits midword.")
-  if loopRan:
-    assert False, "impossible error."
   else:
-    raise ExhaustionError("Codes.enbocodeBitSeqToInt received an empty generator.")
+    if loopRan:
+      assert False, "Codes.enbocodeBitSeqToInt crashed."
+    else:
+      raise ExhaustionError("Codes.enbocodeBitSeqToInt received an empty generator.")
+  """
 
 
 def intSeqToEnbocodeBitSeq(inputIntSeq,order=2):
-  assert order == 2
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitArr(x,order=order)))
+  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitSeq(x,order=order)))
 
 def enbocodeBitSeqToIntSeq(inputBitSeq,order=2):
-  assert order == 2
   return bitSeqToIntSeq(inputBitSeq,(lambda x: enbocodeBitSeqToInt(x,order=order)))
 
 
@@ -681,7 +832,6 @@ print("defining codecs...")
 codecs = {}
 
 codecs["enbonacci"] = CodecTools.Codec(intToEnbocodeBitSeq,enbocodeBitSeqToInt,zeroSafe=False)
-codecs["fibonacci"] = codecs["enbonacci"].clone(extraKwargs={"order":2})
 codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt,zeroSafe=True)
 codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt,zeroSafe=False)
 codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt,zeroSafe=False)
@@ -691,13 +841,21 @@ codecs["eliasGammaFib"] = CodecTools.Codec(intToEliasGammaFibBitSeq,eliasGammaFi
 codecs["eliasDeltaFib"] = CodecTools.Codec(intToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToInt,zeroSafe=False)
 
 codecs["inSeq_enbonacci"] = CodecTools.Codec(intSeqToEnbocodeBitSeq,enbocodeBitSeqToIntSeq,zeroSafe=False)
-codecs["inSeq_fibonacci"] = codecs["inSeq_enbonacci"].clone(extraKwargs={"order":2})
 codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasGammaFib"] = CodecTools.Codec(intSeqToEliasGammaFibBitSeq,eliasGammaFibBitSeqToIntSeq,zeroSafe=False)
 codecs["inSeq_eliasDeltaFib"] = CodecTools.Codec(intSeqToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToIntSeq,zeroSafe=False)
+
+codecs["fibonacci"] = codecs["enbonacci"].clone(extraKwargs={"order":order})
+codecs["inSeq_fibonacci"] = codecs["inSeq_enbonacci"].clone(extraKwargs={"order":order})
+
+FIBONACCI_ORDER_NICKNAMES = {"tribonacci":3,"tetranacci":4,"pentanacci":5,"hexanacci":6,"heptanacci":7,"octanacci":8,"enneanacci":9}
+
+for orderName,order in FIBONACCI_ORDER_NICKNAMES.items():
+  codecs[orderName] = codecs["enbonacci"].clone(extraKwargs={"order":order})
+  codecs["inSeq_"+orderName] = codecs["inSeq_enbonacci"].clone(extraKwargs={"order":order})
 
 #fibonacci coding is more efficient than eliasGamma coding for numbers 16..(10**60), so it's likely that eliasDeltaFib is more efficient than eliasDelta for numbers (2**15)..(2**(10**60-1)).
 #eliasDelta coding is more efficient than fibonacci coding for numbers 317811..(10**60).
@@ -707,6 +865,10 @@ codecs["inSeq_eliasDeltaFib"] = CodecTools.Codec(intSeqToEliasDeltaFibBitSeq,eli
 print("performing over-eating tests...")
 
 #the following 3 tests check to make sure functions that accept generators as arguments do not overeat from those generators.
+testGen = makeGen(CodecTools.bitSeqToStrCodec.decode("11011"))
+assert enbocodeBitSeqToInt(testGen,order=2) == 1
+assert makeArr(testGen) == [0,1,1]
+
 testGen = makeGen(CodecTools.bitSeqToStrCodec.decode("10110011"))
 assert enbocodeBitSeqToInt(testGen,order=2) == 4
 assert makeArr(testGen) == [0,0,1,1]
@@ -724,16 +886,25 @@ assert makeArr(testGen) == [0,0,1]
 print("performing full codec tests...")
 
 for testCodecName in ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]:
-  print("testing " + testCodecName)
+  print("testing " + testCodecName + "...")
   for testNum in [1,5,10,255,257,65535,65537,999999]:
     assert CodecTools.roundTripTest(codecs[testCodecName],testNum)
 
 for testCodecName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]:
-  print("testing " + testCodecName)
+  print("testing " + testCodecName + "...")
   testArr = [1,2,3,4,5,100,1000,1000000,1,1000,1,100,1,5,4,3,2,1]
   assert CodecTools.roundTripTest(codecs[testCodecName],testArr)
 
-
+"""
+for testCodecName in FIBONACCI_ORDER_NICKNAMES.keys():
+  print("testing " + testCodecName + "...")
+  for testNum in [1,5,10,255,257,65535,65537,999999]:
+    print((testCodecName,testNum,CodecTools.roundTripTest(codecs[testCodecName],testNum)))
+  testCodecName = "inSeq_" + testCodecName
+  print("testing " + testCodecName + "...")
+  testArr = [1,2,3,4,5,100,1000,1000000,1,1000,1,100,1,5,4,3,2,1]
+  print((testCodecName,testArr,CodecTools.roundTripTest(codecs[testCodecName],testArr)))
+"""
 
 
 print("performing tests of Iota codings...")
