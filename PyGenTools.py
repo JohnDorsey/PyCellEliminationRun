@@ -92,6 +92,18 @@ def arrTakeLast(inputGen,count):
     storage[i] = item
   return storage[i+1:]+storage[:i+1]
 
+def sentinelize(inputSeq,sentinel=None,loopSentinel=False,failFun=None):
+  """
+  Signals the end of a generator by yielding an additional item after its end. Note that sentinelize(x) makes a generator from any type of input, so combining it with makeGen is redundant.
+  """
+  for item in inputSeq:
+    yield item
+  yield sentinel
+  while loopSentinel:
+    yield loopSentinel
+  if failFun:
+    failFun()
+
 
 def zipGens(inputGens):
   #This function gives a generator whose items are taken one at a time from each generator provided in a circular order. It runs until all the provided generators are empty. Technically, it can be given arrays instead of generators and it will correct for this. The array of generators may also be a generator instead of an array.
