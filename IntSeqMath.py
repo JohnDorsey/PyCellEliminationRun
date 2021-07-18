@@ -108,14 +108,22 @@ def findColumnInfo(inputSeq,delimiter,reporterFun):
     i += 1
   return columnReports
 
-def applyColumnAwareFun(inputSeq,transformerFun):
+def applyColumnAwareFun(inputSeq,transformerFun,columnInfoArr=None):
   i = 0
   for item in inputSeq:
-    modifiedItem = transformerFun(i,item)
-    reset = yield item
+    if type(columnInfoArr) == list:
+      modifiedItem = transformerFun(i,item,columnInfoArr[i])
+    else:
+      modifiedItem = transformerFun(i,item)
+    reset = yield modifiedItem
     if reset:
       i = 0
       continue
+
+
+
+assert findColumnInfo([1,5,0,6,2,4,7,0,8,8,8,8,8,8,8,8,0,999],0,(lambda i,x,r: min(x,r) if r!=None else x)) == [1,2,4,7,8,8,8,8]
+
 
 
 assert [item for item in genDeltaDecode(genDeltaEncode([5,5,6,5,3,0,10,0]))] == [5,5,6,5,3,0,10,0]
