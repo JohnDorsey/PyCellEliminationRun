@@ -88,6 +88,8 @@ Design notes:
 
   Todo:
 
+    -make every numberCodec extraArg into an extraKwarg just to make them easier to debug.
+
     -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
     
     -change the structure of PyCellElimRun.CodecState to make it easier for other data predictors to be used instead of Curves.Spline.

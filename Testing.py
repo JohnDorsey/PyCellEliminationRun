@@ -13,8 +13,10 @@ import Codes
 import CodecTools
 import PyCellElimRun as pcer
 import IntArrMath
+import IntSeqStore
 
 import QuickTimers
+from PyGenTools import makeArr
 
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
@@ -26,7 +28,7 @@ PEEEK = 2048
 
 
 
-def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], numberSeqCodec=Codes.codecs["inSeq_fibonacci"], soundSrcStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
+def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
@@ -49,13 +51,13 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
     print("Testing.test: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
     if VERBOSE:
       print("Testing.test: The pressDataNums are " + str(pressDataNums))
-    pressDataCodeBitArr = [item for item in numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)]
-    print("Testing.test: the length of the coded data is " + str(len(pressDataCodeBitArr)) + " and it begins with " + str(CodecTools.bitSeqToStrCodec.encode(pressDataCodeBitArr[:PEEK*2]))[:PEEK*2] + ".")
 
-    CodecTools.printComparison(testSound,pressDataCodeBitArr)
+    for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["HLL_fibonacci","HLL_eliasGamma","HLL_eliasDelta"]]:
+      print("testing with "+numberSeqCodecSrcStr+":")
+      numberSeqCodec = eval(numberSeqCodecSrcStr)
+      CodecTools.printComparison(testSound,makeArr(numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)))
 
-    reconstPressDataNums = [num-(0 if numberSeqCodec.zeroSafe else 1) for num in numberSeqCodec.decode(pressDataCodeBitArr)]
-    reconstPlainDataNums = testCERCodec.decode(reconstPressDataNums)
+    reconstPlainDataNums = testCERCodec.decode(pressDataNums)
     if reconstPlainDataNums == testSound:
       print("Testing.test: test passed.\n")
       for i in range(len(testSound)):
@@ -128,5 +130,5 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
 assert len(CERWaves.sounds["samples/moo8bmono44100.txt"]) > 0
 
 #old non-codec-tools-based test.
-assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.fibcodeBitSeqToIntSeq(Codes.intSeqToFibcodeBitSeq([item+1 for item in pcer.cellElimRunBlockTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
+assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
 
