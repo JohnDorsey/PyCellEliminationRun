@@ -423,8 +423,11 @@ def eliasDeltaBitSeqToIntSeq(inputBitSeq):
 
 
 
-#eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited range by setting the prefix involved in regular elias codes to a fixed length.
-#they are not perfect. When the maxInputInt looks like 10000010 and the prefix indicates that the body is 7 bits long, 7 bits are used to define the body when 2 would suffice.
+#eliasGamaIota and eliasDeltaIota are two codings I created to store integers with a limited maximum value, by replacing the normal unary prefix present in an Elias code with a fixed-length binary prefix whose length is determined by the requirement of storing the maximum value.
+#they are not perfect. When the maxInputInt looks like 100010 and the prefix indicates that the body is 5 bits long, 5 bits are used to define the body when 2 would suffice.
+
+#Elias Gamma Iota codes also have the annoying property of growing in size whenever the maxInputInt grows in binary length, while simultaneously not being zero-safe, which means that for any length of Elias Gamma Iota code, the maximum value any Elias Gamma Iota code of that length can store is in the form (2^(2^n))-1, not 2^(2^n). This means that in a sequence of numbers whose values are in the range 1..255 inclusive, increasing that allowed value range to 1..256 inclusive increases the length of _every_ code in the sequence by 1 bit. Since an Elias Delta Iota code's prefix is an Elias Gamma Iota code, this sudden loss of efficiency occurs for Elias Delta Iota codes less often.
+
 
 def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
   assert inputInt > 0
@@ -485,7 +488,7 @@ def eliasDeltaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
 
 
 
-
+#eliasGammaFib and eliasDeltaFib are two universal codes I created. They replace the normal unary prefix present in an Elias code with a fibonacci-coded prefix.
 
 def intToEliasGammaFibBitSeq(inputInt,addDbgChars=False):
   assert inputInt > 0

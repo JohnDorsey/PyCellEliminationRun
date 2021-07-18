@@ -106,7 +106,9 @@ def sentinelize(inputSeq,sentinel=None,loopSentinel=False,failFun=None):
 
 
 def zipGens(inputGens):
-  #This function gives a generator whose items are taken one at a time from each generator provided in a circular order. It runs until all the provided generators are empty. Technically, it can be given arrays instead of generators and it will correct for this. The array of generators may also be a generator instead of an array.
+  """
+  This function gives a generator whose items are taken one at a time from each generator provided in a circular order. It runs until all the provided generators are empty. Technically, it can be given arrays instead of generators and it will correct for this. The array of generators may also be a generator instead of an array.
+  """
   gensRunning = [True for i in range(len(inputGens))] #this map prevents needing to catch the same StopIteration many times for each generator that stops sooner than the last one to stop.
   workingGenArr = [makeGen(item) for item in inputGens] #in case the inputGens contains things that aren't generators _or_ inputGens itself is a generator, this fixes that.
   while not all(not genIsRunning for genIsRunning in gensRunning):
