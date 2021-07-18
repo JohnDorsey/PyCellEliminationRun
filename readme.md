@@ -16,16 +16,16 @@ Usage:
 
     Testing.test()
   
-  # ^ The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute.
+  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute.
 
 
   compress the demo file "samples/moo8bmono44100.txt":
 
     Testing.compressFull("samples/moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.codecs["inSeq_fibonacci"])
     
-  # ^ The output file will be created in the same directory as the project, and will have the interpolation mode and block size appended to the end of its name.
+  The output file will be created in the same directory as the project, and will have the interpolation mode and block size appended to the end of its name.
     
-  # ^ The output is full of the characters "1" and "0", each taking up a whole byte in UTF-8, so the output file will NOT be smaller than the original wave file until it is compressed using GZIP or LZMA.
+  The output is full of the characters "1" and "0", each taking up a whole byte in UTF-8, so the output file will NOT be smaller than the original wave file until it is compressed using GZIP or LZMA.
 
 
   decompress a compressed file:
@@ -37,7 +37,7 @@ Usage:
 
     reconstructedSound == Testing.CERWaves.sounds["samples/moo8bmono44100.txt"][:len(reconstructedSound)]
 
-  # ^ The reconstructed sound will be cut slightly short just because partial blocks aren't allowed yet.
+  The reconstructed sound will be cut slightly short just because partial blocks aren't allowed yet.
   
 
   prepare custom wave files to be compressed:
@@ -46,13 +46,13 @@ Usage:
 
     PyWaveTest.convertAudio("source file name.wav","destination file name.wav")
 
-    # ^ This creates a destination file with 8-bit unsigned samples at 44.1kHz in mono, the default format that other parts of the project expect. With some settings tweaks, the entire project should allow audio with any integer specified as the maximum value per sample.
+  The above creates a destination file with 8-bit unsigned samples at 44.1kHz in mono, the default format that other parts of the project expect. With some settings tweaks, the entire project should allow audio with any integer specified as the maximum value per sample.
 
     import Testing
 
     Testing.CERWaves.sounds["file name.wav"] = Testing.CERWaves.loadSound("file name.wav")
 
-    # ^ this loads the new sound into CERWaves. Also, CERWaves.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time CERWaves is loaded.
+  The above loads the new sound into CERWaves. Also, CERWaves.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time CERWaves is loaded.
 
 
 
