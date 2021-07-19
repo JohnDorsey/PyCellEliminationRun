@@ -106,7 +106,7 @@ Design notes:
 
   Feature wish list (CR = compression ratio):
 
-    -self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
+    -fully self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
       (complexity: low, maintenance: low, CR impact: slightly positive, performance impact: none).
 
     -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.

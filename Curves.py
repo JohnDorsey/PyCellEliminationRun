@@ -24,15 +24,15 @@ def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
-  ENDPOINTS_AT_ZERO = False
+  #ENDPOINTS_AT_ZERO = False
   CACHE_BONE_DISTANCE_ABS = True
   SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite"]
   SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
 
-  def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpoints=None):
+  def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpointInitMode=None):
     
     self.setInterpolationMode(interpolationMode)
-    self.setSizeAndEndpoints(size,endpoints)
+    self.setSizeAndEndpoints(size,endpointInitMode)
 
     self.data = [None for i in range(self.endpoints[1][0]+1)]
     self.boneDistanceAbs = None
@@ -43,23 +43,32 @@ class Spline:
     assert len(self.data) == self.size[0]
 
 
-  def setSizeAndEndpoints(self,size,endpoints):
-    self.endpoints = endpoints
-    assert self.endpoints == None, "avoid using preset Spline endpoints for this stage of testing."
+  def setSizeAndEndpoints(self,size,endpointInitMode):
     self.size = size
-    assert not (self.size == None and self.endpoints == None)
-    if self.size == None:
-      self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
-      dbgPrint("Curves.Spline.setSizeAndEndpoints: self.size is incomplete.")
-    elif self.endpoints == None:
-      if Spline.ENDPOINTS_AT_ZERO or self.size[1] == None:
-        self.endpoints = ((0,0),(self.size[0]-1,0))
-        if self.size[1] == None:
-          dbgPrint("Curves.Spline.setSizeAndEndpoints: size[1]==None sets endpoints to zero.")
+    assert self.size != None
+    assert type(endpointInitMode) in [list,str]
+    if type(endpointInitMode) == str:
+      endpointInitMode = [str(endpointInitMode) for i in range(2)]
+    assert len(endpointInitMode) == 2 #1 for each endpoint.
+    tempEndpoints = [[0,None],[self.size[0]-1,None]]
+    for i in [0,1]:
+      if self.size[1] == None:
+        tempEndpoints[i][1] = 0
+        print("Curves.Spline.setSizeAndEndpoints: size[1]==None sets endpoint height to zero.")
+        continue
+      if endpointInitMode[i] == "middle":
+        tempEndpoints[i][1] = self.size[1]>>1
+      elif endpointInitMode[i] == "zero":
+        tempEndpoints[i][1] = 0
+      elif endpointInitMode[i] == "maximum":
+        tempEndpoints[i][1] = self.size[1]-1
       else:
-        self.endpoints = ((0,self.size[1]>>1),(self.size[0]-1,self.size[1]>>1))
-    else:
-      assert False, "impossible error."
+        raise ValueError("The endpointInitMode is invalid!")
+    self.endpoints = ((tempEndpoints[0][0],tempEndpoints[0][1]),(tempEndpoints[1][0],tempEndpoints[1][1]))
+    if self.size == None:
+      print("Curves.Spline.setSizeAndEndpoints: Size should not be empty, and this branch should not be running!")
+      self.size = [self.endpoints[1][0] - self.endpoints[0][0] + 1,None]
+      print("Curves.Spline.setSizeAndEndpoints: self.size is incomplete.")
     assert len(self.endpoints) == 2
     assert self.endpoints[0][0] == 0, "sample ranges not starting at zero are not yet supported."
     assert self.endpoints[1][0] == size[0]-1, "sample ranges not ending at their second endpoint are not supported."

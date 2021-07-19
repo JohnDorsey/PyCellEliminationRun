@@ -82,12 +82,13 @@ def clamp(value,minmax):
   return min(max(value,minmax[0]),minmax[1])
 
 
-def intify(arr,roundNearest=False): #force every number to be an int.
-  for i,item in enumerate(arr):
+def intify(inputArr,roundNearest=False): #force every number to be an int.
+  for i,item in enumerate(inputArr):
     if type(item) == list:
       intify(item,roundNearest=roundNearest)
     else:
-      arr[i] = int(round(item)) if roundNearest else int(item)
+      inputArr[i] = int(round(item)) if roundNearest else int(item)
+
 
 
 
@@ -221,18 +222,52 @@ class CellElimRunCodecState:
   #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
   DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it affects the output.
-  DO_CRITICAL_COLUMN_ROUTINE = True
+  DO_CRITICAL_COLUMN_ROUTINE = True #this is responsible for most of the process of ensuring that trailing zeroes are trimmed and CER blocks may be self-delimiting.
+  DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample.
+  
+  DEFAULT_SPACE_DEFINITION = {"size":[256,256],"endpointInitMode":"middle"}
 
-  def __init__(self, inputData, opMode, size):
-    self.size = size
-    self.prepMode(inputData,opMode)
+  def __init__(self, inputData, opMode, spaceDefinition=None):
+    self.prepSpaceDefinition(spaceDefinition)
+    self.prepOpMode(inputData,opMode)
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
-    self.spline = Curves.Spline(size=self.size)
+
+
+  def setPlaindataItem(self,index,value,dbgCatalogueValue=-260):
+    self.spline[index] = value
+    if CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY:
+      self.cellCatalogue.eliminateColumn(index,dbgCustomValue=dbgCatalogueValue)
+
+
+  def prepSpaceDefinition(self,spaceDefinition):
+    if spaceDefinition == None:
+      spaceDefinition = eval(str(CellElimRunCodecState.DEFAULT_SPACE_DEFINITION)) #copy it, but never store a reference to it, because it is not supposed to change.
+      print("CellElimRunCodecState.prepSpaceDefinition: None was provided, so the default spaceDefinition will be used. The default is " + str(spaceDefinition) + ".")
+    if not "size" in spaceDefinition.keys():
+      raise ValueError("The spaceDefinition is invalid because it has no size key.")
+    self.size = spaceDefinition["size"]
     self.cellCatalogue = CellCatalogue(size=self.size)
 
+    endpointInitMode = None
+    if "endpointInitMode" in spaceDefinition.keys():
+      endpointInitMode = spaceDefinition["endpointInitMode"]
+    else:
+      endpointInitMode = CellElimRunCodecState.DEFAULT_SPACE_DEFINITION["endpointInitMode"]
+    self.spline = Curves.Spline(size=self.size,endpointInitMode=endpointInitMode)
 
-  def prepMode(self,inputData,opMode):
+    if "boundTouches" in spaceDefinition.keys():
+      boundTouches = spaceDefinition["boundTouches"]
+      if "north" in boundTouches:
+        self.setPlaindataItem(boundTouches["north"],self.size[1]-1,dbgCatalogueValue=-238)
+      if "south" in boundTouches:
+        self.setPlaindataItem(boundTouches["south"],0,dbgCatalogueValue=-239)
+
+
+  def prepOpMode(self,inputData,opMode):
+    """
+    prepare CellEliminationRunCodecState to operate in the specified opMode by creating and initializing only the things that are needed for that mode of operation. This method requires self.size to be defined, so, prepSpaceDefinition should be run before this method.
+    """
     self.opMode = opMode
     if not self.opMode in ["encode","decode"]:
       raise ValueError("That opMode is nonexistent or not allowed.")
@@ -388,9 +423,9 @@ def cellElimRunBlockTranscode(inputData,opMode,splineInterpolationMode,size,dbgR
   assert opMode in ["encode","decode"]
   tempCERCS = None
   if opMode == "encode":
-    tempCERCS = CellElimRunCodecState(makeArr(inputData),"encode",size)
+    tempCERCS = CellElimRunCodecState(makeArr(inputData),"encode",spaceDefinition={"size":size,"endpointInitMode":"middle"})
   elif opMode == "decode":
-    tempCERCS = CellElimRunCodecState(makeGen(inputData),"decode",size)
+    tempCERCS = CellElimRunCodecState(makeGen(inputData),"decode",spaceDefinition={"size":size,"endpointInitMode":"middle"})
   else:
     assert False, "invalid opMode."
   tempCERCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
