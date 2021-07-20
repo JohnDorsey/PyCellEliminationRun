@@ -8,7 +8,7 @@ IntSeqStore.py contains tools for storing integer sequences with minimized stora
 """
 
 import Codes #for haven bucket.
-from Codes import rjustArr
+from Codes import rjustedArr
 from PyGenTools import arrTakeOnly, makeGen, makeArr, sentinelize, ExhaustionError
 import CodecTools
 
@@ -74,7 +74,7 @@ def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialH
     encodedBitArr = makeArr(numberCodec.encode((num >> havenBucketSize) + (0 if numberCodec.zeroSafe else 1)))
     if addDbgCommas:
       encodedBitArr.append(".")
-    havenBucketData = rjustArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
+    havenBucketData = rjustedArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
     encodedBitArr.extend(havenBucketData)
     if addDbgCommas:
       if not justStarted:

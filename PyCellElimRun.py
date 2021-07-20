@@ -11,8 +11,8 @@ import math
 import Curves
 import CodecTools
 
-from PyGenTools import isGen,makeArr,makeGen
-
+from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
+from PyArrTools import ljustedArr
 
 
 
@@ -218,6 +218,11 @@ class CellCatalogue:
 
 
 
+
+
+
+
+
 class CellElimRunCodecState:
   #the CodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
 
@@ -227,8 +232,9 @@ class CellElimRunCodecState:
   
   DEFAULT_SPACE_DEFINITION = {"size":[256,256],"endpointInitMode":"middle"}
 
-  def __init__(self, inputData, opMode, spaceDefinition=None):
+  def __init__(self, inputData, opMode, interpolationMode=None,spaceDefinition=None):
     self.prepSpaceDefinition(spaceDefinition)
+    self.spline.setInterpolationMode(interpolationMode)
     self.prepOpMode(inputData,opMode)
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
@@ -273,14 +279,21 @@ class CellElimRunCodecState:
       raise ValueError("That opMode is nonexistent or not allowed.")
     self.plainDataInputArr, self.pressDataInputGen = (None,None)
     self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
+
+    if not isGen(inputData):
+      print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: inputData is not a generator, but to make testing simpler, maybe it should be.")
+
     if self.opMode == "encode":
-      assert type(inputData) == list
-      self.plainDataInputArr = inputData
-      assert len(self.plainDataInputArr) > 0
+      self.plainDataInputArr = arrTakeOnly(inputData,self.size[0],onExhaustion="warn+partial")
+      if not len(self.plainDataInputArr) > 0:
+        raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
+      if len(self.plainDataInputArr) < self.size[0]:
+        print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: the input plainData is shorter than the (block) size, so the missing values will be replaced with zeroes.")
+      self.plainDataInputArr = ljustedArr(self.plainDataInputArr,self.size[0],fillItem=0)
+      assert len(self.plainDataInputArr) == self.size[0]
       self.pressDataOutputArr = []
     elif self.opMode == "decode":
-      assert isGen(inputData)
-      self.pressDataInputGen = inputData
+      self.pressDataInputGen = makeGen(inputData)
       self.plainDataOutputArr = []
       defaultSampleValue = None
       self.plainDataOutputArr.extend([defaultSampleValue for i in range(self.size[0])])
@@ -294,13 +307,23 @@ class CellElimRunCodecState:
     while True:
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataInputArr)) or (self.opMode == "decode" and self.runIndex >= self.size[0]):
         break
-      shouldContinue = self.processRun()
+      shouldContinue = False
+      try:
+        shouldContinue = self.processRun()
+      except ExhaustionError as ee:
+        print("PyCellElimRun.CellElimRunCodecState.processBlock: an ExhaustionError was thrown by processRun. This is not supposed to happen while processing a lone block. While processing blocks in a stream, it is only supposed to happen once, when the stream ends.")
+        if self.opMode == "encode":
+          print("PyCellElimRun.CellElimRunCodecState.processBlock: this ExhaustionError is never supposed to happen while encoding.")
+        else:
+          if self.plainDataOutputArr.count(None) == len(self.plainDataOutputArr):
+            print("PyCellElimRun.CellElimRunCodecState.processBlock: the decoded data is empty, so no interpolation will be performed, and an ExhaustionError will be raised.")
+            raise ExhaustionError("CellElimRunCodecState was probably initialized with empty input data.")
       self.runIndex += 1
       if not shouldContinue:
         break
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self.plainDataOutputArr)
-    return #finished, might be lossy if it ended while they were unequal lengths.
+    return True #indicate that everything is okay and the inputData did not run out if decoding.
 
 
   def interpolateMissingValues(self,targetArr):
@@ -328,8 +351,9 @@ class CellElimRunCodecState:
             currentPressDataNum = next(self.pressDataInputGen)
           except StopIteration:
             print("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
+            raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
             return False #indicate that processing should stop.
-        justStarted = False #don't run this block again.
+        justStarted = False
       cellToCheck = orderEntry[1]
       if orderEntry[0] == "fix":
         #print("order entry " + str(orderEntry) + " will be fixed")
@@ -416,19 +440,16 @@ class CellElimRunCodecState:
 
 
 
-def cellElimRunBlockTranscode(inputData,opMode,splineInterpolationMode,size,dbgReturnCERCS=False):
-  if size[0] == None:
-    dbgPrint("PyCellElimRun.functionalTest: assuming size.")
-    size[0] = len(inputData)
+def cellElimRunBlockTranscode(inputData,opMode,interpolationMode,spaceDefinition,dbgReturnCERCS=False):
+  if type(spaceDefinition) == list:
+    if len(spaceDefinition) != 2 or (None in spaceDefinition):
+      raise ValueError("spaceDefinition is a list that can't be converted to a dictionary.")
+    assert len(spaceDefinition) == 2
+    print("spaceDefinition will be expanded into a dictionary. The use of a 2-item list for a spaceDefinition is deprecated.")
+    spaceDefinition = {"size":spaceDefinition,"endpointInitMode":"middle"}
   assert opMode in ["encode","decode"]
-  tempCERCS = None
-  if opMode == "encode":
-    tempCERCS = CellElimRunCodecState(makeArr(inputData),"encode",spaceDefinition={"size":size,"endpointInitMode":"middle"})
-  elif opMode == "decode":
-    tempCERCS = CellElimRunCodecState(makeGen(inputData),"decode",spaceDefinition={"size":size,"endpointInitMode":"middle"})
-  else:
-    assert False, "invalid opMode."
-  tempCERCS.spline.setInterpolationMode(splineInterpolationMode) #@ this is a bad way to do it.
+
+  tempCERCS = CellElimRunCodecState(inputData,opMode,interpolationMode=interpolationMode,spaceDefinition=spaceDefinition)
   tempCERCS.processBlock()
   if dbgReturnCERCS:
     return tempCERCS
@@ -437,18 +458,50 @@ def cellElimRunBlockTranscode(inputData,opMode,splineInterpolationMode,size,dbgR
   assert False
 
 
+def genCellElimRunBlockSeqTranscode(inputData,opMode,interpolationMode,spaceDefinition,segmentInput=False,segmentOutput=False):
+  if not isGen(inputData):
+    print("PyCellElimRun.genCellElimRunBlockSeqTranscode: inputData is not a generator, so it will be converted to one.")
+  inputData = makeGen(inputData)
+  while True:
+    currentInputData = None
+    if segmentInput:
+      currentInputData = next(inputData)
+    else:
+      currentInputData = inputData
+    currentResult = None
+    try:
+      currentResult = cellElimRunBlockTranscode(currentInputData,opMode,interpolationMode,spaceDefinition)
+    except ExhaustionError:
+      break
+    assert currentResult != None
+    if segmentOutput:
+      yield currentResult
+    else:
+      for outputItem in currentResult:
+        yield outputItem
+  print("PyCellElimRun.genCellElimRunBlockSeqTranscode: ended.")
+
+
 
 cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode,zeroSafe=True)
 
+cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRunBlockSeqTranscode,zeroSafe=True)
 
 
 
-testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",[5,5])
+testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",{"size":[5,5],"endpointInitMode":"middle"})
 assert testResult[0] == 20
 assert sum(testResult[1:]) == 0
-assert cellElimRunBlockTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
+assert cellElimRunBlockTranscode([20],"decode","linear",{"size":[5,5],"endpointInitMode":"middle"}) == [2,2,2,2,2]
 
-testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",[5,10])
+testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",{"size":[5,10],"endpointInitMode":"middle"})
 assert testResult[:2] == [32,10]
 assert sum(testResult[2:]) == 0
-assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",[5,10]) == [5,6,7,6,5]
+assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",{"size":[5,10],"endpointInitMode":"middle"}) == [5,6,7,6,5]
+
+
+for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
+  assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpointInitMode":testEndpointInitMode}]),[5,0,100,75,50])
+
+
+

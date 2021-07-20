@@ -37,7 +37,7 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
   QuickTimers.startTimer("test")
   testSound = eval(soundSrcStr)[:soundLength]
   print("Testing.test: the sound source string is " + str(soundSrcStr) + ".")
-  testSoundSize = [None,SAMPLE_VALUE_UPPER_BOUND] #leaving the length in samples equal to None allows the codec to decide this for itself. @ This could go wrong if the codec is provided incomplete data that would otherwise lead to proper decompression.
+  testSoundSize = [soundLength,SAMPLE_VALUE_UPPER_BOUND]
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
 
@@ -129,6 +129,9 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
 #tests performed on load.
 assert len(CERWaves.sounds["samples/moo8bmono44100.txt"]) > 0
 
-#old non-codec-tools-based test.
 assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
+
+#test of streaming CER blocks:
+assert [item for item in Testing.pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpointInitMode":"middle"}]).encode([5676556765])] == [32,10,32,10]
+assert [item for item in Testing.pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpointInitMode":"middle"}]).decode([32,10,32,10])] == [5,6,7,6,5,5,6,7,6,5]
 
