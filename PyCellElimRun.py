@@ -215,11 +215,33 @@ class CellCatalogue:
       assert False, "not all storage modes are yet supported for this function."
 
 
+def augmentDict(dict0, dict1):
+  for key in dict1.keys():
+    if not key in dict0.keys():
+      dict0[key] = dict1[key]
 
+def modifyDict(dict0, dict1):
+  for key in dict1.keys():
+    if key in dict0.keys():
+      dict0[key] = dict1[key]
 
+def augmentedDict(dict0, dict1):
+  result = {}
+  for key in dict0.keys():
+    result[key] = dict0[key]
+  for key in dict1.keys():
+    if not key in result.keys():
+      result[key] = dict1[key]
+  return result
 
-
-
+def modifiedDict(dict0, dict1):
+  result = {}
+  for key in dict0.keys():
+    result[key] = dict0[key]
+  for key in dict1.keys():
+    if key in result.keys():
+      result[key] = dict1[key]
+  return result
 
 
 
@@ -229,62 +251,183 @@ class CellElimRunCodecState:
   DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it affects the output.
   DO_CRITICAL_COLUMN_ROUTINE = True #this is responsible for most of the process of ensuring that trailing zeroes are trimmed and CER blocks may be self-delimiting.
   DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample.
-  
-  DEFAULT_SPACE_DEFINITION = {"size":[256,256],"endpointInitMode":"middle"}
 
-  def __init__(self, inputData, opMode, interpolationMode=None,spaceDefinition=None):
-    self.prepSpaceDefinition(spaceDefinition)
-    self.spline.setInterpolationMode(interpolationMode)
-    self.prepOpMode(inputData,opMode)
+
+  def __init__(self, inputData, opMode, interpolationMode=None, spaceDefinition=None):
+
+    self.inputDataGen = makeGen(inputData) #this is necessary to make it so that prepSpaceDefinition can take some items from the front, before prepOpMode does anything.
+    self.opMode = opMode #initialized here instead of in prepOpMode because it is needed by prepSpaceDefinition.
+
+    self.inputHeaderDictTemplate = self.TO_COMPLETED_SPACE_DEFINITION(spaceDefinition)
+    self.headerDict = {}
+    self.pressHeaderValues = [] #this is to remain empty until populated by the method prepSpaceDefinition. prepSpaceDefinition _may_ populate it if the spaceDefinition argument tells it to embed or access header info from the regular inputData.
+
+    #pretend these are part of the header until someday they are: {
+    #nothing right now.
+    #}
+
+    self.headerRoutineBeforeInit()
+    self.tempApplyHeader() #@ FIX! this must be removed eventually!
+
+    self.prepSpaceDefinition()
+    self.spline.setInterpolationMode(interpolationMode)  #@ this should also pull from the loaded header someday maybe.
+    self.prepOpMode()
+
+    self.headerRoutineAfterInit()
+
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
+  
+
+  def GET_DEFAULT_SPACE_DEFINITION(self):
+    #return {"plaindata_num_count":256,"plaindata_num_upper_limit":256,"endpoint_init_mode":"middle"}
+    return {"size":[256,256],"endpoint_init_mode":"middle"}
+
+  def TO_COMPLETED_SPACE_DEFINITION(self,inputObject):
+    workingObject = eval(str(inputObject))
+    #print("CellElimRunCodecState.prepSpaceDefinition: None was provided, so the default spaceDefinition will be used. The default is " + str(spaceDefinition) + ".")
+    if type(workingObject) == list:
+      print("CellElimRunCodecState.TO_COMPLETED_SPACE_DEFINITION: the inputObject is a two-item list and will be used as the size.")
+      assert len(workingObject) == 2
+      assert all(type(item)==int for item in workingObject)
+      workingObject = {"size":workingObject}
+    elif type(workingObject) == dict:
+      pass
+    else:
+      print("CellElimRunCodecState.TO_COMPLETED_SPACE_DEFINITION: the inputObject is an incompatible type and will be ignored completely.")
+      workingObject = {}
+    augmentDict(workingObject,self.GET_DEFAULT_SPACE_DEFINITION())
+    return workingObject
+    
+
+  def headerRoutineBeforeInit(self):
+    #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
+    if self.opMode == "encode":
+      for key in sorted(self.inputHeaderDictTemplate.keys()):
+        inputValue = self.inputHeaderDictTemplate[key]
+        if inputValue == "EMBED":
+          print("while encoding, header value EMBED will remain EMBED until processing is finished.")
+          self.headerDict[key] = inputValue
+        else:
+          self.headerDict[key] = inputValue
+    elif self.opMode == "decode":
+      for key in sorted(self.inputHeaderDictTemplate.keys()):
+        finalValue = None
+        inputValue = self.inputHeaderDictTemplate[key]
+        if inputValue == "EMBED":
+          finalValue = self.loadHeaderNum()
+        else:
+          finalValue = inputValue
+        self.headerDict[key] = finalValue
+    else:
+      assert False, "invalid opMode."
+
+  def tempApplyHeader(self):
+    #this is a TEMPORARY method for quickly applying header values to the CellElimRunCodecState's attributes. Later, the codec will operate by directly reading the header.
+    for key in sorted(self.headerDict.keys()):
+      if key == "size":
+        self.size = self.headerDict[key]
+      
+  def headerRoutineAfterInit(self):
+    #if there are some parts of the header data that can't be decided until after initialization, such as the maximum plainData value, then handle those here.
+    if self.opMode == "encode":
+      pass
+    elif self.opMode == "decode":
+      pass
+    else:
+      assert False, "invalid opMode."
+
+  def headerRoutineAfterProcessBlock(self):
+    def resolveAndEncodeHeaderValues(name):
+      if name == "dbg_resolve_to_123456789":
+        return 123456789
+      elif name == "dbg_resolve_to_[123,456]":
+        return [123,456]
+      else:
+        raise NotImplementedError("The CellElimRunCodecState in opMode " + self.opMode + " didn't know how to resolve the header key " + str(name) + " of type " + str(type(name)) + ".")
+    if self.opMode == "encode":
+      for key in sorted(self.headerDict.keys()):
+        if self.headerDict[key] == "EMBED":
+          pressHeaderAddition = resolveAndEncodeHeaderValues(key)
+          if type(pressHeaderAddition) == int:
+            self.saveHeaderNum(pressHeaderAddition)
+          elif type(pressHeaderAddition) == list:
+            for value in pressHeaderAddition:
+              self.saveHeaderNum(value)
+          else:
+            raise ValueError("The resolved value of the header item " + key + " was not an integer or a list.")
+        else:
+          pass #skip the item, because this is information that doesn't need to be embedded - either the setting's value is the default value for that setting, the setting is stored globally for the file, or the setting must be remembered by the user.
+    elif self.opMode == "decode":
+      print("CellElimRunCodecState.headerRoutineAfterProcessBlock has no job to do when opMode is decode.")
+    else:
+      assert False, "invalid opMode."
+
+  def saveHeaderNum(self,value):
+    if type(value) != int:
+      print("PyCellElimRun.CellElimRunCodecState.saveHeaderNum: Warning: the value being saved is of type " + str(type(value)) + ", not int! Codecs processing the output of this codec may not expect this!")
+    self.pressHeaderValues.append(value)
+    return value
+
+  def loadHeaderNum(self):
+    loadedNum = None
+    try:
+      loadedNum = next(self.inputDataGen)
+    except StopIteration:
+      raise ExhaustionError("Ran out of inputData while trying to read the header info.")
+    assert loadedNum != None
+    self.pressHeaderValues.append(loadedNum)
+    return loadedNum
 
 
   def setPlaindataItem(self,index,value,dbgCatalogueValue=-260):
+    """
+    This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
+    """
     self.spline[index] = value
     if CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY:
       self.cellCatalogue.eliminateColumn(index,dbgCustomValue=dbgCatalogueValue)
 
 
-  def prepSpaceDefinition(self,spaceDefinition):
-    if spaceDefinition == None:
-      spaceDefinition = eval(str(CellElimRunCodecState.DEFAULT_SPACE_DEFINITION)) #copy it, but never store a reference to it, because it is not supposed to change.
-      print("CellElimRunCodecState.prepSpaceDefinition: None was provided, so the default spaceDefinition will be used. The default is " + str(spaceDefinition) + ".")
-    if not "size" in spaceDefinition.keys():
-      raise ValueError("The spaceDefinition is invalid because it has no size key.")
-    self.size = spaceDefinition["size"]
+  def getOutput(self):
+    if self.opMode == "encode":
+      return self.pressHeaderValues + self.pressDataOutputArr
+    elif self.opMode == "decode":
+      return self.plainDataOutputArr
+    else:
+      assert False, "invalid opMode."
+
+
+
+  def prepSpaceDefinition(self):
+
     self.cellCatalogue = CellCatalogue(size=self.size)
 
-    endpointInitMode = None
-    if "endpointInitMode" in spaceDefinition.keys():
-      endpointInitMode = spaceDefinition["endpointInitMode"]
-    else:
-      endpointInitMode = CellElimRunCodecState.DEFAULT_SPACE_DEFINITION["endpointInitMode"]
+    endpointInitMode = self.headerDict["endpoint_init_mode"]
     self.spline = Curves.Spline(size=self.size,endpointInitMode=endpointInitMode)
 
-    if "boundTouches" in spaceDefinition.keys():
-      boundTouches = spaceDefinition["boundTouches"]
-      if "north" in boundTouches:
+    if "bound_touches" in self.headerDict.keys():
+      boundTouches = self.headerDict["bound_touches"]
+      if "north" in boundTouches.keys():
         self.setPlaindataItem(boundTouches["north"],self.size[1]-1,dbgCatalogueValue=-238)
-      if "south" in boundTouches:
+      if "south" in boundTouches.keys():
         self.setPlaindataItem(boundTouches["south"],0,dbgCatalogueValue=-239)
 
 
-  def prepOpMode(self,inputData,opMode):
+  def prepOpMode(self):
     """
     prepare CellEliminationRunCodecState to operate in the specified opMode by creating and initializing only the things that are needed for that mode of operation. This method requires self.size to be defined, so, prepSpaceDefinition should be run before this method.
     """
-    self.opMode = opMode
     if not self.opMode in ["encode","decode"]:
       raise ValueError("That opMode is nonexistent or not allowed.")
     self.plainDataInputArr, self.pressDataInputGen = (None,None)
     self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
 
-    if not isGen(inputData):
-      print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: inputData is not a generator, but to make testing simpler, maybe it should be.")
-
+    #if not isGen(inputData):
+    #  print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: inputData is not a generator, but to make testing simpler, maybe it should be.")
+    
     if self.opMode == "encode":
-      self.plainDataInputArr = arrTakeOnly(inputData,self.size[0],onExhaustion="warn+partial")
+      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,self.size[0],onExhaustion="warn+partial")
       if not len(self.plainDataInputArr) > 0:
         raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
       if len(self.plainDataInputArr) < self.size[0]:
@@ -293,7 +436,7 @@ class CellElimRunCodecState:
       assert len(self.plainDataInputArr) == self.size[0]
       self.pressDataOutputArr = []
     elif self.opMode == "decode":
-      self.pressDataInputGen = makeGen(inputData)
+      self.pressDataInputGen = self.inputDataGen
       self.plainDataOutputArr = []
       defaultSampleValue = None
       self.plainDataOutputArr.extend([defaultSampleValue for i in range(self.size[0])])
@@ -323,7 +466,8 @@ class CellElimRunCodecState:
         break
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self.plainDataOutputArr)
-    return True #indicate that everything is okay and the inputData did not run out if decoding.
+    self.headerRoutineAfterProcessBlock()
+    return
 
 
   def interpolateMissingValues(self,targetArr):
@@ -454,7 +598,7 @@ def cellElimRunBlockTranscode(inputData,opMode,interpolationMode,spaceDefinition
   if dbgReturnCERCS:
     return tempCERCS
   else:
-    return tempCERCS.plainDataOutputArr if opMode=="decode" else tempCERCS.pressDataOutputArr
+    return tempCERCS.getOutput()
   assert False
 
 
@@ -489,19 +633,24 @@ cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRu
 
 
 
-testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",{"size":[5,5],"endpointInitMode":"middle"})
+
+
+#tests:
+
+
+testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",[5,5])
 assert testResult[0] == 20
 assert sum(testResult[1:]) == 0
-assert cellElimRunBlockTranscode([20],"decode","linear",{"size":[5,5],"endpointInitMode":"middle"}) == [2,2,2,2,2]
+assert cellElimRunBlockTranscode([20],"decode","linear",[5,5]) == [2,2,2,2,2]
 
-testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",{"size":[5,10],"endpointInitMode":"middle"})
+testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",{"size":[5,10],"endpoint_init_mode":"middle"})
 assert testResult[:2] == [32,10]
 assert sum(testResult[2:]) == 0
-assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",{"size":[5,10],"endpointInitMode":"middle"}) == [5,6,7,6,5]
+assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",{"size":[5,10],"endpoint_init_mode":"middle"}) == [5,6,7,6,5]
 
 
 for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
-  assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpointInitMode":testEndpointInitMode}]),[5,0,100,75,50])
+  assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpoint_init_mode":testEndpointInitMode}]),[5,0,100,75,50])
 
 
 
