@@ -87,12 +87,14 @@ Design notes:
     -Blocks.
 
   Todo:
+    
+    -move more header tools out of CellElimRunBlockState.
 
-    -make every numberCodec extraArg into an extraKwarg just to make them easier to debug.
+    -finish higher-order fibonacci coding.
 
     -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
     
-    -change the structure of PyCellElimRun.CodecState to make it easier for other data predictors to be used instead of Curves.Spline.
+    -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
     -add more output file formats, including plaintext python integer lists.
 

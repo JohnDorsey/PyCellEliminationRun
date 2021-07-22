@@ -209,5 +209,28 @@ def intToRankingsArr(inputInt):
 
 
 
+
+def intArrToBodyLengthArrAndBitArr(inputIntArr):
+  result = [[],[]]
+  for currentInt in inputIntArr:
+    if currentInt < 1:
+      raise ValueError("Not zero-safe!")
+    currentBits = makeArr(Codes.intToBinaryBitArr(currentInt))
+    result[0].append(len(currentBits)-1)
+    result[1].extend(currentBits[1:])
+  return result
+
+def bodyLengthSeqAndBitSeqToIntSeq(bodyLengthSeq,bitSeq):
+  bodyLengthSeq = makeGen(bodyLengthSeq)
+  bitSeq = makeGen(bitSeq)
+  for bodyLength in bodyLengthSeq:
+    yield Codes.extendIntByBits(1,bitSeq,bodyLength)
+
+
+
+
+
+
+
 assert [item for item in havenBucketCodecs["HLL_fibonacci"].encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
 
