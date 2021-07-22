@@ -13,7 +13,7 @@ import CodecTools
 
 from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
 from PyArrTools import ljustedArr
-
+from PyDictTools import augmentDict,makeFromTemplateAndSeq
 
 
 #switching from linearInsort to bisectInsort in 1024x256 cell data improves run time from 3 minutes to under 10 seconds. But increasing cell area to 2048x256 makes encoding take 87 seconds, and 4096x256 makes encoding take 6 minutes.
@@ -215,34 +215,6 @@ class CellCatalogue:
       assert False, "not all storage modes are yet supported for this function."
 
 
-def augmentDict(dict0, dict1):
-  for key in dict1.keys():
-    if not key in dict0.keys():
-      dict0[key] = dict1[key]
-
-def modifyDict(dict0, dict1):
-  for key in dict1.keys():
-    if key in dict0.keys():
-      dict0[key] = dict1[key]
-
-def augmentedDict(dict0, dict1):
-  result = {}
-  for key in dict0.keys():
-    result[key] = dict0[key]
-  for key in dict1.keys():
-    if not key in result.keys():
-      result[key] = dict1[key]
-  return result
-
-def modifiedDict(dict0, dict1):
-  result = {}
-  for key in dict0.keys():
-    result[key] = dict0[key]
-  for key in dict1.keys():
-    if key in result.keys():
-      result[key] = dict1[key]
-  return result
-
 
 
 class CellElimRunCodecState:
@@ -261,10 +233,6 @@ class CellElimRunCodecState:
     self.inputHeaderDictTemplate = self.TO_COMPLETED_SPACE_DEFINITION(spaceDefinition)
     self.headerDict = {}
     self.pressHeaderValues = [] #this is to remain empty until populated by the method prepSpaceDefinition. prepSpaceDefinition _may_ populate it if the spaceDefinition argument tells it to embed or access header info from the regular inputData.
-
-    #pretend these are part of the header until someday they are: {
-    #nothing right now.
-    #}
 
     self.headerRoutineBeforeInit()
     self.tempApplyHeader() #@ FIX! this must be removed eventually!
@@ -311,6 +279,7 @@ class CellElimRunCodecState:
         else:
           self.headerDict[key] = inputValue
     elif self.opMode == "decode":
+      """
       for key in sorted(self.inputHeaderDictTemplate.keys()):
         finalValue = None
         inputValue = self.inputHeaderDictTemplate[key]
@@ -319,6 +288,8 @@ class CellElimRunCodecState:
         else:
           finalValue = inputValue
         self.headerDict[key] = finalValue
+      """
+      augmentDict(self.headerDict, makeFromTemplateAndSeq(self.inputHeaderDictTemplate, self.inputDataGen,(lambda x: x=="EMBED")))
     else:
       assert False, "invalid opMode."
 
