@@ -119,6 +119,11 @@ def zipGens(inputGens):
         except StopIteration:
           gensRunning[genIndex] = False #don't check this generator for items again.
 
+def genAddInt(inputSeq,inputInt):
+  for item in inputSeq:
+    yield item+inputInt
+
+
 
 
 class CC:

@@ -210,7 +210,7 @@ def intToRankingsArr(inputInt):
 
 
 
-def intArrToBodyLengthArrAndBitArr(inputIntArr):
+def expeditedPrefixesEncode(inputIntArr):
   result = [[],[]]
   for currentInt in inputIntArr:
     if currentInt < 1:
@@ -220,17 +220,34 @@ def intArrToBodyLengthArrAndBitArr(inputIntArr):
     result[1].extend(currentBits[1:])
   return result
 
-def bodyLengthSeqAndBitSeqToIntSeq(bodyLengthSeq,bitSeq):
+def expeditedPrefixesDecode(bodyLengthSeq,bitSeq):
   bodyLengthSeq = makeGen(bodyLengthSeq)
   bitSeq = makeGen(bitSeq)
   for bodyLength in bodyLengthSeq:
     yield Codes.extendIntByBits(1,bitSeq,bodyLength)
 
 
+#def P0_Ic_p1IC_P1_Ic_for_p2I...
+def intSeq_useCodecOnExpeditedPrefixes_encode(inputIntSeq,numberCodec,numberSeqCodec): #memory waste.
+  result = expeditedPrefixesEncode(inputIntSeq)
+  for outputBit in numberCodec.encode(len(result[0]) + (not numberCodec.zeroSafe)):
+    yield outputBit
+  for outputBit in numberSeqCodec.encode((item+(not numberSeqCodec.zeroSafe) for item in result[0])):
+    yield outputBit
+  for outputBit in result[1]:
+    yield outputBit
 
+def intSeq_useCodecOnExpeditedPrefixes_decode(inputBitSeq,numberCodec,numberSeqCodec):
+  inputBitSeq = makeGen(inputBitSeq)
+  remainingHeaderLength = numberCodec.decode(inputBitSeq)-(not numberCodec.zeroSafe)
+  header = arrTakeOnly((item-(not numberSeqCodec.zeroSafe) for item in numberSeqCodec.decode(inputBitSeq)),remainingHeaderLength)
+  return expeditedPrefixesDecode(header,inputBitSeq)
 
-
-
+#these are inefficient for sequences with a lot of small numbers.
+prefixExpeditionCodecs = {}
+prefixExpeditionCodecs["base"] = CodecTools.Codec(intSeq_useCodecOnExpeditedPrefixes_encode,intSeq_useCodecOnExpeditedPrefixes_decode)
+prefixExpeditionCodecs["HLL_fibonacci"] = prefixExpeditionCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],havenBucketCodecs["HLL_fibonacci"]])
+prefixExpeditionCodecs["0.75LL_fibonacci"] = prefixExpeditionCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],havenBucketCodecs["HLL_fibonacci"]])
 
 assert [item for item in havenBucketCodecs["HLL_fibonacci"].encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
 

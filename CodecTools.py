@@ -65,6 +65,7 @@ def makeChainedPairCodec(codec1,codec2):
   return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda x: codec1.decode(codec2.decode(x))))
 
 
+
 class Codec:
   def __init__(self,encodeFun,decodeFun,transcodeFun=None,zeroSafe=None,extraArgs=None,extraKwargs=None):
     self.encodeFun, self.decodeFun, self.transcodeFun, self.zeroSafe = (encodeFun, decodeFun, transcodeFun, zeroSafe)
