@@ -119,9 +119,14 @@ def zipGens(inputGens):
         except StopIteration:
           gensRunning[genIndex] = False #don't check this generator for items again.
 
-def genAddInt(inputSeq,inputInt):
+def genAddInt(inputSeq,inputInt): #is this used anywhere?
   for item in inputSeq:
     yield item+inputInt
+
+def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis
+  for item in inputSeq:
+    if filterFun(item):
+      yield item
 
 
 

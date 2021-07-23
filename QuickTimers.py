@@ -22,3 +22,7 @@ def stopTimer(name): #destroy a timer by name and return the amount of time it e
   assert name in timerStartTimes.keys()
   return time.time() - timerStartTimes.pop(name,None)
 
+def peekTimer(name): #by name, check how long a timer has existed.
+  assert name in timerStartTimes.keys()
+  return time.time() - timerStartTimes[name]
+

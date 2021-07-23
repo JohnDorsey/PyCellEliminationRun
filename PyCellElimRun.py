@@ -11,6 +11,8 @@ import math
 import Curves
 import CodecTools
 
+from IntArrMath import intify
+
 from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
 from PyArrTools import ljustedArr
 from PyDictTools import augmentDict,makeFromTemplateAndSeq
@@ -82,12 +84,6 @@ def clamp(value,minmax):
   return min(max(value,minmax[0]),minmax[1])
 
 
-def intify(inputArr,roundNearest=False): #force every number to be an int.
-  for i,item in enumerate(inputArr):
-    if type(item) == list:
-      intify(item,roundNearest=roundNearest)
-    else:
-      inputArr[i] = int(round(item)) if roundNearest else int(item)
 
 
 

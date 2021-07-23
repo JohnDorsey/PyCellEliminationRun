@@ -57,6 +57,26 @@ def makeFromTemplateAndSeq(template, inputSeq, triggerFun, sortDictKeys=True, re
   return result
 
 
+def dictToList(inputDict,extractionFun=None):
+  if extractionFun == None:
+    extractionFun = (lambda x: x)
+  errorCount = 0
+  maxKey = max(inputDict.keys())
+  minKey = min(inputDict.keys())
+  result = [None for i in range(maxKey+1)]
+  assert len(result) >= maxKey
+  assert minKey >= 0
+  for key in inputDict.keys():
+    if type(key) == int:
+      if result[key] == None:
+        result[key] = extractionFun(inputDict[key])
+      else:
+        assert False, "duplicate keys???"
+    else:
+      errorCount += 1
+  if errorCount > 0:
+    print("MarkovTools.dictToList: errorCount was " + str(errorCount) + ".")
+  return result
 
 
 assert makeFromTemplateAndSeq([0,0,0,1,0,1,0,1,0,[0,1,1,0],0,1,1],"Hello, world!",lambda x: x==1) == [0, 0, 0, 'H', 0, 'e', 0, 'l', 0, [0, 'l', 'o', 0], 0, ",", " "]

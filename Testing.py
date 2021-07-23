@@ -16,7 +16,10 @@ import IntArrMath
 import IntSeqStore
 
 import QuickTimers
-from PyGenTools import makeArr
+
+from PyGenTools import makeArr, makeGen
+from PyArrTools import ljustedArr
+from MarkovTools import Hist
 
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
@@ -123,6 +126,61 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
   print("Testing.decompressFull: result has length " + str(len(result)) + " and ends with " + str(result[-PEEK:])[-PEEK:] + ".")
   print("Testing.decompressFull: decompression took " + str(QuickTimers.stopTimer("decompressFull")) + " seconds.")
   return result
+
+
+
+
+
+
+
+
+class PressNumsAnalysis:
+  def __init__(self,plainDataSrcArr,numberSeqCodec,sliceLength,offsetSrcGen):
+    self.plainDataSrcArr = plainDataSrcArr
+    self.numberSeqCodec = numberSeqCodec
+    self.sliceLength = sliceLength
+    self.offsetSrcGen = makeGen(offsetSrcGen)
+    self.collectedData = {"all_pressdata_nums":Hist(),"pressdata_nums_by_column":[Hist() for i in range(self.sliceLength)],"pressdata_lengths":Hist(),"pressdata_means_rounded":Hist(),"pressdata_medians_rounded":Hist(),"pressdata_maximums":Hist()}
+
+  def run(self,blockCount,timeLimit=None):
+    def endPhrase():
+      return str("Testing.PressNumsAnalysis.run will stop after running just {} of " + str(blockCount) + " requested blocks.")
+    QuickTimers.startTimer("Testing.PressNumsAnalysis.run")
+    for blockIndex in range(blockCount):
+      if timeLimit != None:
+        if QuickTimers.peekTimer("Testing.PressNumsAnalysis.run") >= timeLimit:
+          print("Time limit reached. " + endPhrase().format(blockIndex))
+          break
+      currentOffset = None
+      try:
+        currentOffset = next(self.offsetSrcGen)
+      except StopIteration:
+        print("Testing.PressNumsAnalysis.offsetSrcGen ran out of offsets, so " + endPhrase().format(blockIndex))
+        break
+      shouldContinue = self.runOnce(currentOffset)
+      if not shouldContinue:
+        print("Testing.PressNumsAnalysis.run: runOnce returned false, so " + endPhrase().format(blockIndex))
+        break
+    print("Testing.PressNumsAnalysis.run: Done.")
+
+
+  def runOnce(self,offset):
+    if offset > len(self.plainDataSrcArr) - self.sliceLength:
+      print("Testing.PressNumsAnalysis.runOnce: The offset is too high. Returning False...")
+      return False
+    plainDataArr = self.plainDataSrcArr[offset:offset+self.sliceLength]
+
+    pressDataArr = makeArr(self.numberSeqCodec.encode(plainDataArr))
+
+    self.collectedData["all_pressdata_nums"].registerFrom(pressDataArr)
+    for columnIndex,columnValue in enumerate(ljustedArr(pressDataArr,self.sliceLength,fillItem=None)):
+      self.collectedData["pressdata_nums_by_column"][columnIndex].register(columnValue)
+    self.collectedData["pressdata_lengths"].register(len(pressDataArr))
+    self.collectedData["pressdata_means_rounded"].register(int(round(IntArrMath.mean(pressDataArr))))
+    self.collectedData["pressdata_medians_rounded"].register(int(round(IntArrMath.median(pressDataArr))))
+    self.collectedData["pressdata_maximums"].register(max(pressDataArr))
+    return True
+
 
 
 #tests performed on load.

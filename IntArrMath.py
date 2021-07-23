@@ -13,6 +13,21 @@ import Curves
 
 from PyGenTools import makeArr, makeGen, zipGens
 
+def intify(inputArr,roundNearest=False): #force every number to be an int.
+  for i,item in enumerate(inputArr):
+    if type(item) == list:
+      intify(item,roundNearest=roundNearest)
+    elif item != None:
+      inputArr[i] = int(round(item)) if roundNearest else int(item)
+
+def intified(inputArr,roundNearest=False):
+  result = [None for i in range(len(inputArr))]
+  for i,item in enumerate(inputArr):
+    if type(item) == list:
+      result[i] = intified(item,roundNearest=roundNearest)
+    elif item != None:
+      result[i] = int(round(item)) if roundNearest else int(item)
+  return result
 
 def is_sorted(inputArr):
   #test whether the input array is sorted.

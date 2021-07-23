@@ -125,24 +125,7 @@ def genBleedSortedArr(inputArr):
 
 
 
-def dictToList(inputDict):
-  errorCount = 0
-  maxKey = max(inputDict.keys())
-  minKey = min(inputDict.keys())
-  result = [None for i in range(maxKey+1)]
-  assert len(result) >= maxKey
-  assert minKey >= 0
-  for key in inputDict.keys():
-    if type(key) == int:
-      if result[key] == None:
-        result[key] = inputDict[key][0]
-      else:
-        assert False, "duplicate keys???"
-    else:
-      errorCount += 1
-  if errorCount > 0:
-    print("MarkovTools.dictToList: errorCount was " + str(errorCount) + ".")
-  return result
+
 
 
 class Hist:
@@ -175,9 +158,12 @@ class Hist:
     #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
     self.writeCount += 1
     self.registeredAmount += amount
-    startKey = key-(len(self.registrationShape)>>1)
-    for i,columnAmount in enumerate(self.registrationShape):
-      self.editItem(startKey+i,columnAmount*amount)
+    if type(key) == int:
+      startKey = key-(len(self.registrationShape)>>1)
+      for i,columnAmount in enumerate(self.registrationShape):
+        self.editItem(startKey+i,columnAmount*amount)
+    else:
+      self.editItem(key,amount)
 
   def editItem(self,key,amount):
     currentValue = self.__getitem__(key)
@@ -185,6 +171,10 @@ class Hist:
       currentValue = (0.0,self.writeCount,self.writeCount)
     self.data[key] = (currentValue[0]+amount,currentValue[1],self.writeCount)
     assert len(self.data[key]) == 3
+
+  def registerFrom(self,keySeq):
+    for key in keySeq:
+      self.register(key)
 
   def keysInDescendingFreqOrder(self):
     return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=(lambda itemB: itemB[1]))[::-1]]

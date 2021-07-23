@@ -90,6 +90,8 @@ Design notes:
 
   Todo:
 
+    -rename QuickTimers to QuickClocks.
+
     -replace CodecTools.Codec.zeroSafe with easier-to-use CodecTools.Codec.minStorable.
  
     -complete and test grid mode for CellCatalogue.
