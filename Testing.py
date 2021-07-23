@@ -8,7 +8,7 @@ No other files require Testing.py
 """
 
 
-import CERWaves
+import WaveIO
 import Codes
 import CodecTools
 import PyCellElimRun as pcer
@@ -28,7 +28,7 @@ PEEEK = 2048
 
 
 
-def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr="CERWaves.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
+def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr="WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
@@ -72,7 +72,7 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
 def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCodec):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
   QuickTimers.startTimer("compressFull")
-  sound = CERWaves.sounds[soundName]
+  sound = WaveIO.sounds[soundName]
   destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
   offset = 0
   print("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
@@ -94,7 +94,6 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
   #inverse of compressFull.
   QuickTimers.startTimer("decompressFull")
   print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
-  #sound = CERWaves.sounds[soundName]
   result = []
   srcFile = open(srcFileName,"r")
   offset = 0
@@ -127,9 +126,9 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
 
 
 #tests performed on load.
-assert len(CERWaves.sounds["samples/moo8bmono44100.txt"]) > 0
+assert len(WaveIO.sounds["samples/moo8bmono44100.txt"]) > 0
 
-assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(CERWaves.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == CERWaves.sounds["samples/moo8bmono44100.txt"][:256]
+assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
 
 #test of streaming CER blocks:
 assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).encode([5,6,7,6,5,5,6,7,6,5])] == [32,10,32,10]

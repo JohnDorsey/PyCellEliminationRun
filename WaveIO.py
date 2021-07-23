@@ -1,8 +1,8 @@
 """
 
-CERWaves.py by John Dorsey.
+WaveIO.py by John Dorsey.
 
-When loaded, CERWaves.py loads sample audio for easy use in testing the codec. Audio samples included in the project are in the public domain.
+When loaded, WaveIO.py loads sample audio for easy use in testing the codec. Audio samples included in the project are in the public domain.
 
 """
 

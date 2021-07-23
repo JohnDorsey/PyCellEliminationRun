@@ -35,24 +35,26 @@ Usage:
 
   verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
 
-    reconstructedSound == Testing.CERWaves.sounds["samples/moo8bmono44100.txt"][:len(reconstructedSound)]
+    testLen = min(len(reconstructedSound),len(Testing.WaveIO.sounds["samples/moo8bmono44100.txt"]))
 
-  The reconstructed sound will be cut slightly short just because partial blocks aren't allowed yet.
+    reconstructedSound[:testLen] == Testing.WaveIO.sounds["samples/moo8bmono44100.txt"][:testLen]
+
+  The reconstructed sound could be slightly shorter or longer than the original.
   
 
   prepare custom wave files to be compressed:
 
-    import PyWaveTest
+    import WavePrep
 
-    PyWaveTest.convertAudio("source file name.wav","destination file name.wav")
+    WavePrep.convertAudio("source file name.wav","destination file name.wav")
 
-  The above creates a destination file with 8-bit unsigned samples at 44.1kHz in mono, the default format that other parts of the project expect. With some settings tweaks, the entire project should allow audio with any integer specified as the maximum value per sample.
+  The above takes an int16 44.1kHz stereo source file and creates a uint8 44.1kHz mono destination file, the default format that other parts of the project expect. With some settings tweaks, the entire project should allow audio with any integer specified as the maximum value per sample.
 
     import Testing
 
-    Testing.CERWaves.sounds["file name.wav"] = Testing.CERWaves.loadSound("file name.wav")
+    Testing.WaveIO.sounds["file name.wav"] = Testing.WaveIO.loadSound("file name.wav")
 
-  The above loads the new sound into CERWaves. Also, CERWaves.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time CERWaves is loaded.
+  The above loads the new sound into WaveIO. Also, WaveIO.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time WaveIO.py is loaded.
 
 
 

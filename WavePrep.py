@@ -1,8 +1,8 @@
 """
 
-PyWaveTest.py by John Dorsey.
+WavePrep.py by John Dorsey.
 
-PyWaveTest.py provides tools to convert .wav files to new .wav files in a fixed format (normally 44.1kHz unsigned 8-bit mono) for easy testing of compression. Always listen to the output file.
+WavePrep.py provides tools to convert .wav files to new .wav files in a fixed format (normally 44.1kHz unsigned 8-bit mono) for easy testing of compression. Always listen to the output file.
 
 """
 
