@@ -6,7 +6,7 @@ CodecTools.py contains classes and other tools that might help make it easier to
 
 """
 
-from PyGenTools import makeArr, isGen
+from PyGenTools import makeArr, isGen, makeGen, ExhaustionError
 
 
 def measureIntArray(inputIntArr):
@@ -64,6 +64,51 @@ def makePlatformCodec(platCodec, mainCodec):
 def makeChainedPairCodec(codec1,codec2):
   return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda x: codec1.decode(codec2.decode(x))))
 
+
+def makeSeqCodec(inputCodec,demoPlainData,zeroSafe):
+  demoEncodeInputType = type(demoPlainData)
+  demoPressData = inputCodec.encode(demoPlainData)
+  demoEncodeOutputType = type(demoPressData)
+  demoReconstPlainData = inputCodec.decode(demoPressData)
+  demoDecodeOutputType = type(demoReconstPlainData)
+
+  newEncodeFun = None
+  if demoEncodeInputType == int:
+    if demoEncodeOutputType == int:
+      def newEncodeFun(encodeInputSeq):
+        encodeInputSeq = makeGen(encodeInputSeq)
+        for encodeInputSeqItem in encodeInputSeq:
+          yield inputCodec.encode(encodeInputSeqItem) 
+    elif demoEncodeOutputType == list or demoEncodeOutputType == type((i for i in range(10))):
+      def newEncodeFun(encodeInputSeq):
+        encodeInputSeq = makeGen(encodeInputSeq)
+        for encodeInputSeqItem in encodeInputSeq:
+          for encodeOutputBit in inputCodec.encode(encodeInputSeqItem):
+            yield encodeOutputBit
+    else:
+      raise NotImplementedError("demoEncodeOutputType is not acceptable.")
+  else:
+    raise NotImplementedError("demoEncodeInputType is not acceptable.")
+
+  newDecodeFun = None
+  if demoEncodeOutputType == int:
+    def newDecodeFun(decodeInputSeq):
+      decodeInputSeq = makeGen(decodeInputSeq)
+      for decodeInputSeqItem in decodeInputSeq:
+        yield inputCodec.decode(decodeInputSeqItem)
+  elif demoEncodeOutputType == list or demoEncodeOutputType == type((i for i in range(10))):
+    def newDecodeFun(decodeInputSeq):
+      decodeInputSeq = makeGen(decodeInputSeq)
+      while True:
+        try:
+          yield inputCodec.decode(decodeInputSeq)
+        except ExhaustionError:
+          return
+  else:
+    raise NotImplementedError("demoEncodeOutputType is not acceptable.")
+
+  result = Codec(newEncodeFun,newDecodeFun,zeroSafe=zeroSafe)
+  return result
 
 
 class Codec:

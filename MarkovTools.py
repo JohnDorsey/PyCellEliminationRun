@@ -128,7 +128,7 @@ def genBleedSortedArr(inputArr):
 
 
 
-class Hist:
+class OrderlyHist:
   #Hist is a histogram tool to track frequency, order first encountered, and order last encountered.
   def __init__(self,registrationShape=None):
     self.data = dict()
@@ -196,7 +196,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(ma
   #in a scoreMode definition, l is the set of all unique lengths of all matches (to what? it varies), the function f gives the frequency of matches of a length, the function x gives all positions of all matches of a length, and y is just the value of the item being analyzed.
   assert scoreMode in ["(max(l),f(max(l)),max(x(max(l))),-y)","(max(l)*f(max(l)),max(x(max(l))),-y)"]
   history = []
-  singleUsageHist = Hist()
+  singleUsageHist = OrderlyHist()
 
   for inputItem in inputSeq:
     #print("history: " + str(history))
@@ -209,7 +209,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(ma
       #the following code really is incompatible with the idea of merging the single analyzed item into the search term, because it needs to add things to predictedItems in strictly descending match length order.
       currentLengthContextHist = None
       for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history[:-1],history[-maxContextLength:])[::-1]:
-        currentLengthContextHist = Hist()
+        currentLengthContextHist = OrderlyHist()
         for matchEndLocation in matchesOfCurrentLength:
           if history[matchEndLocation+1] not in predictedItems:
             currentLengthContextHist.register(history[matchEndLocation+1])
@@ -220,7 +220,7 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="(ma
     elif scoreMode == "(max(l)*f(max(l)),max(x(max(l))),-y)":
       #the following code is a change towards including the search item in the search term, and it avoids needing to apply a singleUsageHist at the end, because the main search includes these items when its match length is 1.
       assert False, "NOT FINISHED!"
-      allLengthSearchItemHist = Hist()
+      allLengthSearchItemHist = OrderlyHist()
       for searchItem in singleUsageHist.keysInDescendingRelevanceOrder():
         for currentLength,matchesOfCurrentLength in getEndingIndicesOfGrowingSubSequences(history,history[-maxContextLength:]+[searchItem])[::-1]:
           for matchEndLocation in matchesOfCurrentLength:

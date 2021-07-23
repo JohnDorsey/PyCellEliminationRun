@@ -19,7 +19,7 @@ import QuickTimers
 
 from PyGenTools import makeArr, makeGen
 from PyArrTools import ljustedArr
-from MarkovTools import Hist
+from MarkovTools import OrderlyHist
 
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
@@ -140,7 +140,7 @@ class PressNumsAnalysis:
     self.numberSeqCodec = numberSeqCodec
     self.sliceLength = sliceLength
     self.offsetSrcGen = makeGen(offsetSrcGen)
-    self.collectedData = {"all_pressdata_nums":Hist(),"pressdata_nums_by_column":[Hist() for i in range(self.sliceLength)],"pressdata_lengths":Hist(),"pressdata_means_rounded":Hist(),"pressdata_medians_rounded":Hist(),"pressdata_maximums":Hist()}
+    self.collectedData = {"all_pressdata_nums":OrderlyHist(),"pressdata_nums_by_column":[OrderlyHist() for i in range(self.sliceLength)],"pressdata_lengths":OrderlyHist(),"pressdata_means_rounded":OrderlyHist(),"pressdata_medians_rounded":OrderlyHist(),"pressdata_maximums":OrderlyHist()}
 
   def run(self,blockCount,timeLimit=None):
     def endPhrase():
@@ -161,6 +161,7 @@ class PressNumsAnalysis:
       if not shouldContinue:
         print("Testing.PressNumsAnalysis.run: runOnce returned false, so " + endPhrase().format(blockIndex))
         break
+    QuickTimers.stopTimer("Testing.PressNumsAnalysis.run") #don't let it hang around uselessly.
     print("Testing.PressNumsAnalysis.run: Done.")
 
 
