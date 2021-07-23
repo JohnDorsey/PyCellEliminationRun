@@ -418,6 +418,7 @@ def eliasDeltaBitSeqToIntSeq(inputBitSeq):
 
 #Elias Gamma Iota codes also have the annoying property of growing in size whenever the maxInputInt grows in binary length, while simultaneously not being zero-safe, which means that for any length of Elias Gamma Iota code, the maximum value any Elias Gamma Iota code of that length can store is in the form (2^(2^n))-1, not 2^(2^n). This means that in a sequence of numbers whose values are in the range 1..255 inclusive, increasing that allowed value range to 1..256 inclusive increases the length of _every_ code in the sequence by 1 bit. Since an Elias Delta Iota code's prefix is an Elias Gamma Iota code, this sudden loss of efficiency occurs for Elias Delta Iota codes less often.
 
+#IntSeqStore uses the maxInputInt argument directly.
 
 def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
   assert inputInt > 0
@@ -543,8 +544,10 @@ print("defining codecs...")
 
 codecs = {}
 
+"""
 codecs["null"] = CodecTools.Codec((lambda x: x),(lambda y: y),zeroSafe=True)
 codecs["inSeq_null"] = CodecTools.Codec(makeGen,makeGen,zeroSafe=True)
+"""
 
 codecs["enbonacci"] = CodecTools.Codec(intToEnbocodeBitSeq,enbocodeBitSeqToInt,zeroSafe=False)
 codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt,zeroSafe=True)

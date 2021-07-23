@@ -9,14 +9,22 @@ IntSeqMath.py contains tools for transforming integer sequences into other integ
 from PyGenTools import genTakeOnly, arrTakeOnly
 
 
+def genDelayFirstTupleItem(inputSeq,startValue):
+  previousA = startValue
+  a = None
+  b = None
+  for item in inputSeq:
+    a, b = item
+    yield (previousA, b)
+    previousA = a
 
-def genTrackMean(inputNumSeq):
+def genTrackInstantMean(inputNumSeq):
   currentSum = 0
   for i,item in enumerate(inputNumSeq):
     currentSum += item
     yield (currentSum/float(i+1),item)
 
-def genTrackMin(inputNumSeq):
+def genTrackInstantMin(inputNumSeq):
   currentMin = None
   for i,item in enumerate(inputNumSeq):
     if i == 0:
@@ -25,6 +33,14 @@ def genTrackMin(inputNumSeq):
       currentMin = min(currentMin,item)
     yield (currentMin,item)
 
+def genTrackInstantSum(inputNumSeq):
+  currentSum = 0
+  for item in inputNumSeq:
+    currentSum += item
+    yield (currentSum,item)
+
+def genTrackDelayedSum(inputNumSeq):
+  return genDelayFirstTupleItem(genTrackInstantSum(inputNumSeq),0)
 
 
 def genDeltaEncode(inputNumSeq):

@@ -8,42 +8,83 @@ IntSeqStore.py contains tools for storing integer sequences with minimized stora
 """
 
 import Codes #for haven bucket.
-from Codes import rjustedArr
-from PyGenTools import arrTakeOnly, makeGen, makeArr, sentinelize, ExhaustionError
+from PyArrTools import rjustedArr
+from PyGenTools import arrTakeOnly, makeGen, isGen, makeArr, sentinelize, ExhaustionError
 import CodecTools
+from IntSeqMath import genTrackDelayedSum
 
 
-def lewisTrunc(seqSum,seqSrc,addDbgCommas=False): #left-weighted integer sequence truncated.
+
+def genTrackDelayedRemainingSum(inputSeq,seqSum,enumerated=False):
+  i = 0
+  for delayedCurrentSum,item in genTrackDelayedSum(inputSeq):
+    yield (i,seqSum-delayedCurrentSum,item) if enumerated else (seqSum-delayedCurrentSum,item)
+    i += 1
+    
+
+def lewisTrackedSumTruncationEncode(inputIntSeq,seqSum,addDbgCommas=False): #left-weighted integer sequence truncated.
   #this generator processes a sequence of integers, and compares the provided sum of the entire sequence with the sum of items processed so far to determine the maximum value the current item could have, and truncates it to that length in the generated output.
   #it is generally much less efficient than fibonacci coding for storing the pressdata numbers produced by PyCellElimRun.
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
-  sumSoFar = 0
   justStarted = True
-  for num in seqSrc:
-    storeLength = int.bit_length(seqSum-sumSoFar)
-    strToOutput = str(bin(num)[2:]).rjust(storeLength,'0')
+  sumSoFar = 0
+  for delayedRemainingSum,currentInt in genTrackDelayedRemainingSum(inputIntSeq,seqSum):
+    storeLength = int.bit_length(delayedRemainingSum)
+    store = rjustedArr(Codes.intToBinaryBitArr(currentInt),storeLength,fillItem=0)
     if addDbgCommas:
       if not justStarted:
         yield ","
       else:
         justStarted = False
-    for char in strToOutput:
-      yield char
-    sumSoFar += num
+    for outputBit in store:
+      yield outputBit
 
-
-def lewisDeTrunc(seqSum,seqSrc):
+def lewisTrackedSumTruncationDecode(inputBitSeq,seqSum):
   sumSoFar = 0
-  bitBufferStr = ""
-  for bitChr in seqSrc:
+  store = None
+  while True:
     storeLength = int.bit_length(seqSum-sumSoFar)
-    bitBufferStr += bitChr
-    if len(bitBufferStr) < storeLength:
-      continue
-    num = int(bitBufferStr,2)
+    try:
+      store = arrTakeOnly(inputBitSeq,storeLength,onExhaustion="ExhaustionError")
+    except ExhaustionError:
+      break
+    num = Codes.binaryBitArrToInt(store)
     sumSoFar += num
-    bitBufferStr = ""
     yield num
+
+
+
+
+def lewisTrackedSumBoundedCodecEncode(inputIntSeq,seqSum,boundedNumberCodec,addDbgCommas=False):
+  justStarted = True
+  sumSoFar = 0
+  for delayedRemainingSum,currentInt in genTrackDelayedRemainingSum(inputIntSeq,seqSum):
+    store = boundedNumberCodec.encode(currentInt,maxInputInt=delayedRemainingSum)
+    assert isGen(store) or type(store) == list
+    if addDbgCommas:
+      if not justStarted:
+        yield ","
+      else:
+        justStarted = False
+    for outputBit in store:
+      yield outputBit
+
+def lewisTrackedSumBoundedCodecDecode(inputBitSeq,seqSum,boundedNumberCodec):
+  inputBitSeq = makeGen(inputBitSeq)
+  sumSoFar = 0
+  num = None
+  while True:
+    delayedRemainingSum = seqSum - sumSoFar
+    try:
+      num = boundedNumberCodec.decode(inputBitSeq,maxInputInt=delayedRemainingSum)
+    except ExhaustionError:
+      break
+    sumSoFar += num
+    yield num
+
+
+
+
 
 
 
@@ -248,6 +289,20 @@ prefixExpeditionCodecs = {}
 prefixExpeditionCodecs["base"] = CodecTools.Codec(intSeq_useCodecOnExpeditedPrefixes_encode,intSeq_useCodecOnExpeditedPrefixes_decode)
 prefixExpeditionCodecs["HLL_fibonacci"] = prefixExpeditionCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],havenBucketCodecs["HLL_fibonacci"]])
 prefixExpeditionCodecs["0.75LL_fibonacci"] = prefixExpeditionCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],havenBucketCodecs["HLL_fibonacci"]])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 assert [item for item in havenBucketCodecs["HLL_fibonacci"].encode([2,2,2000,2,2])] == [0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0]
 
