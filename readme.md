@@ -87,6 +87,8 @@ Design notes:
     -Blocks.
 
   Todo:
+
+    -replace .zeroSafe with easier-to-use .minStorable.
     
     -move more header tools out of CellElimRunBlockState.
 

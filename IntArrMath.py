@@ -26,6 +26,7 @@ def is_sorted(inputArr):
 
 def mean(inputArr):
   #find the mean of the input array. Might mishandle long type items in python2.
+  inputArr = makeArr(inputArr)
   inputArrSum = sum(inputArr)
   if type(inputArrSum)==int and inputArrSum%len(inputArr) == 0:
     return inputArrSum / len(inputArr)
@@ -35,6 +36,7 @@ def mean(inputArr):
 
 def median(inputArr,middlePairHandlingFun=mean):
   #find the median of the input array. Uses middlePairHandlingFun as the function to process the middle pair in even-length inputArrs to get the result.
+  inputArr = makeArr(inputArr)
   if len(inputArr) == 0:
     raise ValueError("can't find the median of an empty list.")
   elif len(inputArr) == 1:

@@ -1,4 +1,6 @@
 
+import CodecTools
+
 
 
 def bubbleSortSingleItemRight(inputArr,startIndex):
@@ -11,12 +13,13 @@ def bubbleSortSingleItemRight(inputArr,startIndex):
 
 
 
-def makeHuffmanTreeFromAscendingEntries(entries):
+def morphAscendingEntriesIntoHuffmanTree(entries):
   #modifies the input array and returns nothing.
-  #input must be in the same format as is specified in HuffmanMath.getHuffmanTreeFromAscendingEntries.
+  #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
   entriesStart = 0
   while entriesStart < len(entries)-1:
+    #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+".")
     eB, eA = (entries[entriesStart], entries[entriesStart+1])
     entries[entriesStart+1] = (eB[0]+eA[0], (eB[1], eA[1]))
     #entries[entriesStart] = None
@@ -24,12 +27,18 @@ def makeHuffmanTreeFromAscendingEntries(entries):
     bubbleSortSingleItemRight(entries,entriesStart)
 
 
-def getHuffmanTreeFromAscendingEntries(entries):
+def makeHuffmanTreeFromAscendingEntries(entries):
   #the input array must be in the format [(chance_0, item_0), (chance_1, item_1), ...].
   #the chances do not need to be probabilities, do not need to sum to 1.0, and do not need to be floats. They only need to be usable on either side of the '+' operator, and comparable on either side of the '>' operator (within HuffmanMath.bubbleSortSingleItemRight).
   workingArr = [item for item in entries]
-  makeHuffmanTreeFromAscendingEntries(workingArr)
+  morphAscendingEntriesIntoHuffmanTree(workingArr)
+  #print("makeHuffmanTreeFromAscendingEntries: workingArr is " + str(workingArr)+".")
   return workingArr[-1][1]
+
+def makeHuffmanTreeFromEntries(entries):
+  ascendingEntries = sorted(entries)
+  #print("makeHuffmanTreeFromEntries: (entries,ascendingEntries) is " + str((entries,ascendingEntries))+".")
+  return makeHuffmanTreeFromAscendingEntries(ascendingEntries)
 
 
 def genLeafIDs(tree):
@@ -53,11 +62,16 @@ def genLeafIDsAndItems(tree):
     yield ([],tree)
 
 
-def accessTree(tree,pathDefinition):
-  #get a node from a tree specified by the input integer array pathDefinition.
+def accessTreeLocation(tree,pathDefSeq,stopFun=None):
+  #get a node from a tree at the location specified by pathDefSeq.
+  if stopFun == None:
+    stopFun = (lambda x: type(x) not in [list,tuple,dict])
+  #pathDefSeq = makeGen(pathDefSeq)
   currentNode = tree
-  for item in pathDefinition:
+  for item in pathDefSeq:
     currentNode = currentNode[item]
+    if stopFun(currentNode):
+      break
   return currentNode
 
 
@@ -67,3 +81,16 @@ def treeToReverseDict(tree):
   for entry in genLeafIDsAndItems(tree):
     result[entry[1]] = entry[0]
   return result
+
+
+
+
+def makeHuffmanLimitedCodec(chanceFun,minInputInt,maxInputInt):
+  entries = sorted((chanceFun(value),value) for value in range(minInputInt,maxInputInt+1))
+  huffmanTree = makeHuffmanTreeFromEntries(entries)
+  huffmanReverseDict = treeToReverseDict(huffmanTree)
+  #print(huffmanTree)
+  #print(huffmanReverseDict)
+  return CodecTools.Codec((lambda x: huffmanReverseDict[x]),(lambda y: accessTreeLocation(huffmanTree,y)),zeroSafe=(minInputInt <= 0))
+
+
