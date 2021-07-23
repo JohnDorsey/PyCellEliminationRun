@@ -88,7 +88,9 @@ Design notes:
 
   Todo:
 
-    -replace .zeroSafe with easier-to-use .minStorable.
+    -replace CodecTools.Codec.zeroSafe with easier-to-use CodecTools.Codec.minStorable.
+ 
+    -complete and test grid mode for CellCatalogue.
     
     -move more header tools out of CellElimRunBlockState.
 
@@ -109,9 +111,6 @@ Design notes:
     -add huffman coding to markov tools.
 
   Feature wish list (CR = compression ratio):
-
-    -fully self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
-      (complexity: low, maintenance: low, CR impact: slightly positive, performance impact: none).
 
     -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
       (complexity: medium, maintenance: medium, CR impact: negative, performance impact: very positive - dissociates time complexity from audio bit depth, maybe avoiding a 256x slowdown when jumping from 8bit to 16bit samples.).
@@ -139,3 +138,6 @@ Design notes:
     -move havenBucketFibonacciCoding from Testing.py to IntSeqStore.py.
 
     -Elias Delta Iota coding.
+
+    -fully self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
+      (complexity: low, maintenance: low, CR impact: slightly positive, performance impact: none).

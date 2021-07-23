@@ -121,14 +121,42 @@ def genBleedSortedArr(inputArr):
       yield item
 
 
+
+
+
+
+def dictToList(inputDict):
+  errorCount = 0
+  maxKey = max(inputDict.keys())
+  minKey = min(inputDict.keys())
+  result = [None for i in range(maxKey+1)]
+  assert len(result) >= maxKey
+  assert minKey >= 0
+  for key in inputDict.keys():
+    if type(key) == int:
+      if result[key] == None:
+        result[key] = inputDict[key][0]
+      else:
+        assert False, "duplicate keys???"
+    else:
+      errorCount += 1
+  if errorCount > 0:
+    print("MarkovTools.dictToList: errorCount was " + str(errorCount) + ".")
+  return result
+
+
 class Hist:
   #Hist is a histogram tool to track frequency, order first encountered, and order last encountered.
-  def __init__(self):
+  def __init__(self,registrationShape=None):
     self.data = dict()
     self.writeCount = 0
+    self.registeredAmount = 0
+    self.registrationShape = registrationShape if (registrationShape != None) else [1]
+    if sum(self.registrationShape) != 1:
+      print("Hist.__init__: Warning: registrationShape sum differs from 1 by " + str(abs(1-sum(registrationShape))) + ".")
 
   def __setitem__(self,key,value):
-    print("Hist.__setitem__ should not be used.")
+    print("Hist.__setitem__ should not be used. totalAmount will not be updated.")
     assert len(value) == 3
     self.writeCount += 1
     self.data[key] = value
@@ -141,14 +169,20 @@ class Hist:
 
   def register(self,key):
     #add 1 to the frequency of any item.
-    self.registerMany(key,1)
+    self.registerMany(key,1.0)
 
   def registerMany(self,key,amount):
     #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
     self.writeCount += 1
+    self.registeredAmount += amount
+    startKey = key-(len(self.registrationShape)>>1)
+    for i,columnAmount in enumerate(self.registrationShape):
+      self.editItem(startKey+i,columnAmount*amount)
+
+  def editItem(self,key,amount):
     currentValue = self.__getitem__(key)
     if None in currentValue:
-      currentValue = (0,self.writeCount,self.writeCount)
+      currentValue = (0.0,self.writeCount,self.writeCount)
     self.data[key] = (currentValue[0]+amount,currentValue[1],self.writeCount)
     assert len(self.data[key]) == 3
 
