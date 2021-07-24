@@ -89,6 +89,12 @@ Design notes:
     -Blocks.
 
   Todo:
+  
+    -make a better way to make numberSeqCodecs from numberCodecs.
+    
+    -make a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
+  
+    -make CER easier to understand and modify.
 
     -rename QuickTimers to QuickClocks.
 

@@ -9,7 +9,7 @@ IntSeqMath.py contains tools for transforming integer sequences into other integ
 from PyGenTools import genTakeOnly, arrTakeOnly
 
 
-def genDelayFirstTupleItem(inputSeq,startValue):
+def genDelayFirstTupleItem(inputSeq,startValue): #used by genTrackDelayedSum.
   previousA = startValue
   a = None
   b = None
