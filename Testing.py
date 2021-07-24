@@ -19,8 +19,7 @@ import QuickTimers
 
 from PyGenTools import makeArr, makeGen
 from PyArrTools import ljustedArr
-from MarkovTools import SimpleDictHist
-
+import HistTools
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 
@@ -140,7 +139,9 @@ class PressNumsAnalysis:
     self.numberSeqCodec = numberSeqCodec
     self.sliceLength = sliceLength
     self.offsetSrcGen = makeGen(offsetSrcGen)
-    self.collectedData = {"all":SimpleDictHist(), "all_notcol0":SimpleDictHist(), "all_by_column":[SimpleDictHist() for i in range(self.sliceLength)], "lengths":SimpleDictHist(), "means_rounded":SimpleDictHist(), "medians_rounded":SimpleDictHist(), "maxima":SimpleDictHist(), "means_rounded_notcol0":SimpleDictHist(), "medians_rounded_notcol0":SimpleDictHist(), "maxima_notcol0":SimpleDictHist()}
+    histClass = HistTools.SimpleListHist
+    self.collectedData = {"all":histClass(), "all_notcol0":histClass(), "all_by_column":[histClass() for i in range(self.sliceLength)], "lengths":histClass(), "means_rounded":histClass(), "medians_rounded":histClass(), "maxima":histClass(), "means_rounded_notcol0":histClass(), "medians_rounded_notcol0":histClass(), "maxima_notcol0":histClass()}
+    
     self.dbgLastOffset = None
 
   def run(self,blockCount,timeLimit=None):

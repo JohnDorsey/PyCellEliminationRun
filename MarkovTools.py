@@ -7,6 +7,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 """
 
 from PyGenTools import genTakeOnly, arrTakeOnly
+from HistTools import OrderlyHist
 
 
 
@@ -123,94 +124,6 @@ def genBleedSortedArr(inputArr):
 
 
 
-
-
-
-class SimpleDictHist:
-  def __init__(self):
-    self.data = dict()
-  
-  def __setitem__(self,key,value):
-    self.data[key] = value
-
-  def __getitem__(self,key):
-    try:
-      return self.data[key]
-    except KeyError:
-      return None
-
-  def register(self,key):
-    self.registerMany(key,1)
-
-  def registerMany(self,key,amount):
-    #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
-    currentValue = self.__getitem__(key)
-    if currentValue == None:
-      currentValue = 0
-    self.data[key] = currentValue+amount
-
-  def registerFrom(self,keySeq):
-    for key in keySeq:
-      self.register(key)
-
-
-class OrderlyHist:
-  #Hist is a histogram tool to track frequency, order first encountered, and order last encountered.
-  def __init__(self,registrationShape=None):
-    self.data = dict()
-    self.writeCount = 0
-    self.registeredAmount = 0
-    self.registrationShape = registrationShape if (registrationShape != None) else [1]
-    if sum(self.registrationShape) != 1:
-      print("Hist.__init__: Warning: registrationShape sum differs from 1 by " + str(abs(1-sum(registrationShape))) + ".")
-
-  def __setitem__(self,key,value):
-    print("Hist.__setitem__ should not be used. totalAmount will not be updated.")
-    assert len(value) == 3
-    self.writeCount += 1
-    self.data[key] = value
-
-  def __getitem__(self,key):
-    try:
-      return self.data[key]
-    except KeyError:
-      return (None,None,None)
-
-  def register(self,key):
-    #add 1 to the frequency of any item.
-    self.registerMany(key,1.0)
-
-  def registerMany(self,key,amount):
-    #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
-    self.writeCount += 1
-    self.registeredAmount += amount
-    if type(key) == int:
-      startKey = key-(len(self.registrationShape)>>1)
-      for i,columnAmount in enumerate(self.registrationShape):
-        self.editItem(startKey+i,columnAmount*amount)
-    else:
-      self.editItem(key,amount)
-
-  def editItem(self,key,amount):
-    currentValue = self.__getitem__(key)
-    if None in currentValue:
-      currentValue = (0.0,self.writeCount,self.writeCount)
-    self.data[key] = (currentValue[0]+amount,currentValue[1],self.writeCount)
-    assert len(self.data[key]) == 3
-
-  def registerFrom(self,keySeq):
-    for key in keySeq:
-      self.register(key)
-
-  def keysInDescendingFreqOrder(self):
-    return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=(lambda itemB: itemB[1]))[::-1]]
-
-  def keysInDescendingRelevanceOrder(self):
-    #it is important that this method sorts first by frequency and then sorts by recentness within identical frequencies.
-    keyFun = (lambda itemB: itemB[1][0]*(self.writeCount+1)+itemB[1][2])
-    for value in self.data.values():
-      assert len(value) == 3
-    return [itemC[0] for itemC in sorted([item for item in self.data.iteritems()],key=keyFun)[::-1]]
 
 
 def extendWithoutDupes(arrToExtend,extensionSrc):
