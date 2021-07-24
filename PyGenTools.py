@@ -128,6 +128,22 @@ def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis
     if filterFun(item):
       yield item
 
+def genDeduped(inputSeq):
+  if isGen(inputSeq):
+    history = []
+    for item in inputSeq:
+      if item not in history:
+        history.append(item)
+        yield item
+  elif type(inputSeq) == list:
+    for i,item in enumerate(inputSeq):
+      if i == 0:
+        yield item
+        continue
+      if item not in inputSeq[:i]:
+        yield item
+  else:
+    raise ValueError("unsupported type: " + str(type(inputSeq)) + ".")
 
 
 
