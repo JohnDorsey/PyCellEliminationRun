@@ -1,5 +1,7 @@
 
 import CodecTools
+import math
+from math import pi, e
 
 from PyGenTools import ExhaustionError
 
@@ -89,6 +91,8 @@ def treeToReverseDict(tree):
 
 
 
+
+
 def patchListHist(inputListHist,patchFun=None):
   if patchFun == None:
     patchFun = (lambda x1, x2, y1, y2, xHere: ((y1+y2)/4.0)/float(x2-x1-1))
@@ -116,6 +120,107 @@ def patchedListHist(inputListHist,patchFun=None):
   outputListHist = [item for item in inputListHist]
   patchListHist(outputListHist,patchFun=patchFun)
   return outputListHist
+
+"""
+#too specialized, will probably be removed. use convolve1d instead.
+def boxBlurredListHist(inputListHist,boxWidth,times=1):
+  assert times > 0
+  assert boxWidth%2
+  #def calcBlurredValue(index):
+  #  startIndex = min(max(index-(boxWidth>>1),0),len(inputListHist))
+  #  endIndex = max(min(index+(boxWidth>>1),len(inputListHist)-1),0)
+  #  assert startIndex >= 0
+  #  assert endIndex >= 0
+  #  usedBoxWidth = endIndex - startIndex + 1
+  #  assert usedBoxWidth >= 0
+  #  if usedBoxWidth == 0: #avoid division by zero.
+  #    return 0
+  #  return sum(inputListHist[startIndex:endIndex+1])/float(usedBoxWidth)
+  
+  workingListHist = [0 for i in range(boxWidth)] + inputListHist + [0 for i in range(boxWidth)]
+  def calcBlurredValue(index,inputArr):
+    startIndex = max(index-(boxWidth>>1),0)
+    endIndex = min(index+(boxWidth>>1),len(inputArr)-1)
+    assert 0 <= startIndex <= len(inputArr)
+    assert 0 <= endIndex <= len(inputArr)-1
+    usedBoxWidth = endIndex - startIndex + 1
+    if startIndex > boxWidth and endIndex < len(inputArr)-boxWidth:
+      assert usedBoxWidth == boxWidth
+    assert usedBoxWidth >= 0
+    if usedBoxWidth == 0: #avoid division by zero.
+      return 0
+    return sum(inputArr[startIndex:endIndex+1])/float(usedBoxWidth)
+  result = [calcBlurredValue(i,workingListHist) for i in range(len(workingListHist))]
+  #assert int(round(sum(result))) == int(round(sum(workingListHist)))
+  for i in range(0,boxWidth):
+    result[boxWidth+i] += result[i]
+    result[-boxWidth-i-1] += result[-i-1]
+  result = result[boxWidth:-boxWidth]
+  if times == 1:
+    return result
+  else:
+    return boxBlurredListHist(result,boxWidth,times=times-1)
+"""
+
+def normalDistribution(x,smallSigma,smallMu):
+  return (1.0/(smallSigma*((2*pi)**0.5)))*(e**(-0.5*(((x-smallMu)/smallSigma)**2)))
+
+def getGaussianBlurHillShape(shapeWidth,maxSmallSigma,cutoffOps="scale_to_1"):
+  """
+  scale_to_1 means the hill shape will be scaled until its sum is 1.
+  add_to_1 means the hill shape will have the same amount added to every column until its sum is 1. This means multiplying by something like dx first. it might not be implemented because there is little need for it.
+  sweep_to_ends means all curve area unaccounted for will be piled at either end of the shape as if the infinite tails of the curve were swept inwards with a broom.
+  cut_to_ground subtracts the minimum value of all columns from each column so that the ends of the hill shape will be at y=0.
+  """
+  if type(cutoffOps) == str:
+    cutoffOps = [cutoffOps]
+  for cutoffOp in cutoffOps:
+    assert cutoffOp in ["scale_to_1","add_to_1","sweep_to_ends","do_nothing","cut_to_ground"]
+  hillShape = [normalDistribution(x-(shapeWidth>>1),(shapeWidth>>1)/float(maxSmallSigma),0) for x in range(shapeWidth)]
+  for cutoffOp in cutoffOps:
+    hillSum = sum(hillShape) #@ sometimes it isn't needed.
+    if cutoffOp == "scale_to_1":
+      scale = 1.0/hillSum
+      for i in range(len(hillShape)):
+        hillShape[i] *= scale
+    elif cutoffOp == "add_to_1":
+      addition = (1.0-hillSum)/float(shapeWidth)
+      for i in range(len(hillShape)):
+        hillShape[i] += addition
+    elif cutoffOp == "sweep_to_ends":
+      missing = (1.0-hillSum)
+      hillShape[0] += missing/2.0
+      hillShape[-1] += missing/2.0
+    elif cutoffOp == "cut_to_ground":
+      minimum = min(hillShape)
+      for i in range(len(hillShape)):
+        hillShape[i] -= minimum
+  return hillShape
+
+def convolved1d(inputArr,shapeArr):
+  assert len(shapeArr)%2
+  isInArr = (lambda srcArr, srcArrIndex: not (srcArrIndex < 0 or srcArrIndex >= len(srcArr)))
+  getInArr = (lambda srcArr, srcArrIndex: 0 if not isInArr(srcArr,srcArrIndex) else srcArr[srcArrIndex])
+  getShapeOverlapAmountCentered = (lambda mainArr, mainArrIndex, testShape: sum(testShape[testShapeIndex]*isInArr(mainArr,mainArrIndex+testShapeIndex-(len(testShape)>>1)) for testShapeIndex in range(len(testShape))))
+  basicMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: sum(mulShape[mulShapeIndex]*getInArr(mainArr,mainArrIndex+mulShapeIndex-(len(mulShape)>>1)) for mulShapeIndex in range(len(mulShape))))
+  fairMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: basicMultiplyCentered(mainArr,mainArrIndex,mulShape)/float(getShapeOverlapAmountCentered(mainArr,mainArrIndex,mulShape)))
+
+  result = [0 for i in range(len(inputArr))]
+  for i in range(len(result)):
+    result[i] = fairMultiplyCentered(inputArr,i,shapeArr)
+  return result
+
+
+
+def scaledTanH(value,coef):
+  return math.tanh(value/float(coef))*coef
+
+def listHistToPrettyStr(inputListHist,lineLength=1024):
+  alphabet = "zyxwvutsrqponmlkjihgfedcba=ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  alphabetCenter = alphabet.index("=")
+  valueToChar = (lambda value: alphabet[alphabetCenter + int(round(scaledTanH(math.log(value,2),24)))])
+  result = "["+"".join(valueToChar(item)+("\n" if i%lineLength==0 and i>0 else "") for i,item in enumerate(inputListHist))+"]"
+  return result
 
 
 def makeHuffmanCodecFromEntries(entries):
