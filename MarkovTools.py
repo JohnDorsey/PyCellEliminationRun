@@ -6,9 +6,10 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from PyGenTools import genTakeOnly, arrTakeOnly
+from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped
 from HistTools import OrderlyHist
-
+import HuffmanMath
+import CodecTools
 
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
@@ -173,7 +174,7 @@ def getValueChancesFromHistory(history,maxContextLength,chanceFun,singleUsageHis
   for searchItem in searchItemGen:
     searchTerm = history[-maxContextLength:] + [searchItem]
     matchEndIndices = getEndingIndicesOfGrowingSubSequences(history,searchTerm)
-    itemChanceDict[searchItem] = chanceFun(matchEndIndices)
+    itemChanceDict[searchItem] = chanceFun(matchEndIndices,len(history))
   return itemChanceDict
   
   
@@ -194,8 +195,25 @@ def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
     assert False, "reality error."
   return resultValue
 
-        
-def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="functional",scoreFun=None):
+def findMax(inputSeq,keyFun=None):
+  if keyFun == None:
+    keyFun = (lambda x: x)
+  recordHigh = None
+  recordHighIndex = None
+  justStarted = True
+  for i,item in enumerate(inputSeq):
+    if justStarted:
+      recordHigh = keyFun(item)
+      recordHighIndex = i
+      justStarted = False
+      continue
+    if keyFun(item) > recordHigh:
+      recordHigh = keyFun(item)
+      recordHighIndex = i
+  return (recordHighIndex,recordHigh)
+  
+def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="functional",scoreFun=None,pressDataItemsAreDiscrete=True,addDbgChars=False):
+  inputSeq = makeGen(inputSeq)
   assert opMode in ["encode","decode"]
   #in a scoreMode definition, l is the set of all unique lengths of all matches (to what? it varies), the function f gives the frequency of matches of a length, the function x gives all positions of all matches of a length, and y is just the value of the item being analyzed.
   assert scoreMode in ["(max(l),f(max(l)),max(x(max(l))),-y)","(max(l)*f(max(l)),max(x(max(l))),-y)","functional"]
@@ -206,27 +224,51 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="fun
   else:
     if scoreFun == None: #if the scoreFun still needs to be initialized to its default value...
       def scoreFun(inputMatchIndexArrArr,currentHistoryLength):
-        #this function assumes that the inputMatchIndexArrArr is sorted by the first item of each tuple. It does NOT assume that the second item of each tuple is sorted, so it uses max() in a slow way.
+        #this function does not assume that the inputMatchIndexArrArr is sorted by the first item of each tuple. It also does NOT assume that the second item of each tuple is sorted, so it uses max() in a slow way.
         #this function assumes the matches are for searches involving an item being investigated, and including that item in the search term. it is correct to use currentHistoryLength when scaling using locationOfLatestLongestMatch because no match location can be higher than that.
-        maxMatchLength = max([inputMatchIndexArrArr[0][0],inputMatchIndexArrArr[-1][0]])
-        direction = inputMatchIndexArrArr[-1][0] > inputMatchIndexArrArr[0][0]
-        maxMatchLengthIndex = -1 if direction else 0
-        locationOfLatestLongestMatch = float(max(inputMatchIndexArrArr[maxMatchLengthIndex]))
-        assert 0 <= locationOfLatestLongestMatch <= 1
-        result = sum((len(matchesOfLengthX)*x) for x,matchesOfLengthX in inputMatchIndexArrArr)
-        #the following scaling operation avoids the need for floats and ensures that every scored value will have a unique integer score.
-        result = (result * currentHistoryLength) + locationOfLatestLongestMatch
+        result = None
+        #thereAreMatches = sum(len(pair[1]) for pair in inputMatchIndexArrArr) > 0
+        #if thereAreMatches:
+        maxMatchLengthIndex, maxMatchLength = findMax(inputMatchIndexArrArr,keyFun=(lambda pair: pair[0]))
+        if maxMatchLengthIndex != None and len(inputMatchIndexArrArr[maxMatchLengthIndex][1]) > 0:
+          #direction = inputMatchIndexArrArr[-1][0] > inputMatchIndexArrArr[0][0]
+          #maxMatchLengthIndex = -1 if direction else 0
+          
+          locationOfLatestLongestMatch = float(max(inputMatchIndexArrArr[maxMatchLengthIndex][1]))
+          assert 0 <= locationOfLatestLongestMatch <= 1
+          result = sum((len(matchesOfLengthX)*x) for x,matchesOfLengthX in inputMatchIndexArrArr)
+          #the following scaling operation avoids the need for floats and ensures that every scored value will have a unique integer score.
+          result = (result * currentHistoryLength) + locationOfLatestLongestMatch
+        else:
+          result = 0
         return result
+        
+  class Escape:
+    """
+    This class indicates that the huffman codec _will not_ know what to do with the following value because it has never been encountered before. This class will probably only be used when a huffman codec is being used and the probabilityMode is "explicit". This class is a temporary solution to be used until there is something in place to give huffman coding codecs (either within this method or in general) an escape code that is always present in their database.
+    """
+    def __init__(self):
+      pass
+  escapeValue = Escape() #just keep one instance of this.
+        
   history = []
   singleUsageHist = OrderlyHist()
 
-  for inputValue in inputSeq:
+  while True:
+    inputValue = None #to be initialized later.
     #print("history: " + str(history))
     #print("inputItem: " + str(inputItem))
 
-    #analyze phase:
-    #all known history, but NOT the current plainData or pressData item, is used to create a map that can be used to convert between a plainData value and a pressData value. This map will LATER be used to transcode whatever the current value is, in whichever direction it must be transcoded.
     if probabilityMode == "implicit": #in this mode, probabilities are assumed from the order of ranked predictions.
+      #parse phase.
+      assert pressDataItemsAreDiscrete
+      try:
+        inputValue = next(inputSeq)
+      except StopIteration:
+        print("MarkovTools.genDynamicMarkovTranscode: stopping because inputSeq is now empty.")
+        return
+      #analyze phase:
+      #all known history, but NOT the current plainData or pressData item, is used to create a map that can be used to convert between a plainData value and a pressData value. This map will LATER be used to transcode whatever the current value is, in whichever direction it must be transcoded.
       predictedValues = getPredictedValuesFromHistory(history,singleUsageHist,maxContextLength,scoreMode)
       #transcode phase.
       resultValue = None
@@ -237,7 +279,51 @@ def genDynamicMarkovTranscode(inputSeq,opMode,maxContextLength=16,scoreMode="fun
       #yield phase.
       yield resultValue
     elif probabilityMode == "explicit":
-      raise NotImplementedError()
+      #analyze phase.
+      getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue]+history,maxContextLength,scoreFun)) #this exists as a function just so that it can easily be repeated in the attempt loop. escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict. using singleUsageHist as an argument to getValueChanceFromHistory is avoided here just to avoid needing to change it to include escapeValue to make escapeValue representable.
+      valueChanceDict = getNewValueChanceDict()
+      assert escapeValue in valueChanceDict.keys()
+      #numberCodec contstruction phase. This happens before the parse phase because in the case that the constructed codec is a huffman coding codec, it will be the only thing capable of parsing.
+      getNewValueHuffmanCodec = (lambda: HuffmanMath.makeHuffmanCodecFromDictHist(valueChanceDict)) #this exists as a function just so that it can easily be repeated in the attempt loop.
+      valueHuffmanCodec = getNewValueHuffmanCodec()
+      #parse phase. This is the same as the transcode phase in the case of huffman coding.
+      #it's a bit ugly to branch based on opMode here instead of letting this be handled by code inside the HuffmanCodec, but that code has not been written yet.
+      resultValue = None
+      if opMode == "encode":
+        #loop to attempt repeatedly.
+        attemptSuccessful = False
+        while not attemptSuccessful:
+          attemptSuccessful = True
+          try:
+            inputValue = next(inputSeq)
+            resultValue = valueHuffmanCodec.encode(inputValue)
+          except HuffmanMath.AlienError: #if the item is not representable by valueHuffmanCodec because it has never been seen before...
+            attemptSuccessful = False
+            yield escapeValue #doesn't it need to be encoded, though?
+            if addDbgChars:
+              yield ","
+            history.append(escapeValue)
+            singleUsageHist.register(escapeValue)
+            yield inputValue
+            if addDbgChars:
+              yield ","
+            history.append(inputValue)
+            singleUsageHist.register(inputValue)
+            valueChanceDict = getNewValueChanceDict()
+            valueHuffmanCodec = getNewValueHuffmanCodec()
+            assert CodecTools.roundTripTest(valueHuffmanCodec,escapeValue)
+            assert CodecTools.roundTripTest(valueHuffmanCodec,inputValue)
+        #by this point, the attempt has been successful.
+      elif opMode == "decode":
+        #inputValue, the exact bits the codec ingests from the pressData, will remain unknown.
+        resultValue = valueHuffmanCodec.decode(inputSeq)
+      else:
+        assert False, "invalid opMode."
+      #yield phase.
+      for outputComponent in resultValue: #probably a bit.
+        yield outputComponent
+      if addDbgChars:
+        yield ","
     else:
       assert False, "invalid probabilityMode."
 
