@@ -99,5 +99,121 @@ def loadSounds():
       assert validateSound(sound)
 
 
+def toSerializableStr(inputSeq):
+  return "["+",".join(("\n  " if (i%80==0 and i != 0) else "")+str(item) for i,item in enumerate(inputSeq))+"]"
+
+"""
+def getPyShortStr(inputArr):
+  heldItem = None
+  heldItemCount = None
+  result = "["
+  justStarted = True
+  resultEndsIn = "["
+  for currentItem in inputArr:
+    if justStarted:
+      heldItem = currentItem
+      heldItemCount = 1
+      justStarted = False
+      continue
+    if currentItem == heldItem:
+      heldItemCount += 1
+    else:
+      if heldItemCount > 1:
+        if resultEndsIn != "[":
+          result += "]+["
+        result += str(heldItem)+"]*"+str(heldItemCount)+"+["
+        resultEndsIn = "["
+      else:
+        result += ","+str(heldItem)
+        resultEndsIn = "item"
+      heldItem = currentItem
+      heldItemCount = 1
+  result += "]+["+str(heldItem)+"]*"+str(heldItemCount)
+  return result
+"""
+def getPyShortStr(inputSeq):
+  class Letter:
+    def __init__(self,value):
+      self.value = value
+      self.count = 1
+    def mergeOrReturnAsLetter(self,newValue):
+      if newValue == self.value:
+        self.count += 1
+        return None
+      else:
+        return Letter(newValue)
+    def strSelf(self):
+      if self.count == 1:
+        return str(self.value)
+      else:
+        return "["+str(self.value)+"]*"+str(self.count)
+    def strSelfBeginning(self): #if this item is the first of them all.
+      if self.count == 1:
+        return "["
+      else:
+        return "" 
+    def strSelfEnding(self): #if this item is the last of them all.
+      if self.count == 1:
+        return "]"
+      else:
+        return ""
+    def strBetweenSelfAndLeft(self,left):
+      if left.count == 1:
+        if self.count == 1:
+          return ","
+        else:
+          return "]+"
+      else:
+        if self.count == 1:
+          return "+["
+        else:
+          return "+"
+  holdingArr = []
+  justStarted = True
+  for item in inputSeq:
+    if justStarted:
+      holdingArr.append(Letter(item))
+      justStarted = False
+      continue
+    addition = holdingArr[-1].mergeOrReturnAsLetter(item)
+    if addition != None:
+      assert isinstance(addition,Letter)
+      holdingArr.append(addition)
+  result = holdingArr[0].strSelfBeginning() + holdingArr[0].strSelf() + "".join(holdingArr[i].strBetweenSelfAndLeft(holdingArr[i-1])+holdingArr[i].strSelf() for i in range(1,len(holdingArr))) + holdingArr[-1].strSelfEnding()
+  return result
+ 
+def genHumanRLEEncode(inputSeq):
+  previousItem = None
+  currentRunLength = 1
+  justStarted = True
+  for currentItem in inputSeq:
+    if type(currentItem) == str:
+      if currentItem.startswith("x"):
+        raise ValueError("The input sequence already contains humanRLE signals.")
+    if justStarted:
+      previousItem = currentItem
+      justStarted = False
+      continue
+    if previousItem == currentItem:
+      currentRunLength += 1
+    else:
+      if currentRunLength > 1:
+        yield "x"+str(currentRunLength)
+        currentRunLength = 1
+      yield currentItem
+    previousItem = currentItem
+
+def genHumanRLEDecode(inputSeq):
+  previousItem = None
+  for currentItem in inputSeq:
+    if currentItem.startswith("x"):
+      runLength = int(currentItem[1:])
+      for i in range(runLength):
+        yield previousItem
+      continue
+    else:
+      yield currentItem
+      previousItem = currentItem
+
 loadSounds()
 

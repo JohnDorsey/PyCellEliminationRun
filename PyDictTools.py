@@ -61,8 +61,12 @@ def dictToList(inputDict,extractionFun=None):
   if extractionFun == None:
     extractionFun = (lambda x: x)
   errorCount = 0
-  maxKey = max(inputDict.keys())
-  minKey = min(inputDict.keys())
+  try:
+    maxKey = max(inputDict.keys())
+    minKey = min(key for key in inputDict.keys() if type(key)==int)
+  except ValueError as ve:
+    print("PyDictTools.dictToList: Warning: returning an empty list in order to ignore ValueError: " + str(ve) + ".")
+    return []
   result = [None for i in range(maxKey+1)]
   assert len(result) >= maxKey
   assert minKey >= 0
@@ -75,7 +79,7 @@ def dictToList(inputDict,extractionFun=None):
     else:
       errorCount += 1
   if errorCount > 0:
-    print("MarkovTools.dictToList: errorCount was " + str(errorCount) + ".")
+    print("PyDictTools.dictToList: errorCount was " + str(errorCount) + ".")
   return result
 
 

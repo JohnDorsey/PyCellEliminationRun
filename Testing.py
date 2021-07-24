@@ -19,7 +19,7 @@ import QuickTimers
 
 from PyGenTools import makeArr, makeGen
 from PyArrTools import ljustedArr
-from MarkovTools import OrderlyHist
+from MarkovTools import SimpleDictHist
 
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
@@ -140,7 +140,8 @@ class PressNumsAnalysis:
     self.numberSeqCodec = numberSeqCodec
     self.sliceLength = sliceLength
     self.offsetSrcGen = makeGen(offsetSrcGen)
-    self.collectedData = {"all_pressdata_nums":OrderlyHist(),"pressdata_nums_by_column":[OrderlyHist() for i in range(self.sliceLength)],"pressdata_lengths":OrderlyHist(),"pressdata_means_rounded":OrderlyHist(),"pressdata_medians_rounded":OrderlyHist(),"pressdata_maximums":OrderlyHist()}
+    self.collectedData = {"all":SimpleDictHist(), "all_notcol0":SimpleDictHist(), "all_by_column":[SimpleDictHist() for i in range(self.sliceLength)], "lengths":SimpleDictHist(), "means_rounded":SimpleDictHist(), "medians_rounded":SimpleDictHist(), "maxima":SimpleDictHist(), "means_rounded_notcol0":SimpleDictHist(), "medians_rounded_notcol0":SimpleDictHist(), "maxima_notcol0":SimpleDictHist()}
+    self.dbgLastOffset = None
 
   def run(self,blockCount,timeLimit=None):
     def endPhrase():
@@ -169,17 +170,22 @@ class PressNumsAnalysis:
     if offset > len(self.plainDataSrcArr) - self.sliceLength:
       print("Testing.PressNumsAnalysis.runOnce: The offset is too high. Returning False...")
       return False
+    self.dbgLastOffset = offset
     plainDataArr = self.plainDataSrcArr[offset:offset+self.sliceLength]
 
     pressDataArr = makeArr(self.numberSeqCodec.encode(plainDataArr))
 
-    self.collectedData["all_pressdata_nums"].registerFrom(pressDataArr)
+    self.collectedData["all"].registerFrom(pressDataArr)
+    self.collectedData["all_notcol0"].registerFrom(pressDataArr[1:])
     for columnIndex,columnValue in enumerate(ljustedArr(pressDataArr,self.sliceLength,fillItem=None)):
-      self.collectedData["pressdata_nums_by_column"][columnIndex].register(columnValue)
-    self.collectedData["pressdata_lengths"].register(len(pressDataArr))
-    self.collectedData["pressdata_means_rounded"].register(int(round(IntArrMath.mean(pressDataArr))))
-    self.collectedData["pressdata_medians_rounded"].register(int(round(IntArrMath.median(pressDataArr))))
-    self.collectedData["pressdata_maximums"].register(max(pressDataArr))
+      self.collectedData["all_by_column"][columnIndex].register(columnValue)
+    self.collectedData["lengths"].register(len(pressDataArr))
+    self.collectedData["means_rounded"].register(int(round(IntArrMath.mean(pressDataArr))))
+    self.collectedData["medians_rounded"].register(int(round(IntArrMath.median(pressDataArr))))
+    self.collectedData["maxima"].register(max(pressDataArr))
+    self.collectedData["means_rounded_notcol0"].register(int(round(IntArrMath.mean(pressDataArr[1:]))))
+    self.collectedData["medians_rounded_notcol0"].register(int(round(IntArrMath.median(pressDataArr[1:]))))
+    self.collectedData["maxima_notcol0"].register(max(pressDataArr[1:]))
     return True
 
 

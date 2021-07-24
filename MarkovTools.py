@@ -126,6 +126,32 @@ def genBleedSortedArr(inputArr):
 
 
 
+class SimpleDictHist:
+  def __init__(self):
+    self.data = dict()
+  
+  def __setitem__(self,key,value):
+    self.data[key] = value
+
+  def __getitem__(self,key):
+    try:
+      return self.data[key]
+    except KeyError:
+      return None
+
+  def register(self,key):
+    self.registerMany(key,1)
+
+  def registerMany(self,key,amount):
+    #add more than 1 to the frequency of any item, but only increase the write count by 1. This is for making some occurences more valuable than others.
+    currentValue = self.__getitem__(key)
+    if currentValue == None:
+      currentValue = 0
+    self.data[key] = currentValue+amount
+
+  def registerFrom(self,keySeq):
+    for key in keySeq:
+      self.register(key)
 
 
 class OrderlyHist:

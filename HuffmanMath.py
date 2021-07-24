@@ -1,9 +1,10 @@
 
 import CodecTools
 import math
+import IntArrMath
 from math import pi, e
 
-from PyGenTools import ExhaustionError
+from PyGenTools import ExhaustionError,makeGen,makeArr
 
 
 def bubbleSortSingleItemRight(inputArr,startIndex):
@@ -93,20 +94,22 @@ def treeToReverseDict(tree):
 
 
 
-def patchListHist(inputListHist,patchFun=None):
+def patchListHist(inputListHist,holeMatchFun=None,patchFun=None):
+  if holeMatchFun == None:
+    holeMatchFun = (lambda x: x==None)
   if patchFun == None:
     patchFun = (lambda x1, x2, y1, y2, xHere: ((y1+y2)/4.0)/float(x2-x1-1))
-  if inputListHist[0] == None: #patchFun usage can't fix this, so fix it here.
+  if holeMatchFun(inputListHist[0]): #patchFun usage can't fix this, so fix it here.
     inputListHist[0] = 0
-  if inputListHist[-1] == None: #patchFun usage can't fix this, so fix it here.
+  if holeMatchFun(inputListHist[-1]): #patchFun usage can't fix this, so fix it here.
     inputListHist[-1] = 0
   for index in range(len(inputListHist)-1):
-    if (inputListHist[index] != None and inputListHist[index+1] == None):
+    if ((not holeMatchFun(inputListHist[index])) and holeMatchFun(inputListHist[index+1])):
       holeStartIndex = index
       holeStartY = inputListHist[index]
       holeEndIndex = None
       for testHoleEndIndex in range(holeStartIndex+1,len(inputListHist)):
-        if inputListHist[testHoleEndIndex] != None:
+        if not holeMatchFun(inputListHist[testHoleEndIndex]):
           holeEndIndex = testHoleEndIndex
           break
       assert holeEndIndex != None, "this should have been changed by now!"
@@ -115,52 +118,69 @@ def patchListHist(inputListHist,patchFun=None):
       for indexToPatch in range(holeStartIndex+1,holeEndIndex):
         inputListHist[indexToPatch] = patchFun(holeStartIndex,holeEndIndex,holeStartY,holeEndY,indexToPatch)
   assert None not in inputListHist
+  noHoles = True
+  for item in inputListHist:
+    if holeMatchFun(item):
+      noHoles = False
+  if not noHoles:
+    print("HuffmanMath.patchListHist: Warning: even though there are no more None values, the holeMatchFun (probably a custom one) identified holes.")
 
-def patchedListHist(inputListHist,patchFun=None):
+def patchedListHist(inputListHist,holeMatchFun=None,patchFun=None):
   outputListHist = [item for item in inputListHist]
-  patchListHist(outputListHist,patchFun=patchFun)
+  patchListHist(outputListHist,holeMatchFun=holeMatchFun,patchFun=patchFun)
   return outputListHist
 
-"""
-#too specialized, will probably be removed. use convolve1d instead.
-def boxBlurredListHist(inputListHist,boxWidth,times=1):
-  assert times > 0
-  assert boxWidth%2
-  #def calcBlurredValue(index):
-  #  startIndex = min(max(index-(boxWidth>>1),0),len(inputListHist))
-  #  endIndex = max(min(index+(boxWidth>>1),len(inputListHist)-1),0)
-  #  assert startIndex >= 0
-  #  assert endIndex >= 0
-  #  usedBoxWidth = endIndex - startIndex + 1
-  #  assert usedBoxWidth >= 0
-  #  if usedBoxWidth == 0: #avoid division by zero.
-  #    return 0
-  #  return sum(inputListHist[startIndex:endIndex+1])/float(usedBoxWidth)
-  
-  workingListHist = [0 for i in range(boxWidth)] + inputListHist + [0 for i in range(boxWidth)]
-  def calcBlurredValue(index,inputArr):
-    startIndex = max(index-(boxWidth>>1),0)
-    endIndex = min(index+(boxWidth>>1),len(inputArr)-1)
-    assert 0 <= startIndex <= len(inputArr)
-    assert 0 <= endIndex <= len(inputArr)-1
-    usedBoxWidth = endIndex - startIndex + 1
-    if startIndex > boxWidth and endIndex < len(inputArr)-boxWidth:
-      assert usedBoxWidth == boxWidth
-    assert usedBoxWidth >= 0
-    if usedBoxWidth == 0: #avoid division by zero.
-      return 0
-    return sum(inputArr[startIndex:endIndex+1])/float(usedBoxWidth)
-  result = [calcBlurredValue(i,workingListHist) for i in range(len(workingListHist))]
-  #assert int(round(sum(result))) == int(round(sum(workingListHist)))
-  for i in range(0,boxWidth):
-    result[boxWidth+i] += result[i]
-    result[-boxWidth-i-1] += result[-i-1]
-  result = result[boxWidth:-boxWidth]
-  if times == 1:
-    return result
-  else:
-    return boxBlurredListHist(result,boxWidth,times=times-1)
-"""
+
+def genMatchRunLengths(inputSeq,matchFun):
+  """
+  iterates through an input sequence and generates the lengths of runs of items which satisfy matchFun(item)==True.
+  """
+  currentRunLength = 0
+  #matchRunLengths = [0]
+  for currentItem in inputSeq:
+    if matchFun(currentItem):
+      currentRunLength += 1
+    else:
+      if currentRunLength > 0:
+        yield currentRunLength
+        currentRunLength = 0
+
+def genMergeParallelSeqsUsingSetTool(inputSeqSeq,mergeTool):
+  workingGenArr = [makeGen(inputSeq) for inputSeq in inputSeqSeq]
+  while True:
+    currentSet = set()
+    for inputSeq in workingGenArr:
+      try:
+        itemToAdd = next(inputSeq)
+      except StopIteration: #@ it's slow to do this over and over.
+        continue
+      currentSet.add(itemToAdd)
+    if len(currentSet) == 0:
+      return
+    yield mergeTool(currentSet)
+
+
+def autoBlurredListHist(inputListHist,overdoLevel=2):
+  assert overdoLevel >= 1
+  #this might just be a faster, more complicated way of finding the mean hole width.
+  #population = 1.0-(inputListHist.count(None)/float(len(inputListHist)))
+  #populationBasedHillWidth = int(round(1.0/population))
+  #populationBasedHillWidth += 1-(populationBasedHillWidth%2)
+  holeWidths = makeArr(genMatchRunLengths(inputListHist,(lambda x: x in [None,0,0.0])))
+  medianHoleWidth = int(round(IntArrMath.median(holeWidths)))
+  medGaussHill = getGaussianBlurHillShape(medianHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground") #the +1 makes the width odd as is necessary, the +2 makes up for cutting to ground.
+  meanHoleWidth = int(round(IntArrMath.mean(holeWidths)))
+  meanGaussHill = getGaussianBlurHillShape(meanHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground")
+  print((medianHoleWidth,meanHoleWidth))
+  patchedInput = patchedListHist(inputListHist,holeMatchFun=(lambda xx: xx in [None,0,0.0]))
+  medGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
+  meanGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
+  result = genMergeParallelSeqsUsingSetTool([patchedInput,medGaussBlurredInput,meanGaussBlurredInput],IntArrMath.mean)
+  #print(patchedInput)
+  #print(medGaussBlurredInput)
+  #print(result)
+  return result
+
 
 def normalDistribution(x,smallSigma,smallMu):
   return (1.0/(smallSigma*((2*pi)**0.5)))*(e**(-0.5*(((x-smallMu)/smallSigma)**2)))
@@ -212,13 +232,21 @@ def convolved1d(inputArr,shapeArr):
 
 
 
+
+
+
+
+
+
+
 def scaledTanH(value,coef):
   return math.tanh(value/float(coef))*coef
 
 def listHistToPrettyStr(inputListHist,lineLength=1024):
-  alphabet = "zyxwvutsrqponmlkjihgfedcba=ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  alphabet = "?zyxwvutsrqponmlkjihgfedcba=ABCDEFGHIJKLMNOPQRSTUVWXYZ!"
   alphabetCenter = alphabet.index("=")
-  valueToChar = (lambda value: alphabet[alphabetCenter + int(round(scaledTanH(math.log(value,2),24)))])
+  valueToChar = (lambda value: alphabet[alphabetCenter + int(round(scaledTanH(math.log(value,2),26)))])
+  #assert valueToChar(2**1024)=="Z"
   result = "["+"".join(valueToChar(item)+("\n" if i%lineLength==0 and i>0 else "") for i,item in enumerate(inputListHist))+"]"
   return result
 
