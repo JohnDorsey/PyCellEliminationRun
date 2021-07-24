@@ -13,21 +13,31 @@ import Curves
 
 from PyGenTools import makeArr, makeGen, zipGens
 
-def intify(inputArr,roundNearest=False): #force every number to be an int.
+def intify(inputArr,roundNearest=False,weakly=False):
+  """
+  recursively forces every number to be an int.
+  when roundNearest=True, numbers will be rounded to the nearest integer instead of being rounded down.
+  when weak=True, numbers will only be converted if doing so does not change their value.
+  """
   for i,item in enumerate(inputArr):
     if type(item) == list:
-      intify(item,roundNearest=roundNearest)
+      intify(item,roundNearest=roundNearest,weakly=weakly)
     elif item != None:
-      inputArr[i] = int(round(item)) if roundNearest else int(item)
+      if weakly:
+        if int(item) == item:
+          inputArr[i] = int(item)
+      else:
+        inputArr[i] = int(round(item)) if roundNearest else int(item)
 
-def intified(inputArr,roundNearest=False):
+def intified(inputArr,roundNearest=False,weakly=False):
   result = [None for i in range(len(inputArr))]
   for i,item in enumerate(inputArr):
     if type(item) == list:
-      result[i] = intified(item,roundNearest=roundNearest)
+      result[i] = intified(item,roundNearest=roundNearest,weakly=weakly)
     elif item != None:
-      result[i] = int(round(item)) if roundNearest else int(item)
+      result[i] = (int(item) if int(item) == item else item) if weakly else (int(round(item)) if roundNearest else int(item))
   return result
+
 
 def is_sorted(inputArr):
   #test whether the input array is sorted.

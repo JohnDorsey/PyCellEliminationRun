@@ -9,6 +9,7 @@ When loaded, WaveIO.py loads sample audio for easy use in testing the codec. Aud
 
 import sys
 import wave
+import IntArrMath
 
 #don't use "samples/moo8bmono44100.wav":None "samples/crickets8bmono44100.wav":None,
 sounds = {"samples/moo8bmono44100.txt":None}
@@ -102,40 +103,29 @@ def loadSounds():
 def toSerializableStr(inputSeq):
   return "["+",".join(("\n  " if (i%80==0 and i != 0) else "")+str(item) for i,item in enumerate(inputSeq))+"]"
 
-"""
-def getPyShortStr(inputArr):
-  heldItem = None
-  heldItemCount = None
-  result = "["
-  justStarted = True
-  resultEndsIn = "["
-  for currentItem in inputArr:
-    if justStarted:
-      heldItem = currentItem
-      heldItemCount = 1
-      justStarted = False
-      continue
-    if currentItem == heldItem:
-      heldItemCount += 1
-    else:
-      if heldItemCount > 1:
-        if resultEndsIn != "[":
-          result += "]+["
-        result += str(heldItem)+"]*"+str(heldItemCount)+"+["
-        resultEndsIn = "["
-      else:
-        result += ","+str(heldItem)
-        resultEndsIn = "item"
-      heldItem = currentItem
-      heldItemCount = 1
-  result += "]+["+str(heldItem)+"]*"+str(heldItemCount)
-  return result
-"""
-def getPyShortStr(inputSeq):
+def wrapStr(inputStr,lineLength):
+  resultStr = ""
+  currentLineLength = 0
+  for inputChar in inputStr:
+    resultStr += inputChar
+    currentLineLength += 1
+    if currentLineLength > lineLength:
+      if inputChar in [",","[","("]:
+        resultStr += "\n  "
+        currentLineLength = 0
+  return resultStr
+    
+
+def toPyShortStr(inputSeq,weaklyIntified=True):
   class Letter:
     def __init__(self,value):
       self.value = value
       self.count = 1
+    def shallBeIntegrated(self): #approximate on the left side of the < maybe.
+      lengthIfIntegrated = len(",".join(str(self.value) for i in range(self.count)))
+      lengthIfNotIntegrated = len("]+["+str(self.value)+"]*"+str(self.count))
+      result = lengthIfIntegrated < lengthIfNotIntegrated
+      return result
     def mergeOrReturnAsLetter(self,newValue):
       if newValue == self.value:
         self.count += 1
@@ -143,31 +133,18 @@ def getPyShortStr(inputSeq):
       else:
         return Letter(newValue)
     def strSelf(self):
-      if self.count == 1:
-        return str(self.value)
-      else:
-        return "["+str(self.value)+"]*"+str(self.count)
+      return ",".join(str(self.value) for i in range(self.count)) if self.shallBeIntegrated() else "["+str(self.value)+"]*"+str(self.count)
     def strSelfBeginning(self): #if this item is the first of them all.
-      if self.count == 1:
-        return "["
-      else:
-        return "" 
+      return "[" if self.shallBeIntegrated() else ""
     def strSelfEnding(self): #if this item is the last of them all.
-      if self.count == 1:
-        return "]"
-      else:
-        return ""
+      return "]" if self.shallBeIntegrated() else ""
     def strBetweenSelfAndLeft(self,left):
-      if left.count == 1:
-        if self.count == 1:
-          return ","
-        else:
-          return "]+"
+      if left.shallBeIntegrated():
+        return "," if self.shallBeIntegrated() else "]+"
       else:
-        if self.count == 1:
-          return "+["
-        else:
-          return "+"
+        return "+[" if self.shallBeIntegrated() else "+"
+  if weaklyIntified:
+    inputSeq = IntArrMath.intified(inputSeq,weakly=True)
   holdingArr = []
   justStarted = True
   for item in inputSeq:
@@ -179,9 +156,19 @@ def getPyShortStr(inputSeq):
     if addition != None:
       assert isinstance(addition,Letter)
       holdingArr.append(addition)
+  if len(holdingArr) == 0:
+    #print("WaveIO.toPyShortStr: Warning: holdingArr is empty, so \"[]\" will be returned.")
+    assert len(inputSeq) == 0
+    return "[]"
   result = holdingArr[0].strSelfBeginning() + holdingArr[0].strSelf() + "".join(holdingArr[i].strBetweenSelfAndLeft(holdingArr[i-1])+holdingArr[i].strSelf() for i in range(1,len(holdingArr))) + holdingArr[-1].strSelfEnding()
   return result
- 
+
+def nestedToPyShortStr(inputSeqSeq,weaklyIntified=True):
+  return "["+",".join(toPyShortStr(inputSeq,weaklyIntified=weaklyIntified) for inputSeq in inputSeqSeq)+"]"
+
+
+#the following are disabled because they haven't been tested well and aren't as useful as toPyShortStr, which is self-decompressing.
+"""
 def genHumanRLEEncode(inputSeq):
   previousItem = None
   currentRunLength = 1
@@ -214,6 +201,8 @@ def genHumanRLEDecode(inputSeq):
     else:
       yield currentItem
       previousItem = currentItem
+"""
+
 
 loadSounds()
 
