@@ -16,7 +16,8 @@ from PyArrTools import insort
 
 from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight
-from PyDictTools import augmentDict,makeFromTemplateAndSeq
+import PyDictTools
+from PyDictTools import augmentDict
 
 
 #switching from linearInsort to bisectInsort in 1024x256 cell data improves run time from 3 minutes to under 10 seconds. But increasing cell area to 2048x256 makes encoding take 87 seconds, and 4096x256 makes encoding take 6 minutes.
@@ -173,6 +174,17 @@ class CellCatalogue:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 class CellElimRunCodecState:
   """
   the CellElimRunCodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
@@ -184,7 +196,7 @@ class CellElimRunCodecState:
   DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample. Some of the process of making CER blocks self-delimiting depends on the use of setPlaindataSample with the expectation that this is set to True.
 
 
-  def __init__(self, inputData, opMode, interpolationMode=None, spaceDefinition=None):
+  def __init__(self, inputData, opMode, inputHeaderDictTemplate):
     """
     The initialization method takes arguments that resemble a structured header as much as possible. In the decode phase, it fills in missing data in headerDict by decoding a few pressdata items as parameters. In the encode phase, it fills in missing data in headerDict by analyzing the provided plaindata, encodes these parameters, and prepends them to the pressdata it will output.
     The initialization method also creates all of the attributes that processBlock needs to start running right away. By the time processBlock is called, there is no more initialization to do.
@@ -194,18 +206,19 @@ class CellElimRunCodecState:
     self.inputDataGen = makeGen(inputData) #this is necessary to make it so that prepSpaceDefinition can take some items from the front, before prepOpMode does anything.
     self.opMode = opMode #initialized here instead of in prepOpMode because it is needed by prepSpaceDefinition.
 
-    self.inputHeaderDictTemplate = self.TO_COMPLETED_SPACE_DEFINITION(spaceDefinition)
+    self.headerDictTemplate = self.TO_COMPLETED_HEADER_DICT_TEMPLATE(inputHeaderDictTemplate)
     self.headerDict = {}
     self.pressHeaderValues = [] #this is to remain empty until populated by the header loader. it _may_ be populated if the headerDictTemplate tells it to embed or access header info from the regular inputData.
-
-    self.headerRoutineBeforeInit()
+    augmentDict(self.headerDict, self.headerDictTemplate) #this shouldn't be long-term. Once header tool design is finished, items will be absent from the header until they are resolved.
+    
+    self.headerPhaseRoutine("BEFORE_PREP_GROUP")
     self.tempApplyHeader() #@ FIX! this must be removed eventually!
 
     self.prepSpaceDefinition()
-    self.spline.setInterpolationMode(interpolationMode)  #@ this should also pull from the loaded header someday maybe.
+    self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
     self.prepOpMode()
 
-    self.headerRoutineAfterInit()
+    self.headerPhaseRoutine("AFTER_PREP_GROUP")
 
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
@@ -214,69 +227,64 @@ class CellElimRunCodecState:
     """
     initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
     """
-    self.rankingsInsortKeyFun = (lambda item: item[0]) #used by getGenCellCheckOrder.
+    self.plainDataInputArr, self.pressDataInputGen = (None,None)
+    self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
+    self.rankingsInsortKeyFun = (lambda item: item[0]) #used by genCellCheckOrder.
+    #sorting by the 2-item array of cell score and cell can be up to twice as slow. it has no real benefits.
+    
+  def headerRoutineGeneralPathwiseOracleFun(self, inputPath, inputValue):
+    print("headerRoutineGeneralPathwiseOracleFun called with args " + str([inputPath,inputValue]) + ".")
+    if inputPath[-3:] == ["space_definition","size",1]:
+      return max(self.plainDataInputArr)+1
+    if inputPath[-1] == "dbg_resolve_to_123456789":
+      return 123456789
+    if inputPath[-1] == "dbg_resolve_to_[123,456]":
+      return [123,456]
+    print("no substitute was found.")
+    return inputValue
 
-  def GET_DEFAULT_SPACE_DEFINITION(self):
+
+  def GET_DEFAULT_HEADER_DICT_TEMPLATE(self):
     #return {"plaindata_num_count":256,"plaindata_num_upper_limit":256,"endpoint_init_mode":"middle"}
-    return {"size":[256,256],"endpoint_init_mode":"middle"}
+    return {"interpolation_mode":"linear", "space_definition":{"size":[256,256],"endpoint_init_mode":"middle"}}
 
-  def TO_COMPLETED_SPACE_DEFINITION(self,inputObject):
+  def TO_COMPLETED_HEADER_DICT_TEMPLATE(self,inputObject):
     workingObject = eval(str(inputObject))
-    #print("CellElimRunCodecState.prepSpaceDefinition: None was provided, so the default spaceDefinition will be used. The default is " + str(spaceDefinition) + ".")
-    if type(workingObject) == list:
-      print("CellElimRunCodecState.TO_COMPLETED_SPACE_DEFINITION: the inputObject is a two-item list and will be used as the size.")
-      assert len(workingObject) == 2
-      assert all(type(item)==int for item in workingObject)
-      workingObject = {"size":workingObject}
-    elif type(workingObject) == dict:
-      pass
-    else:
-      print("CellElimRunCodecState.TO_COMPLETED_SPACE_DEFINITION: the inputObject is an incompatible type and will be ignored completely.")
+    if type(workingObject) != dict:
+      print("CellElimRunCodecState.TO_COMPLETED_HEADER_DICT_TEMPLATE: the inputObject is an incompatible type and will be ignored completely.")
       workingObject = {}
-    augmentDict(workingObject,self.GET_DEFAULT_SPACE_DEFINITION())
+    augmentDict(workingObject,self.GET_DEFAULT_HEADER_DICT_TEMPLATE())
+    #print("CellElimRunCodecState.TO_COMPLETED_HEADER_DICT_TEMPLATE: returning " + str(workingObject) + ".")
     return workingObject
     
 
-  def headerRoutineBeforeInit(self):
+  def headerPhaseRoutine(self,phaseName):
+    #print("header phase " + phaseName +" started with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
     #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
+    phaseEmbedCode = "EMBED:"+phaseName
+    #PyDictTools.replace(self.headerDict,"EMBED",phaseEmbedCode)
     if self.opMode == "encode":
-      for key in sorted(self.inputHeaderDictTemplate.keys()):
-        inputValue = self.inputHeaderDictTemplate[key]
-        if inputValue == "EMBED":
-          print("while encoding, header value EMBED will remain EMBED until processing is finished.")
-          self.headerDict[key] = inputValue
-        else:
-          self.headerDict[key] = inputValue
+      pathwiseOracleFun = self.headerRoutineGeneralPathwiseOracleFun
+      #print(self.headerDict)
+      #augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndPathwiseOracle(self.headerDictTemplate, pathwiseOracleFun, (lambda x: x==phaseEmbedCode)))
+      PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, (lambda x: x==phaseEmbedCode))
+      #print(self.headerDict)
     elif self.opMode == "decode":
-      """
-      for key in sorted(self.inputHeaderDictTemplate.keys()):
-        finalValue = None
-        inputValue = self.inputHeaderDictTemplate[key]
-        if inputValue == "EMBED":
-          finalValue = self.loadHeaderNum()
-        else:
-          finalValue = inputValue
-        self.headerDict[key] = finalValue
-      """
-      augmentDict(self.headerDict, makeFromTemplateAndSeq(self.inputHeaderDictTemplate, self.inputDataGen,(lambda x: x=="EMBED"))) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
+      augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndSeq(self.headerDictTemplate, self.inputDataGen, (lambda x: x==phaseEmbedCode))) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
     else:
       assert False, "invalid opMode."
+    #print("header phase " + phaseName +" ended with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
+
 
   def tempApplyHeader(self):
     #this is a TEMPORARY method for quickly applying header values to the CellElimRunCodecState's attributes. Later, the codec will operate by directly reading the header.
-    for key in sorted(self.headerDict.keys()):
-      if key == "size":
-        self.size = self.headerDict[key]
+    for keyA in sorted(self.headerDict.keys()):
+      if keyA == "space_definition":
+        for keyB in sorted(self.headerDict[keyA].keys()):
+          if keyB == "size":
+            self.size = self.headerDict[keyA][keyB]
       
-  def headerRoutineAfterInit(self):
-    #if there are some parts of the header data that can't be decided until after initialization, such as the maximum plainData value, then handle those here.
-    if self.opMode == "encode":
-      pass
-    elif self.opMode == "decode":
-      pass
-    else:
-      assert False, "invalid opMode."
-
+  """
   def headerRoutineAfterProcessBlock(self):
     def resolveAndEncodeHeaderValues(name):
       if name == "dbg_resolve_to_123456789":
@@ -303,6 +311,7 @@ class CellElimRunCodecState:
       pass
     else:
       assert False, "invalid opMode."
+   """
 
   def saveHeaderNum(self,value):
     if type(value) != int:
@@ -344,11 +353,11 @@ class CellElimRunCodecState:
 
     self.cellCatalogue = CellCatalogue(size=self.size)
 
-    endpointInitMode = self.headerDict["endpoint_init_mode"]
+    endpointInitMode = self.headerDict["space_definition"]["endpoint_init_mode"]
     self.spline = Curves.Spline(size=self.size,endpointInitMode=endpointInitMode)
 
-    if "bound_touches" in self.headerDict.keys():
-      boundTouches = self.headerDict["bound_touches"]
+    if "bound_touches" in self.headerDict["space_definition"].keys():
+      boundTouches = self.headerDict["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
         self.setPlaindataItem(boundTouches["north"],self.size[1]-1,dbgCatalogueValue=-238)
       if "south" in boundTouches.keys():
@@ -361,8 +370,6 @@ class CellElimRunCodecState:
     """
     if not self.opMode in ["encode","decode"]:
       raise ValueError("That opMode is nonexistent or not allowed.")
-    self.plainDataInputArr, self.pressDataInputGen = (None,None)
-    self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
 
     #if not isGen(inputData):
     #  print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: inputData is not a generator, but to make testing simpler, maybe it should be.")
@@ -413,7 +420,7 @@ class CellElimRunCodecState:
         break
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self.plainDataOutputArr)
-    self.headerRoutineAfterProcessBlock()
+    self.headerPhaseRoutine("AFTER_PROCESS_BLOCK")
     return
 
 
@@ -435,7 +442,7 @@ class CellElimRunCodecState:
     runShouldContinue = True
     justStarted = True #so that (if decoding) pressDataInputGen.next() may be called only once and only after the loop starts successfully, since getGenCellCheckOrder yielding no items is one way that the end of processing is signalled.
 
-    for orderEntry in self.getGenCellCheckOrder():
+    for orderEntry in self.genCellCheckOrder():
       assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "This loop has run for an impossibly long time."
     
       if justStarted:
@@ -448,6 +455,7 @@ class CellElimRunCodecState:
             raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
             return False #indicate that processing should stop.
         justStarted = False
+        
       cellToCheck = orderEntry[1]
       if orderEntry[0] == "fix":
         #print("order entry " + str(orderEntry) + " will be fixed")
@@ -485,9 +493,9 @@ class CellElimRunCodecState:
     
       
   
-  def getGenCellCheckOrder(self,scoreFun="vertical_distance"):
+  def genCellCheckOrder(self,scoreFun="vertical_distance"):
     #returns a generator whose next value is an (index,value) pair of the next cell to be checked while on a cell elimination run. It can be much more efficient than a function that finds the next best cell to check and is called again for every check.
-    #print("getGenCellCheckOrder called.")
+    #print("genCellCheckOrder called.")
     if type(scoreFun)==str:
       assert scoreFun in ["vertical_distance","absolute_distance"]
       if scoreFun=="vertical_distance":
@@ -501,26 +509,26 @@ class CellElimRunCodecState:
     rankings = [] #rankings array will store items in format [(score, cell), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
     
     for cell in self.cellCatalogue.genExtremeUnknownCells():
-      insort(rankings, [scoreFun(cell), cell], keyFun=self.rankingsInsortKeyFun)
+      insort(rankings, (scoreFun(cell), cell), keyFun=self.rankingsInsortKeyFun)
     #this looks like it should be faster, but isn't:
     #rankings = sorted(([scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.getExtremeUnknownCells()))
     
     #pre-loop termination check:
     if len(rankings) == 0:
-      #print("getGenCellCheckOrder ran out of items before its main loop.")
+      #print("genCellCheckOrder ran out of items before its main loop.")
       assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
       return
       
     while True: #the generator loop.
       #the following slow duplicate checker is disabled because dupes are now considered impossible.
-      #print("getGenCellCheckOrder: checking for dupes! slow!")
+      #print("genCellCheckOrder: checking for dupes! slow!")
       #for i in range(len(rankings)-1):
       #  if rankings[i][1] == rankings[i+1][1]:
       #    print("a dupe exists at " + str(i) + "! the compared entries are " + str(rankings[i]) + " and " + str(rankings[i]) + ".")
       
       #in-loop termination check is disabled because if it is possible for this to happen, an index error would be more noticable.
       #if len(rankings) == 0:
-      #  print("getGenCellCheckOrder ran out of items in its main loop. This has never happened before.")
+      #  print("genCellCheckOrder ran out of items in its main loop. This has never happened before.")
       #  assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
       #  return
       outputCell = rankings[0][1]
@@ -539,11 +547,11 @@ class CellElimRunCodecState:
         del rankings[0]
       else:
         del rankings[0]
-        insort(rankings, [scoreFun(replacementCell), replacementCell], keyFun=self.rankingsInsortKeyFun)
+        insort(rankings, (scoreFun(replacementCell), replacementCell), keyFun=self.rankingsInsortKeyFun)
         #extremely slow:
         #rankings[0] = [scoreFun(replacementCell), replacementCell]
         #bubbleSortSingleItemRight(rankings,0)
-    print("getGenCellCheckOrder has ended.")
+    print("genCellCheckOrder has ended.")
 
 
 
@@ -553,10 +561,10 @@ def cellElimRunBlockTranscode(inputData,opMode,interpolationMode,spaceDefinition
       raise ValueError("spaceDefinition is a list that can't be converted to a dictionary.")
     assert len(spaceDefinition) == 2
     print("spaceDefinition will be expanded into a dictionary. The use of a 2-item list for a spaceDefinition is deprecated.")
-    spaceDefinition = {"size":spaceDefinition,"endpointInitMode":"middle"}
+    spaceDefinition = {"size":spaceDefinition}
   assert opMode in ["encode","decode"]
 
-  tempCERCS = CellElimRunCodecState(inputData,opMode,interpolationMode=interpolationMode,spaceDefinition=spaceDefinition)
+  tempCERCS = CellElimRunCodecState(inputData,opMode,{"interpolation_mode":interpolationMode,"space_definition":spaceDefinition})
   tempCERCS.processBlock()
   if dbgReturnCERCS:
     return tempCERCS
@@ -577,7 +585,7 @@ def genCellElimRunBlockSeqTranscode(inputData,opMode,interpolationMode,spaceDefi
       currentInputData = inputData
     currentResult = None
     try:
-      currentResult = cellElimRunBlockTranscode(currentInputData,opMode,interpolationMode,spaceDefinition)
+      currentResult = cellElimRunBlockTranscode(currentInputData,opMode,{"interpolation_mode":interpolationMode,"space_definition":spaceDefinition})
     except ExhaustionError:
       break
     assert currentResult != None
