@@ -6,7 +6,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped, ExhaustionError
+from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, ExhaustionError
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
@@ -197,6 +197,9 @@ def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
   else:
     assert False, "reality error."
   return resultValue
+  
+remapToPredictedValuesCodec = CodecTools.Codec(None,None,transcodeFun=remapToPredictedValuesTranscode)
+
 
 def findMax(inputSeq,keyFun=None):
   if keyFun == None:
@@ -257,7 +260,7 @@ class Escape:
 
 
 
-def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, scoreFun=None, addDbgChars=False, addDbgWords=False):
+def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, scoreFun=None, addDbgChars=False, addDbgWords=False):
   """
   inputSeq is the source, which may be a generator.
   maxContextLength is the maximum length of a match that will be recognized. Larger values should give better compression without significant performance impact, see performance notes on getEndingIndicesOfGrowingSubSequence.
@@ -269,23 +272,25 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
   if scoreFun == None: #if the scoreFun still needs to be initialized to its default value...
     scoreFun = basicMatchIndexArrArrScoreFun
   if noveltyCodec == None:
-    noveltyCodec = Codes.codecs["fibonacci"]
+    noveltyCodec = Codes.codecs["fibonacci"]  
+  
   escapeValue = Escape() #just keep one instance of this for use inside here.
   history = []
+  
+  noveltyCodecWithContext = CodecTools.Codec((lambda encArg0,encValListArg: noveltyCodec.encode(remapToPredictedValuesCodec.encode(encArg0,encValListArg))),(lambda decArg0,decValListArg: remapToPredictedValuesCodec.decode(noveltyCodec.decode(decArg0),decValListArg)))
 
-  getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue]+history,maxContextLength,scoreFun)) #this exists as a function just so that it can easily be repeated in the attempt loop. escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict. using singleUsageHist as an argument to getValueChanceFromHistory is avoided here just to avoid needing to change it to include escapeValue to make escapeValue representable.
+  getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue] if len(history) == 0 else history, maxContextLength, scoreFun)) #this exists as a function just so that it can easily be repeated in the attempt loop. When history length is 0, escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict to represent it. But when history is longer than 0 items, escapeValue isn't prepended, because history must already contain escapeValue just as many times as it has been used.
   getNewValueHuffmanCodec = (lambda: HuffmanMath.makeHuffmanCodecFromDictHist(valueChanceDict)) #this exists as a function just so that it can easily be repeated in the attempt loop.
 
   while True:
     inputValue = None #to be initialized later.
-
-    #analyze phase.
-    valueChanceDict = getNewValueChanceDict()
-    valueHuffmanCodec = getNewValueHuffmanCodec()
+    resultValue = None #to be initialized later.
     
-    #parse phase. This is the same as the transcode phase in the case of huffman coding.
-    resultValue = None
     if opMode == "encode":
+      
+      valueChanceDict = getNewValueChanceDict()
+      valueHuffmanCodec = getNewValueHuffmanCodec()
+    
       #the attempt loop.
       while True:
         try:
@@ -304,7 +309,8 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
           history.append(escapeValue)
           #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
           
-          for outputComponent in noveltyCodec.encode(inputValue):
+          #for outputComponent in noveltyCodec.encode(inputValue):
+          for outputComponent in noveltyCodecWithContext.encode(inputValue,makeArr(genDeduped(history))): #@ very slow.
             yield outputComponent
           if addDbgChars:
             yield ","
@@ -322,16 +328,21 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
       history.append(inputValue)
           
     elif opMode == "decode":
+    
+      valueChanceDict = getNewValueChanceDict()
+      valueHuffmanCodec = getNewValueHuffmanCodec()
+    
       try:
         resultValue = valueHuffmanCodec.decode(inputSeq)
       except ExhaustionError:
-        print("MarkovTools.genDynamicMarkovTranscodeFunctional: ending due to ExhaustionError from valueHuffmanCodec.")
+        print("MarkovTools.genFunctionalDynamicMarkovTranscode: ending due to ExhaustionError from valueHuffmanCodec.")
         return
       history.append(resultValue)
       #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
       if resultValue == escapeValue:
         #no version of the escapeValue will be yielded. Anyone reading the plaindata does not need to know!.
-        resultValue = noveltyCodec.decode(inputSeq)
+        #resultValue = noveltyCodec.decode(inputSeq)
+        resultValue = noveltyCodecWithContext.decode(inputSeq,makeArr(genDeduped(history))) #@ very slow.
         history.append(resultValue)
         
       if addDbgWords:
@@ -339,11 +350,10 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
       yield resultValue
       if addDbgChars:
         yield ","
-      valueChanceDict = getNewValueChanceDict()
-      valueHuffmanCodec = getNewValueHuffmanCodec()
     else:
       assert False, "invalid opMode."
 
+functionalDynamicMarkovCodec = CodecTools.Codec(None,None,transcodeFun=genFunctionalDynamicMarkovTranscode)
 
 
 
@@ -355,8 +365,7 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
 
 
 
-
-def genDynamicMarkovTranscodeNonFunctional(inputSeq, opMode, maxContextLength=16, scoreMode="(max(l),f(max(l)),max(x(max(l))),-y)", addDbgChars=False, addDbgWords=False):
+def genNonFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, scoreMode="(max(l),f(max(l)),max(x(max(l))),-y)", addDbgChars=False, addDbgWords=False):
   """
   deprecated. Anything this function can do, the functional version can do better.
   """
@@ -375,7 +384,7 @@ def genDynamicMarkovTranscodeNonFunctional(inputSeq, opMode, maxContextLength=16
     try:
       inputValue = next(inputSeq)
     except StopIteration:
-      print("MarkovTools.genDynamicMarkovTranscodeNonFunctional: stopping because inputSeq is now empty.")
+      print("MarkovTools.genNonFunctionalDynamicMarkovTranscode: stopping because inputSeq is now empty.")
       return
     #analyze phase:
     #all known history, but NOT the current plainData or pressData item, is used to create a map that can be used to convert between a plainData value and a pressData value. This map will LATER be used to transcode whatever the current value is, in whichever direction it must be transcoded.
@@ -426,6 +435,6 @@ for test in [(sampleTexts[0],"rld"),(sampleTexts[1],"678")]:
   assert [item+len(test[1])-1 for item in getStartingIndicesOfSubSequence(test[0],test[1])] == getEndingIndicesOfGrowingSubSequences(test[0],test[1])[-1][1]
   continue
 
-assert [item for item in genDynamicMarkovTranscodeNonFunctional([5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100], "encode")] == [5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-assert [item for item in genDynamicMarkovTranscodeNonFunctional([5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],"decode")] == [5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100]
+assert [item for item in genNonFunctionalDynamicMarkovTranscode([5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100], "encode")] == [5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+assert [item for item in genNonFunctionalDynamicMarkovTranscode([5, 0, 0, 8, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],"decode")] == [5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100, 5,5,5,8,5,5,5,8,5,5,5,8,5,5,5,100]
 
