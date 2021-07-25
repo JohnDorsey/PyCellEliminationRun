@@ -58,11 +58,13 @@ def roundTripTest(testCodec, plainData, showDetails=False):
 
 
 def makePlatformCodec(platCodec, mainCodec):
-  return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda x: platCodec.encode(mainCodec.decode(platCodec.decode(x)))))
+  return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda y: platCodec.encode(mainCodec.decode(platCodec.decode(y)))))
 
+def makePlainDataNumOffsetClone(mainCodec, offset): #used in MarkovTools.
+  return Codec((lambda x: mainCodec.encode(x+offset)),(lambda y: mainCodec.decode(y)-offset))
 
 def makeChainedPairCodec(codec1,codec2):
-  return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda x: codec1.decode(codec2.decode(x))))
+  return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda y: codec1.decode(codec2.decode(y))))
 
 
 def makeSeqCodec(inputCodec,demoPlainData,zeroSafe):
@@ -137,6 +139,33 @@ class Codec:
       return self.decodeFun(data,*argsToUse,**kwargsToUse)
     else:
       return self.transcodeFun(data,"decode",*argsToUse,**kwargsToUse)
+      
+  def zeroSafeEncode(self,data,*args,**kwargs):
+    if self.zeroSafe:
+      return self.encode(data,*args,**kwargs)
+    else:
+      if type(data) == int:
+        return self.encode(data+1,*args,**kwargs)
+      elif isGen(data):
+        return self.encode(genAddInt(data,1),*args,**kwargs)
+      elif type(data) == list:
+        return self.encode(arrAddInt(data,1),*args,**kwargs)
+      else:
+        raise NotImplementedError("CodecTools.Codec.zeroSafeEncode can't handle data of this type.")
+        
+  def zeroSafeDecode(self,data,*args,**kwargs):
+    if self.zeroSafe:
+      return self.decode(data,*args,**kwargs)
+    else:
+      if type(data) == int:
+        return self.decode(data,*args,**kwargs)-1
+      elif isGen(data):
+        return genAddInt(self.encode(data,*args,**kwargs),-1)
+      elif type(data) == list:
+        return arrAddInt(self.encode(data,*args,**kwargs),-1)
+      else:
+        raise NotImplementedError("CodecTools.Codec.zeroSafeDecode can't handle data of this type.")
+        
 
   def clone(self,extraArgs=None,extraKwargs=None):
     if self.extraArgs != [] and extraArgs != None:
@@ -147,7 +176,12 @@ class Codec:
     kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
     return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,zeroSafe=self.zeroSafe,extraArgs=argsToUse,extraKwargs=kwargsToUse)
 
-
+  """
+  def getMinPlainValue(self):
+    if self.zeroSafe == None:
+      print("CodecTools.Codec.getMinPlainValue: warning: zeroSafe was not set. assuming the codec is not zeroSafe.")
+    return 0 if self.zeroSafe else 1
+  """
 
 
 

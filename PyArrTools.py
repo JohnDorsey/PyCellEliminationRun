@@ -16,7 +16,7 @@ def arrEndsWith(inputArr,testArr):
   if testStartIndex < 0:
     raise ValueError("This test can't be performed because testArr is longer than inputArr.")
   return all((inputArr[testStartIndex+i]==testArr[i]) for i in range(len(testArr)))
-  
+
   
   
   

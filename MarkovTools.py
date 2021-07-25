@@ -6,7 +6,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, ExhaustionError
+from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, ExhaustionError, indexOfValueInGen, valueAtIndexInGen, genSkipFirst
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
@@ -63,8 +63,11 @@ def ordify(inputStr):
 
 
 
-def genBleedSortedArr(inputArr):
+def genBleedSortedArr(inputArr,noNegatives=False):
   #this generator will help in using a markov model with values the model has not seen before, by mapping them to smaller numbers when they are closer to a value that has been seen before.
+  if noNegatives:
+    if inputArr[0] < 0:
+      raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
   for item in inputArr:
     yield item
   lowerSpots = [item for item in inputArr] #these move down.
@@ -117,6 +120,13 @@ def genBleedSortedArr(inputArr):
         del lowerSpots[i]
       else:
         i += 1
+    if noNegatives:
+      while len(lowerSpots) > 0:
+        if lowerSpots[0] < 0: #this works because lowerSpots is sorted.
+          del lowerSpots[0]
+          continue
+        else:
+          break
     #print("lowerSpots end up as " + str(lowerSpots))
     #print("upperSpots end up as " + str(upperSpots))
     currentArr = sorted(lowerSpots+upperSpots+collisionSpots)
@@ -124,9 +134,56 @@ def genBleedSortedArr(inputArr):
     for item in currentArr:
       yield item
 
-
-
-
+def remapToGeneratedValuesTranscode(mainItem,opMode,inputGen,startIndex=0,timeout=2**20):
+  if opMode == "encode":
+    foundIndex = indexOfValueInGen(mainItem,genTakeOnly(genSkipFirst(inputGen,startIndex),timeout,onExhaustion="warn"))
+    if foundIndex == None:
+      print("MarkovTools.remapToGeneratedValuesTranscode: encode: warning: couldn't find it. returning None.")
+    return foundIndex
+  elif opMode == "decode":
+    if mainItem == None:
+      print("MarkovTools.remapToGeneratedValuesTranscode: decode: warning: can't use None as an index. Will return None immediately.")
+      return None
+    foundValue = valueAtIndexInGen(mainItem,genTakeOnly(genSkipFirst(inputGen,startIndex),timeout,onExhaustion="warn"))
+    if foundValue == None:
+      print("MarkovTools.remapToGeneratedValuesTranscode: decode: warning: foundValue is None. returning None.")
+    return foundValue
+  else:
+    raise ValueError("invalid opMode.")
+    
+def remapToBleedingSortedArrTranscode(mainItem,opMode,seedArr,noNegatives=True,skipSeedArr=False,timeout=2**20):
+  assert type(seedArr) == list
+  assert opMode in ["encode","decode"]
+  if len(seedArr) == 0: #happens when this codec is used by genfunctionalDynamicMarkovTranscode when it shouldn't be, like when the history is empty except for items that are filtered out like an escapeValue.
+    return mainItem
+  startIndex = len(seedArr) if skipSeedArr else 0
+  if skipSeedArr:
+    if opMode == "encode":
+      if mainItem in seedArr:
+        print("MarkovTools.remapToBleedingSortedArrTranscode: warning: mainItem is present in seedArr, but skipSeedArr is True, so mainItem is not representable, and None will be returned.")
+        return None
+  valueMapGen = genBleedSortedArr(seedArr,noNegatives=noNegatives)
+  #the following is disabled for being too complicated, but could provide a large speedup.
+  #if noNegatives:
+  #  #add early end to switch to more efficient mapping.
+  #  earlyStoppingValueMapGen = (pairA[1] for pairA in genTakeUntil(enumerate(valueMapGen),(lambda pairB: pairB[0]==pairB[1]+startIndex),stopSignalsNeeded=len(seedArr)*3))
+  #  #this generator will run until its items are equal to their indices (with an offset provided by startIndex), and then for a little while longer, and then it will stop. During this time it will only eat from valueMapGen what it yields.
+  result = remapToGeneratedValuesTranscode(mainItem,opMode,valueMapGen,startIndex=startIndex,timeout=max([timeout,max(seedArr)*2]))
+  if result == None:
+    if noNegatives:
+      #the following is not really necessary.
+      #lowestValueNotVisited = None
+      #try:
+      #  lowestValueNotVisited = next(valueMapGen)
+      #except StopIteration:
+      #  assert False, "impossible error."
+      return mainItem
+    else:
+      print("MarkovTools.remapToBleedingSortedArrTranscode: warning: can't attempt to resolve None when noNegatives is not True. returning None.")
+  return result
+    
+bleedingSortedArrRemapCodec = CodecTools.Codec(None,None,transcodeFun=remapToBleedingSortedArrTranscode)
+  
 
 
 def extendWithoutDupes(arrToExtend,extensionSrc):
@@ -260,7 +317,7 @@ class Escape:
 
 
 
-def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, scoreFun=None, addDbgChars=False, addDbgWords=False):
+def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, noveltyIndexRemapCodec="linear", scoreFun=None, addDbgChars=False, addDbgWords=False):
   """
   inputSeq is the source, which may be a generator.
   maxContextLength is the maximum length of a match that will be recognized. Larger values should give better compression without significant performance impact, see performance notes on getEndingIndicesOfGrowingSubSequence.
@@ -272,12 +329,18 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
   if scoreFun == None: #if the scoreFun still needs to be initialized to its default value...
     scoreFun = basicMatchIndexArrArrScoreFun
   if noveltyCodec == None:
-    noveltyCodec = Codes.codecs["fibonacci"]  
+    #noveltyCodec = CodecTools.makePlainDataNumOffsetClone(Codes.codecs["fibonacci"],1)
+    noveltyCodec = Codes.codecs["fibonacci"]
+  if type(noveltyIndexRemapCodec) == str:
+    if noveltyIndexRemapCodec == "linear":
+      noveltyIndexRemapCodec = remapToPredictedValuesCodec
+    elif noveltyIndexRemapCodec == "bleed":
+      noveltyIndexRemapCodec = bleedingSortedArrRemapCodec.clone(extraKwargs={"noNegatives":True,"skipSeedArr":True})
   
   escapeValue = Escape() #just keep one instance of this for use inside here.
   history = []
   
-  noveltyCodecWithContext = CodecTools.Codec((lambda encArg0,encValListArg: noveltyCodec.encode(remapToPredictedValuesCodec.encode(encArg0,encValListArg))),(lambda decArg0,decValListArg: remapToPredictedValuesCodec.decode(noveltyCodec.decode(decArg0),decValListArg)))
+  noveltyCodecWithContext = CodecTools.Codec((lambda encArg0,encValListArg: noveltyCodec.zeroSafeEncode(noveltyIndexRemapCodec.encode(encArg0,[itemA for itemA in encValListArg if type(itemA)==int]))),(lambda decArg0,decValListArg: noveltyIndexRemapCodec.decode(noveltyCodec.zeroSafeDecode(decArg0),[itemB for itemB in decValListArg if type(itemB)==int]))) #non-integer items can't be included in the context because they (usually???) can't be mapped around by the noveltyIndexRemapCodec.
 
   getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue] if len(history) == 0 else history, maxContextLength, scoreFun)) #this exists as a function just so that it can easily be repeated in the attempt loop. When history length is 0, escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict to represent it. But when history is longer than 0 items, escapeValue isn't prepended, because history must already contain escapeValue just as many times as it has been used.
   getNewValueHuffmanCodec = (lambda: HuffmanMath.makeHuffmanCodecFromDictHist(valueChanceDict)) #this exists as a function just so that it can easily be repeated in the attempt loop.

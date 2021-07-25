@@ -80,17 +80,43 @@ def arrTakeOnly(inputGen,count,onExhaustion="partial"):
     else:
       raise ValueError("PyGenTools.arrTakeOnly: the value of keyword argument onExhaustion is invalid.")
   return result
-
+  
+def genTakeUntil(inputGen,stopFun,stopSignalsNeeded=1): #might be used in MarkovTools someday.
+  stopSignalCount = 0
+  for item in inputGen:
+    yield item
+    if stopFun(item):
+      stopSignalCount += 1
+      if stopSignalCount >= stopSignalsNeeded:
+        return
+  print("PyGenTools.genTakeUntil ran out of items.")
+  
 
 def arrTakeLast(inputGen,count):
+  if count == None:
+    raise ValueError("count can't be None.")
   if type(inputGen) == list:
     print("PyGenTools.arrTakeLast was called on a list. It will treat the list like a generator. This might be a waste of time.")
-  storage = [None for i in range(count)]
+  storage = [None for ii in range(count)]
   i = -1
   for item in inputGen:
     i = (i+1)%count
     storage[i] = item
-  return storage[i+1:]+storage[:i+1]
+  splitPoint = i+1
+  return storage[splitPoint:]+storage[:splitPoint]
+  
+  
+def indexOfValueInGen(testValue,testGen): #used in MarkovTools.
+  for i,item in enumerate(testGen):
+    if item == testValue:
+      return i
+  return None
+  
+def valueAtIndexInGen(inputIndex,inputGen): #used in MarkovTools.
+  if inputIndex == None:
+    raise ValueError("inputIndex can't be None.")
+  return arrTakeLast(genTakeOnly(inputGen,inputIndex+1),1)[0]
+  
 
 def sentinelize(inputSeq,sentinel=None,loopSentinel=False,failFun=None):
   """
@@ -119,11 +145,14 @@ def zipGens(inputGens):
         except StopIteration:
           gensRunning[genIndex] = False #don't check this generator for items again.
 
-def genAddInt(inputSeq,inputInt): #is this used anywhere?
+def genAddInt(inputSeq,inputInt): #used in CodecTools.Codec.
   for item in inputSeq:
     yield item+inputInt
+    
+def arrAddInt(inputArr,inputInt): #used in CodecTools.Codec.
+  return [item+1 for item in inputArr] 
 
-def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis
+def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis.
   for item in inputSeq:
     if filterFun(item):
       yield item
