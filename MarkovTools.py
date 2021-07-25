@@ -176,6 +176,8 @@ def getValueChancesFromHistory(history,maxContextLength,chanceFun,singleUsageHis
     searchTerm = history[-maxContextLength:] + [searchItem]
     matchEndIndices = getEndingIndicesOfGrowingSubSequences(history,searchTerm)
     itemChanceDict[searchItem] = chanceFun(matchEndIndices,len(history))
+  if sum(itemChanceDict.values()) == 0:
+    print("MarkovTools.getValueChancesFromHistory: warning: returning a dict with a value sum of 0.")
   return itemChanceDict
   
   
@@ -217,11 +219,14 @@ def findMax(inputSeq,keyFun=None):
 def basicMatchIndexArrArrScoreFun(inputMatchIndexArrArr,currentHistoryLength): #this is the demo/default scoreFun for genDynamicMarkovTranscode.
   #this function does not assume that the inputMatchIndexArrArr is sorted by the first item of each tuple. It also does NOT assume that the second item of each tuple is sorted, so it uses max() in a slow way.
   #this function assumes the matches are for searches involving an item being investigated, and including that item in the search term. it is correct to use currentHistoryLength when scaling using locationOfLatestLongestMatch because no match location can be higher than that.
+  #print("MarkovTools.basicMatchIndexArrArrScoreFun: called with args: " + str([inputMatchIndexArrArr,currentHistoryLength]) + ".")
   result = None
   #thereAreMatches = sum(len(pair[1]) for pair in inputMatchIndexArrArr) > 0
   #if thereAreMatches:
-  maxMatchLengthIndex, maxMatchLength = findMax(inputMatchIndexArrArr,keyFun=(lambda pair: pair[0]))
+  maxMatchLengthIndex, maxMatchLength = findMax(inputMatchIndexArrArr,keyFun=(lambda pairB: pairB[0] if (len(pairB[1])>0) else -100)) #the filtering to exclude empty match lists should be unecessary, and can be fixed if it doesn't break genDynamicMarkovTranscodeNonFunctional.
+  #print("MarkovTools.basicMatchIndexArrArrScoreFun: (maxMatchLengthIndex, maxMatchLength)="+str((maxMatchLengthIndex, maxMatchLength))+".")
   if maxMatchLengthIndex != None and len(inputMatchIndexArrArr[maxMatchLengthIndex][1]) > 0:
+    #print("took complex branch.")
     #direction = inputMatchIndexArrArr[-1][0] > inputMatchIndexArrArr[0][0]
     #maxMatchLengthIndex = -1 if direction else 0
     
@@ -231,6 +236,7 @@ def basicMatchIndexArrArrScoreFun(inputMatchIndexArrArr,currentHistoryLength): #
     #the following scaling operation avoids the need for floats and ensures that every scored value will have a unique integer score.
     result = (result * currentHistoryLength) + locationOfLatestLongestMatch
   else:
+    #print("took simple branch.")
     result = 0
   return result
 
