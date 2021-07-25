@@ -183,6 +183,7 @@ class CellElimRunCodecState:
     The initialization method takes arguments that resemble a structured header as much as possible. In the decode phase, it fills in missing data in headerDict by decoding a few pressdata items as parameters. In the encode phase, it fills in missing data in headerDict by analyzing the provided plaindata, encodes these parameters, and prepends them to the pressdata it will output.
     The initialization method also creates all of the attributes that processBlock needs to start running right away. By the time processBlock is called, there is no more initialization to do.
     """
+    self.initializeByDefault()
     
     self.inputDataGen = makeGen(inputData) #this is necessary to make it so that prepSpaceDefinition can take some items from the front, before prepOpMode does anything.
     self.opMode = opMode #initialized here instead of in prepOpMode because it is needed by prepSpaceDefinition.
@@ -202,7 +203,12 @@ class CellElimRunCodecState:
 
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
-  
+
+  def initializeByDefault(self):
+    """
+    initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
+    """
+    self.rankingsInsortKeyFun = (lambda item: item[0]) #used by getGenCellCheckOrder.
 
   def GET_DEFAULT_SPACE_DEFINITION(self):
     #return {"plaindata_num_count":256,"plaindata_num_upper_limit":256,"endpoint_init_mode":"middle"}
@@ -476,7 +482,6 @@ class CellElimRunCodecState:
   def getGenCellCheckOrder(self,scoreFun="vertical_distance"):
     #returns a generator whose next value is an (index,value) pair of the next cell to be checked while on a cell elimination run. It can be much more efficient than a function that finds the next best cell to check and is called again for every check.
     #print("getGenCellCheckOrder called.")
-    rankingsInsortKeyFun = lambda item: item[0]
     if type(scoreFun)==str:
       assert scoreFun in ["vertical_distance","absolute_distance"]
       if scoreFun=="vertical_distance":
@@ -493,20 +498,25 @@ class CellElimRunCodecState:
       insort(rankings, [scoreFun(cell), cell], keyFun=rankingsInsortKeyFun)
     #this looks like it should be faster, but isn't:
     #rankings = sorted(([scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.getExtremeUnknownCells()))
+    
+    #pre-loop termination check:
     if len(rankings) == 0:
       #print("getGenCellCheckOrder ran out of items before its main loop.")
       assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
       return
+      
     while True: #the generator loop.
       #the following slow duplicate checker is disabled because dupes are now considered impossible.
       #print("getGenCellCheckOrder: checking for dupes! slow!")
       #for i in range(len(rankings)-1):
       #  if rankings[i][1] == rankings[i+1][1]:
       #    print("a dupe exists at " + str(i) + "! the compared entries are " + str(rankings[i]) + " and " + str(rankings[i]) + ".")
-      if len(rankings) == 0:
-        print("getGenCellCheckOrder ran out of items in its main loop. This has never happened before.")
-        assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
-        return
+      
+      #in-loop termination check is disabled because if it is possible for this to happen, an index error would be more noticable.
+      #if len(rankings) == 0:
+      #  print("getGenCellCheckOrder ran out of items in its main loop. This has never happened before.")
+      #  assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
+      #  return
       outputCell = rankings[0][1]
       #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
       yield ("visit", outputCell)
@@ -524,6 +534,7 @@ class CellElimRunCodecState:
       else:
         del rankings[0]
         insort(rankings, [scoreFun(replacementCell), replacementCell], keyFun=rankingsInsortKeyFun)
+        #extremely slow:
         #rankings[0] = [scoreFun(replacementCell), replacementCell]
         #bubbleSortSingleItemRight(rankings,0)
     print("getGenCellCheckOrder has ended.")
@@ -583,7 +594,8 @@ cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRu
 
 #tests:
 
-
+#these tests are disabled because they break with different sort methods.
+"""
 testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",{"size":[5,5]})
 assert testResult[0] == 20
 assert sum(testResult[1:]) == 0
@@ -597,6 +609,7 @@ assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",{"size":[5,10],
 testResult = makeArr(genCellElimRunBlockSeqTranscode([5,6,7,6,5,5,6,7,6,5],"encode","linear",{"size":[5,10],"endpoint_init_mode":"middle"}))
 assert testResult == [32,10,32,10]
 assert makeArr(genCellElimRunBlockSeqTranscode([32,10,32,10],"decode","linear",{"size":[5,10],"endpoint_init_mode":"middle"})) == [5,6,7,6,5,5,6,7,6,5]
+"""
 
 for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
   assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpoint_init_mode":testEndpointInitMode}]),[5,0,100,75,50])

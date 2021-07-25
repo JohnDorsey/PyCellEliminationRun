@@ -22,11 +22,6 @@ def arrEndsWith(inputArr,testArr):
   
   
 
-def insort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted using whichever method is not commented out.
-  #linearInsort(sortedList, newItem, keyFun=keyFun)
-  bisectInsort(sortedList, newItem, keyFun=keyFun)
-  
-
 def linearInsort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted with linear search.
   keyFunOfNewItem = keyFun(newItem) #caching this probably improves performance a lot.
   for i,item in enumerate(sortedList):
@@ -38,7 +33,7 @@ def linearInsort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted with
   return
 
 
-def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambda x: x)):
+def directBisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambda x: x)):
   if len(sortedList) == 0:
     sortedList.append(newItem)
     return
@@ -70,6 +65,48 @@ def bisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=(lambd
   else:
     sortedList.insert(testPoint,newItem)
     
+def iterativeBisectionSearch(sortedList, searchItem, keyFun=(lambda x: x)):
+  if len(sortedList) == 0:
+    return 0
+  searchItemKey = keyFun(searchItem)
+  startPoint = 0
+  startItemKey = keyFun(sortedList[startPoint])
+  endPoint = len(sortedList)-1
+  endItemKey = keyFun(sortedList[endPoint])
+  while True:
+    if endPoint - startPoint < 2:
+      if endPoint == startPoint:
+        if endItemKey < searchItemKey:
+          return endPoint+1
+        else:
+          return endPoint
+      else: #if endPoint - startPoint == 1...
+        if endItemKey < searchItemKey:
+          return endPoint+1
+        else:
+          if startItemKey < searchItemKey:
+            return endPoint
+          else:
+            return startPoint
+    else:
+      testPoint = (startPoint+endPoint)>>1
+      testItemKey = keyFun(sortedList[testPoint])
+      if testItemKey > searchItemKey: #if we should search lower...
+        endPoint, endItemKey = (testPoint, testItemKey)
+      elif testItemKey < searchItemKey: #if we should search higher...
+        startPoint, startItemKey = (testPoint, testItemKey)
+      else:
+        return testPoint
+    
+def bisectInsort(sortedList, newItem, keyFun=(lambda x: x)):
+  insertLocation = iterativeBisectionSearch(sortedList, newItem, keyFun=keyFun)
+  sortedList.insert(insertLocation, newItem)
+    
+
+
+
+#insert sorted:
+insort = bisectInsort
     
     
 def bubbleSortSingleItemRight(inputArr,startIndex):
