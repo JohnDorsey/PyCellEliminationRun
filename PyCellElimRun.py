@@ -495,7 +495,7 @@ class CellElimRunCodecState:
     rankings = [] #rankings array will store items in format [(score, cell), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
     
     for cell in self.cellCatalogue.getExtremeUnknownCells():
-      insort(rankings, [scoreFun(cell), cell], keyFun=rankingsInsortKeyFun)
+      insort(rankings, [scoreFun(cell), cell], keyFun=self.rankingsInsortKeyFun)
     #this looks like it should be faster, but isn't:
     #rankings = sorted(([scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.getExtremeUnknownCells()))
     
@@ -533,7 +533,7 @@ class CellElimRunCodecState:
         del rankings[0]
       else:
         del rankings[0]
-        insort(rankings, [scoreFun(replacementCell), replacementCell], keyFun=rankingsInsortKeyFun)
+        insort(rankings, [scoreFun(replacementCell), replacementCell], keyFun=self.rankingsInsortKeyFun)
         #extremely slow:
         #rankings[0] = [scoreFun(replacementCell), replacementCell]
         #bubbleSortSingleItemRight(rankings,0)
