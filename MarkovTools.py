@@ -6,7 +6,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped
+from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped, ExhaustionError
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
@@ -226,7 +226,7 @@ def basicMatchIndexArrArrScoreFun(inputMatchIndexArrArr,currentHistoryLength): #
     #maxMatchLengthIndex = -1 if direction else 0
     
     locationOfLatestLongestMatch = float(max(inputMatchIndexArrArr[maxMatchLengthIndex][1]))
-    assert 0 <= locationOfLatestLongestMatch <= 1
+    assert 0 <= locationOfLatestLongestMatch <= currentHistoryLength
     result = sum((len(matchesOfLengthX)*x) for x,matchesOfLengthX in inputMatchIndexArrArr)
     #the following scaling operation avoids the need for floats and ensures that every scored value will have a unique integer score.
     result = (result * currentHistoryLength) + locationOfLatestLongestMatch
@@ -275,37 +275,29 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
 
     #analyze phase.
     valueChanceDict = getNewValueChanceDict()
-    
-    #numberCodec contstruction phase. This happens before the parse phase because in the case that the constructed codec is a huffman coding codec, it will be the only thing capable of parsing.
     valueHuffmanCodec = getNewValueHuffmanCodec()
     
     #parse phase. This is the same as the transcode phase in the case of huffman coding.
     resultValue = None
     if opMode == "encode":
-      #loop to attempt repeatedly.
-      attemptSuccessful = False
-      while not attemptSuccessful:
-        attemptSuccessful = True
+      #the attempt loop.
+      while True:
         try:
           inputValue = next(inputSeq)
           resultValue = valueHuffmanCodec.encode(inputValue)
+          break
         except HuffmanMath.AlienError: #if the item is not representable by valueHuffmanCodec because it has never been seen before...
-          attemptSuccessful = False
           
           if addDbgWords:
-            yield "(fail in attempt loop; encoded escapeValue out:)"
+            yield "(fail in attempt loop; huffman-coded escapeValue and noveltyCodec-coded inputValue to follow.)"
+            
           for outputComponent in valueHuffmanCodec.encode(escapeValue): #it should be able to do this.
             yield outputComponent
           if addDbgChars:
             yield ","
           history.append(escapeValue)
+          #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
           
-          valueChanceDict = getNewValueChanceDict()
-          valueHuffmanCodec = getNewValueHuffmanCodec()
-          assert CodecTools.roundTripTest(valueHuffmanCodec,escapeValue)
-          
-          if addDbgWords:
-            yield "(fail in attempt loop; encoded inputValue=)"
           for outputComponent in noveltyCodec.encode(inputValue):
             yield outputComponent
           if addDbgChars:
@@ -314,32 +306,37 @@ def genDynamicMarkovTranscodeFunctional(inputSeq, opMode, maxContextLength=16, n
           
           valueChanceDict = getNewValueChanceDict()
           valueHuffmanCodec = getNewValueHuffmanCodec()
-          assert CodecTools.roundTripTest(valueHuffmanCodec,inputValue)
+      
+      if addDbgWords:
+        yield "(" + str(inputValue) + " became:)"
+      for outputComponent in resultValue:
+        yield outputComponent
+      if addDbgChars:
+        yield ","
+      history.append(inputValue)
           
-      #by this point, the attempt has been successful.
     elif opMode == "decode":
-      #inputValue, the exact bits the codec ingests from the pressData, will remain unknown.
-      resultValue = valueHuffmanCodec.decode(inputSeq)
+      try:
+        resultValue = valueHuffmanCodec.decode(inputSeq)
+      except ExhaustionError:
+        print("MarkovTools.genDynamicMarkovTranscodeFunctional: ending due to ExhaustionError from valueHuffmanCodec.")
+        return
+      history.append(resultValue)
+      #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
       if resultValue == escapeValue:
-        raise NotImplementedError()
+        #no version of the escapeValue will be yielded. Anyone reading the plaindata does not need to know!.
+        resultValue = noveltyCodec.decode(inputSeq)
+        history.append(resultValue)
+        
+      if addDbgWords:
+        yield "(dec out:)"      
+      yield resultValue
+      if addDbgChars:
+        yield ","
+      valueChanceDict = getNewValueChanceDict()
+      valueHuffmanCodec = getNewValueHuffmanCodec()
     else:
       assert False, "invalid opMode."
-      
-    #yield phase.
-    if addDbgWords:
-      yield "(norm out:)"
-    for outputComponent in resultValue: #probably a bit.
-      yield outputComponent
-    if addDbgChars:
-      yield ","
-
-    #update phase.
-    if opMode == "encode":
-      history.append(inputValue)
-    elif opMode == "decode":
-      history.append(resultValue)
-    else:
-      assert False
 
 
 
