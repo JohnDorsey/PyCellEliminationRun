@@ -134,24 +134,30 @@ class CellCatalogue:
     return False #indicate that the column is not critical.
 
 
-  def getExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
+  def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
     if sides == None:
       sides = [True,True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
     if self.storageMode == "limits":
-      result = []
+      #result = []
       for columnIndex in range(0,self.size[0]):
         columnLimits = self.limits[columnIndex]
-        if columnLimits[1]-columnLimits[0] < 1: #if there is no space between the floor and ceiling of what has not been eliminated...
+        if columnLimits[1]-columnLimits[0] < 2: #if there is no space between the floor and ceiling of what has not been eliminated...
+          if columnLimits[1]-columnLimits[0] == 1:
+            print("PyCellElimRun.genExtremeUnknownCells: warning: column at index {} was improperly eliminated!".format(columnIndex)) 
           continue #register nothing for this column.
-        if columnLimits[1]-columnLimits[0] == 1: #special case to avoid registering the same cell twice when the cell just above the floor and just below the ceiling are the same cell. At the time of this writing, I don't know whether this will ever happen because I haven't decided how the CellCatalogue will/should behave in columns where the sample's value is known.
-          result.append((columnIndex,columnLimits[0]+1))
-          print("WARNING: PyCellElimRun.CellCatalogue.getExtremeUnknownCells had to merge two cells in its result, meaning that column " + str(columnIndex) + " could have been eliminated earlier!")
+        if columnLimits[1]-columnLimits[0] == 2: #special case to avoid registering the same cell twice when the cell just above the floor and just below the ceiling are the same cell. At the time of this writing, I don't know whether this will ever happen because I haven't decided how the CellCatalogue will/should behave in columns where the sample's value is known.
+          #result.append((columnIndex,columnLimits[0]+1))
+          yield (columnIndex, columnLimits[0]+1)
+          print("WARNING: PyCellElimRun.CellCatalogue.genExtremeUnknownCells had to merge two cells in its result, meaning that column " + str(columnIndex) + " could have been eliminated earlier!")
         else:
           if sides[0]:
-            result.append((columnIndex,columnLimits[0]+1))
+            #result.append((columnIndex,columnLimits[0]+1))
+            yield (columnIndex, columnLimits[0]+1)
           if sides[1]:
-            result.append((columnIndex,columnLimits[1]-1))
-      return result #returns all extreme unknown cells in no special order, but probably from left to right.
+            #result.append((columnIndex,columnLimits[1]-1))
+            yield (columnIndex, columnLimits[1]-1)
+      #return result #returns all extreme unknown cells in no special order, but probably from left to right.
+      return
     else:
       assert False, "not all storage modes are yet supported for this function."
 
@@ -494,7 +500,7 @@ class CellElimRunCodecState:
     
     rankings = [] #rankings array will store items in format [(score, cell), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
     
-    for cell in self.cellCatalogue.getExtremeUnknownCells():
+    for cell in self.cellCatalogue.genExtremeUnknownCells():
       insort(rankings, [scoreFun(cell), cell], keyFun=self.rankingsInsortKeyFun)
     #this looks like it should be faster, but isn't:
     #rankings = sorted(([scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.getExtremeUnknownCells()))
