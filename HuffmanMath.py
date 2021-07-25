@@ -13,7 +13,7 @@ import StatCurveTools
 
 class AlienError(KeyError):
   """
-  This error is thrown by methods (especially of CodecTools.Codec instances configured for huffman coding) which respond to input based on a search of an internal database. This error is thrown to indicate that the database does not include anything that can be used to determine the proper response.
+  This error is thrown by methods (especially of CodecTools.Codec instances configured for huffman coding) which respond to input based on a search of an internal database. This error is thrown to indicate that the database does not include anything that can be used to determine the proper response. It is used in MarkovTools.py.
   """
   pass
 

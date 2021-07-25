@@ -195,7 +195,7 @@ class PressNumsAnalysis:
 #tests performed on load.
 assert len(WaveIO.sounds["samples/moo8bmono44100.txt"]) > 0
 
-assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",[256,SAMPLE_VALUE_UPPER_BOUND])]))],"decode","linear",[256,SAMPLE_VALUE_UPPER_BOUND]) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
+assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]})]))],"decode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]}) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
 
 #test of streaming CER blocks:
 assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).encode([5,6,7,6,5,5,6,7,6,5])] == [32,10,32,10]
