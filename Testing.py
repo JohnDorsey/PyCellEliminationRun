@@ -57,7 +57,8 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
     for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["HLL_fibonacci","HLL_eliasGamma","HLL_eliasDelta"]]:
       print("testing with "+numberSeqCodecSrcStr+":")
       numberSeqCodec = eval(numberSeqCodecSrcStr)
-      CodecTools.printComparison(testSound,makeArr(numberSeqCodec.encode(num+(0 if numberSeqCodec.zeroSafe else 1) for num in pressDataNums)))
+      CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
+      assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
 
     reconstPlainDataNums = testCERCodec.decode(pressDataNums)
     if reconstPlainDataNums == testSound:

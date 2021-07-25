@@ -6,7 +6,7 @@ CodecTools.py contains classes and other tools that might help make it easier to
 
 """
 
-from PyGenTools import makeArr, isGen, makeGen, ExhaustionError
+from PyGenTools import makeArr, isGen, makeGen, ExhaustionError, genAddInt, arrAddInt
 
 
 def measureIntArray(inputIntArr):
@@ -27,14 +27,14 @@ def countTrailingZeroes(inputArr):
 
 
 
-def roundTripTest(testCodec, plainData, showDetails=False):
+def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=False):
   #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
   if isGen(plainData):
     plainData = makeArr(plainData)
   if type(plainData) == list:
     if len(plainData) == 0:
       print("CodecTools.roundTripTest: warning: plainData is empty.")
-  pressData = testCodec.encode(plainData)
+  pressData = testCodec.zeroSafeEncode(plainData) if useZeroSafeMethods else testCodec.encode(plainData)
   if isGen(pressData):
     pressData = makeArr(pressData)
   if type(pressData) == list:
@@ -42,7 +42,7 @@ def roundTripTest(testCodec, plainData, showDetails=False):
       print("CodecTools.roundTripTest: warning: pressData is empty.")
   if showDetails:
     printComparison(plainData,pressData)
-  reconstPlainData = testCodec.decode(pressData)
+  reconstPlainData = testCodec.zeroSafeDecode(pressData) if useZeroSafeMethods else testCodec.decode(pressData)
   if isGen(reconstPlainData):
     reconstPlainData = makeArr(reconstPlainData)
   if type(reconstPlainData) == list:
@@ -157,12 +157,13 @@ class Codec:
     if self.zeroSafe:
       return self.decode(data,*args,**kwargs)
     else:
-      if type(data) == int:
-        return self.decode(data,*args,**kwargs)-1
-      elif isGen(data):
-        return genAddInt(self.encode(data,*args,**kwargs),-1)
-      elif type(data) == list:
-        return arrAddInt(self.encode(data,*args,**kwargs),-1)
+      result = self.decode(data,*args,**kwargs)
+      if type(result) == int:
+        return result-1
+      elif isGen(result):
+        return genAddInt(result,-1)
+      elif type(result) == list:
+        return arrAddInt(result,-1)
       else:
         raise NotImplementedError("CodecTools.Codec.zeroSafeDecode can't handle data of this type.")
         

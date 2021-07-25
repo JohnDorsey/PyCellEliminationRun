@@ -38,7 +38,11 @@ def intToBinaryBitArr(inputInt):
   return [int(char) for char in bin(inputInt)[2:]]
 
 def binaryBitArrToInt(inputBitArr):
-  return sum(2**i*inputBitArr[-1-i] for i in range(len(inputBitArr)))
+  result = 0
+  for i in range(len(inputBitArr)):
+    assert inputBitArr[-1-i] in [0,1]
+    result += 2**i*inputBitArr[-1-i]
+  return result
 
 
 def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
@@ -51,6 +55,7 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
   result = headInt
   i = 0
   for inputBit in inputBitSeq:
+    assert inputBit in [0,1]
     #print("new inputBit is " +str(inputBit) + ".")
     result = result*2 + inputBit
     #print("result is " + str(result))
@@ -292,7 +297,8 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
   inputBitSeq = makeGen(inputBitSeq)
   bitHistory = [] 
   for i,inputBit in enumerate(inputBitSeq):
-    assert inputBit in [0,1]
+    if not inputBit in [0,1]:
+      raise ValueError("invalid input bit " + str(inputBit) + " at index " + str(i) + ".")
     bitHistory.append(inputBit)
     if sum(bitHistory[-2:]) == 2: 
       break

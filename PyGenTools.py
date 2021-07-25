@@ -150,7 +150,8 @@ def genAddInt(inputSeq,inputInt): #used in CodecTools.Codec.
     yield item+inputInt
     
 def arrAddInt(inputArr,inputInt): #used in CodecTools.Codec.
-  return [item+1 for item in inputArr] 
+  assert type(inputArr) == list
+  return [item+inputInt for item in inputArr] 
 
 def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis.
   for item in inputSeq:
