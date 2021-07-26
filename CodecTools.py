@@ -117,7 +117,7 @@ class Codec:
   def __init__(self,encodeFun,decodeFun,transcodeFun=None,zeroSafe=None,extraArgs=None,extraKwargs=None):
     self.encodeFun, self.decodeFun, self.transcodeFun, self.zeroSafe = (encodeFun, decodeFun, transcodeFun, zeroSafe)
     if not (self.encodeFun or self.decodeFun or self.transcodeFun):
-      raise ValueError("No functions for encoding, decoding, or transcoding were specified!")
+      print("CodecTools.Codec.__init__: No functions for encoding, decoding, or transcoding were specified! They must be added manually before transcoding can take place!")
     self.extraArgs, self.extraKwargs = (extraArgs if extraArgs else [], extraKwargs if extraKwargs else {})
 
   def encode(self,data,*args,**kwargs):

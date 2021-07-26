@@ -138,7 +138,7 @@ def makeHuffmanCodecFromDictHist(inputDictHist,chanceExtractionFun=None):
   entries = sorted((chanceExtractionFun(value),key) for key,value in inputDictHist.items())
   return makeHuffmanCodecFromEntries(entries)
 
-def makeHuffmanCodecFromListHist(inputListHist,doPatch=True):
+def makeHuffmanCodecFromListHist(inputListHist,doPatch=False):
   workingListHist = StatCurveTools.patchedListHist(inputListHist) if doPatch else inputListHist
   entries = [(item,i) for i,item in enumerate(workingListHist)]
   return makeHuffmanCodecFromEntries(entries)

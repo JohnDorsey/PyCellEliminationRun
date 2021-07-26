@@ -52,6 +52,8 @@ def is_sorted(inputArr):
 def mean(inputArr):
   #find the mean of the input array. Might mishandle long type items in python2.
   inputArr = makeArr(inputArr)
+  if len(inputArr) == 0:
+    raise ValueError("can't find the mean of an empty list.")
   inputArrSum = sum(inputArr)
   if type(inputArrSum)==int and inputArrSum%len(inputArr) == 0:
     return inputArrSum / len(inputArr)

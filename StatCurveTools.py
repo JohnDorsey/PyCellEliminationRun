@@ -12,15 +12,26 @@ from PyGenTools import makeGen,makeArr
 
 
 
-def patchListHist(inputListHist,holeMatchFun=None,patchFun=None):
+def patchListHist(inputListHist,holeMatchFun=None,patchFun=None,lowFix=None):
+  #lowFix is the value to replace troublesome holes, like holes at the arr end.
+  if len(inputListHist) == 0:
+    print("StatCurveTools.patchListHist: Warning: received an empty inputListHist. no action will be taken.")
+    return
   if holeMatchFun == None:
     holeMatchFun = (lambda x: x==None)
   if patchFun == None:
     patchFun = (lambda x1, x2, y1, y2, xHere: ((y1+y2)/4.0)/float(x2-x1-1))
+  if lowFix == None: #None isn't allowed, so this kwarg is uninitialized.
+    try:
+      lowFix = min(value for value in inputListHist if value > 0)
+    except ValueError:
+      print("StatCurveTools.patchListHist: Warning: no nonzero integer values. giving up.")
+      return
+  assert not holeMatchFun(lowFix), "the lowFix value triggers the hole match function, so patchListHist can't proceed."
   if holeMatchFun(inputListHist[0]): #patchFun usage can't fix this, so fix it here.
-    inputListHist[0] = 0
+    inputListHist[0] = lowFix
   if holeMatchFun(inputListHist[-1]): #patchFun usage can't fix this, so fix it here.
-    inputListHist[-1] = 0
+    inputListHist[-1] = lowFix
   for index in range(len(inputListHist)-1):
     if ((not holeMatchFun(inputListHist[index])) and holeMatchFun(inputListHist[index+1])):
       holeStartIndex = index
@@ -80,26 +91,44 @@ def genMergeParallelSeqsUsingSetTool(inputSeqSeq,mergeTool):
     yield mergeTool(currentSet)
 
 
-def autoBlurredListHist(inputListHist,overdoLevel=2):
+def makeAutoBlurredListHist(inputListHist,overdoLevel=2):
+  assert type(inputListHist) == list
   assert overdoLevel >= 1
   #this might just be a faster, more complicated way of finding the mean hole width.
   #population = 1.0-(inputListHist.count(None)/float(len(inputListHist)))
   #populationBasedHillWidth = int(round(1.0/population))
   #populationBasedHillWidth += 1-(populationBasedHillWidth%2)
   holeWidths = makeArr(genMatchRunLengths(inputListHist,(lambda x: x in [None,0,0.0])))
-  medianHoleWidth = int(round(IntArrMath.median(holeWidths)))
+  medianHoleWidth = 0
+  try:
+    medianHoleWidth = int(round(IntArrMath.median(holeWidths)))
+  except ValueError:
+    print("StatCurveTools.makeAutoBlurredListHist: no median hole width could be found.")
   medGaussHill = getGaussianBlurHillShape(medianHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground") #the +1 makes the width odd as is necessary, the +2 makes up for cutting to ground.
-  meanHoleWidth = int(round(IntArrMath.mean(holeWidths)))
+  meanHoleWidth = 0
+  try:
+    meanHoleWidth = int(round(IntArrMath.mean(holeWidths)))
+  except ValueError:
+    print("StatCurveTools.makeAutoBlurredListHist: no median hole width could be found.")
   meanGaussHill = getGaussianBlurHillShape(meanHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground")
   #print((medianHoleWidth,meanHoleWidth))
   patchedInput = patchedListHist(inputListHist,holeMatchFun=(lambda xx: xx in [None,0,0.0]))
   medGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
   meanGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
-  result = genMergeParallelSeqsUsingSetTool([patchedInput,medGaussBlurredInput,meanGaussBlurredInput],IntArrMath.mean)
+  result = makeArr(genMergeParallelSeqsUsingSetTool([patchedInput,medGaussBlurredInput,meanGaussBlurredInput],IntArrMath.mean))
   #print(patchedInput)
   #print(medGaussBlurredInput)
   #print(result)
   return result
+  
+  
+def extendListHistMinimally(inputList, targetLength, valueSuggestion=1):
+  assert type(inputList) == list
+  if len(inputList) >= targetLength:
+    return
+  minNonZeroValue = min(item for item in inputList if item > 0)
+  extensionValue = float(min(valueSuggestion,minNonZeroValue))
+  inputList.extend((extensionValue for i in range(len(inputList),targetLength)))
 
 
 def normalDistribution(x,smallSigma,smallMu):

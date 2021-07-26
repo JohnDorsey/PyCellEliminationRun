@@ -89,12 +89,8 @@ Design notes:
     -Blocks.
 
   Todo:
-  
-    -make a better way to make numberSeqCodecs from numberCodecs.
     
     -make a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
-  
-    -make CER easier to understand and modify.
 
     -rename QuickTimers to QuickClocks.
 
@@ -104,21 +100,19 @@ Design notes:
     
     -move more header tools out of CellElimRunBlockState.
 
-    -finish higher-order fibonacci coding.
-
     -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
     
     -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
     -add more output file formats, including plaintext python integer lists.
 
-    -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.
-
     -inclusion of GZIP and/or LZMA.
+  
+    -make a better way to make numberSeqCodecs from numberCodecs.
+  
+    -make CER easier to understand and modify.
 
-    -in genDynamicMarkovTranscode, move each possible item into the search sequence so that the search directly decides the probability of that item being the next item, instead of needing a separate singleUsageHistogram.
-    
-    -add huffman coding to markov tools.
+    -finish higher-order fibonacci coding.
 
   Feature wish list (CR = compression ratio):
 
@@ -151,3 +145,9 @@ Design notes:
 
     -fully self-delimiting Cell Elimination Run blocks, based on CER's natural potential ability to know when it is finished decoding.
       (complexity: low, maintenance: low, CR impact: slightly positive, performance impact: none).
+
+    -Haven bucket fibonacci coding with haven buckets that aren't embedded in the stream, to improve the effectiveness of Gzipping the output.
+    
+    -in genDynamicMarkovTranscode, move each possible item into the search sequence so that the search directly decides the probability of that item being the next item, instead of needing a separate singleUsageHistogram.
+    
+    -add huffman coding to markov tools.
