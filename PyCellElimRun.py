@@ -378,18 +378,28 @@ class CellElimRunCodecState:
     """
     This method is the host to the encoding or decoding process of the Cell Elimination Run algorithm. This method processes all the data that is currently loaded into or available to the CellElimRunCodecState, which is supposed to be one block of data. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way - the variables like self.runIndex and self.stepIndex are not reset, so that they can be reviewed later. For this purpose, the main transcode method (PyCellElimRun.cellElimRunBlockTranscode) has an argument to return the entire codec state instead of the output data.
     """
+    
+    self.processAllRuns()
+    if self.opMode == "decode" and not allowMissingValues:
+      self.interpolateMissingValues(self.plainDataOutputArr)
+    
+    self.headerPhaseRoutine("AFTER_PROCESS_BLOCK")
+    return
+
+
+  def processAllRuns(self):
     self.runIndex = 0
     while True:
       if (self.opMode == "encode" and self.runIndex >= len(self.plainDataInputArr)) or (self.opMode == "decode" and self.runIndex >= self.size[0]):
         break
-      blockShouldContinue = False
+      processAllRunsShouldContinue = False
       try:
-        blockShouldContinue = self.processRun()
+        processAllRunsShouldContinue = self.processRun()
         self.runIndex += 1 #moved here to make it reflect the number of successful runs and not include the last one if it fails.
       except ExhaustionError as ee:
-        self.log("PyCellElimRun.CellElimRunCodecState.processBlock: an ExhaustionError was thrown by processRun. This is not supposed to happen while processing a lone block. While processing blocks in a stream, it is only supposed to happen when the stream ends.")
+        self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: an ExhaustionError was thrown by processRun. This is not supposed to happen while processing a lone block. While processing blocks in a stream, it is only supposed to happen when the stream ends.")
         if self.opMode == "encode":
-          print(self.log("PyCellElimRun.CellElimRunCodecState.processBlock: this ExhaustionError is never supposed to happen while encoding."))
+          print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
         elif self.opMode == "decode":
           if self.plainDataOutputArr.count(None) == len(self.plainDataOutputArr):
             raise ExhaustionError("CellElimRunCodecState was probably initialized with empty input data.")
@@ -398,12 +408,8 @@ class CellElimRunCodecState:
         else:
           assert False, "invalid opMode."
 
-      if not blockShouldContinue:
+      if not processAllRunsShouldContinue:
         break
-    if self.opMode == "decode" and not allowMissingValues:
-      self.interpolateMissingValues(self.plainDataOutputArr)
-    self.headerPhaseRoutine("AFTER_PROCESS_BLOCK")
-    return
 
 
   def interpolateMissingValues(self,targetArr):

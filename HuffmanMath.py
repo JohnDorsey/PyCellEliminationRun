@@ -20,7 +20,7 @@ class AlienError(KeyError):
 
 
 def morphAscendingEntriesIntoHuffmanTree(entries):
-  #modifies the input array and returns nothing.
+  #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
   if len(entries) < 2:
@@ -35,9 +35,10 @@ def morphAscendingEntriesIntoHuffmanTree(entries):
     entriesStart += 1
     bubbleSortSingleItemRight(entries,entriesStart)
     #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+" after bubble sort.")
+  return entries[-1]
     
 def drainAscendingEntriesIntoHuffmanTree(entries):
-  #modifies the input array and returns nothing.
+  #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
   if len(entries) < 2:
@@ -55,7 +56,61 @@ def drainAscendingEntriesIntoHuffmanTree(entries):
     #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after first shortening.")
     del entries[0]
     #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after second shortening.")
-
+  return entries[-1]
+    
+    
+def findLowestItemsInArrOfSortedArrs(inputArrArr,n,keyFun=(lambda x: x)):
+  #n is the number of items to find.
+  lowest = []
+  def trim(trimInputArr):
+    while len(trimInputArr) > n:
+      del trimInputArr[-1]
+  for indexInInputArrArr,inputArr in enumerate(inputArrArr):
+    for indexInInputArr,inputItem in enumerate(inputArr):
+      if len(lowest) < n:
+        insort(lowest,(indexInInputArrArr,indexInInputArr,inputItem),keyFun=(lambda itemForLowest: keyFun(itemForLowest[2])))
+        #calling trimLowest at this time is unnecessary. It can't be too long right now.
+        continue #don't let the same item be insorted twice!
+      if keyFun(inputItem) <= keyFun(lowest[-1][2]): #it might be acceptable to use < here instead.
+        insort(lowest,(indexInInputArrArr,indexInInputArr,inputItem),keyFun=(lambda itemForLowest: keyFun(itemForLowest[2])))
+        trim(lowest)
+      else:
+        break #because the inputArr is sorted, this can be done!
+  return lowest
+  
+def takeLowestItemsFromArrOfSortedArrs(inputArrArr,n,keyFun=(lambda x: x)):
+  searchResults = findLowestItemsInArrOfSortedArrs(inputArrArr,n,keyFun=keyFun)
+  #delete found items from their original locations:
+  for searchResult in sorted(searchResults,key=(lambda xx: xx[1]))[::-1]: #sorting backwards by the second of two indices means that items will be deleted from the end of a list towards the start of it, so that they never move before they can be deleted.
+    del inputArrArr[searchResult[0]][searchResult[1]]
+  return searchResults
+  
+def depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(entries):
+  #modifies the input array and returns a tree.
+  #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
+  if len(entries) < 2:
+    raise ValueError("can't make a tree with fewer than 2 entries. Try makeHuffmanTreeFromAscendingEntries instead.")
+  workingArrArr = [entries]
+  def restockWithAssumedDepth(productToRestock,assumedDepth):
+    while len(workingArrArr)-1 < assumedDepth:
+      workingArrArr.append([])
+    insort(workingArrArr[assumedDepth],productToRestock,keyFun=(lambda xx: xx[0]))
+  finishedTree = None
+  while True:
+    reactantFetchedResults = takeLowestItemsFromArrOfSortedArrs(workingArrArr,2,keyFun=(lambda x: x[0]))
+    if len(reactantFetchedResults) < 2:
+      assert len(reactantFetchedResults) == 1
+      finishedTree = reactantFetchedResults[0][-1]
+      break
+    reactantDepths = [reactantFetchedResult[0] for reactantFetchedResult in reactantFetchedResults]
+    assumedProductDepth = max(reactantDepths) + 1
+    reactants = [reactantFetchedResult[-1] for reactantFetchedResult in reactantFetchedResults]
+    assert len(reactants) == 2
+    product = (reactants[1][0]+reactants[0][0], (reactants[1][1], reactants[0][1]))
+    restockWithAssumedDepth(product,assumedProductDepth)
+  return finishedTree
+    
+    
 
 def makeHuffmanTreeFromAscendingEntries(entries):
   #the input array must be in the format [(chance_0, item_0), (chance_1, item_1), ...].
@@ -166,13 +221,19 @@ def makeHuffmanCodecFromListHist(inputListHist,doPatch=False):
   return makeHuffmanCodecFromEntries(entries)
   
   
-  
+
+
+testArrArr1 = [[1,200,300],[2,300,400],[3,4,500],[5,6,7]]
+#print(findLowestItemsInArrOfSortedArrs(testArrArr1,4))
+assert findLowestItemsInArrOfSortedArrs(testArrArr1,4) == [(0,0,1),(1,0,2),(2,0,3),(2,1,4)]
+assert testArrArr1 == [[1,200,300],[2,300,400],[3,4,500],[5,6,7]]
+
 daeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
 maeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
 drainAscendingEntriesIntoHuffmanTree(daeTest)
 morphAscendingEntriesIntoHuffmanTree(maeTest)
-print(daeTest)
-print(maeTest)
+print("HuffmanMath testing: " + str(daeTest) + ".")
+print("HuffmanMath testing: " + str(maeTest) + ".")
 assert daeTest[-1] == maeTest[-1]
 del daeTest
 del maeTest

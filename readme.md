@@ -48,7 +48,7 @@ Usage:
 
     WavePrep.convertAudio("source file name.wav","destination file name.wav")
 
-  The above takes an int16 44.1kHz stereo source file and creates a uint8 44.1kHz mono destination file, the default format that other parts of the project expect. With some settings tweaks, the entire project should allow audio with any integer specified as the maximum value per sample.
+  The above takes an int16 44.1kHz stereo source file and creates a uint8 44.1kHz mono destination file, the default format that other parts of the project expect. This is not a limitation of the Cell Elimination Run algorithm, which supports any integer as the maximum sample value,
 
     import Testing
 
