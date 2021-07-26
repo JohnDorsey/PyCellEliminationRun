@@ -195,7 +195,8 @@ def writeFromTemplateAndPathwiseOracle(destination, template, pathwiseOracleFun,
       else:
         pass
 
-
+def writeFromTemplateAndNextFun(destination, template, inputNextFun, valueTriggerFun, **kwargs):
+  writeFromTemplateAndPathwiseOracle(destination, template, (lambda ignorePath, ignoreValue: inputNextFun()), valueTriggerFun, **kwargs)
 
 
 

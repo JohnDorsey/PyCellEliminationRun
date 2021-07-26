@@ -236,14 +236,16 @@ class CellElimRunCodecState:
     
   def headerRoutineGeneralPathwiseOracleFun(self, inputPath, inputValue):
     print("headerRoutineGeneralPathwiseOracleFun called with args " + str([inputPath,inputValue]) + ".")
+    result = inputValue
     if inputPath[-3:] == ["space_definition","size",1]:
-      return max(self.plainDataInputArr)+1
-    if inputPath[-1] == "dbg_resolve_to_123456789":
-      return 123456789
-    if inputPath[-1] == "dbg_resolve_to_[123,456]":
-      return [123,456]
-    print("no substitute was found.")
-    return inputValue
+      result = max(self.plainDataInputArr)+1
+    elif inputPath[-1] == "dbg_resolve_to_123456789":
+      result = 123456789
+    elif inputPath[-1] == "dbg_resolve_to_[123,456]":
+      result = [123,456]
+    else:
+      print("no substitute was found.")
+    return self.saveHeaderValue(result)
 
 
   def GET_DEFAULT_HEADER_DICT_TEMPLATE(self):
@@ -265,16 +267,14 @@ class CellElimRunCodecState:
     #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
     phaseEmbedCode = "EMBED:"+phaseName
     #PyDictTools.replace(self.headerDict,"EMBED",phaseEmbedCode)
+    
     if self.opMode == "encode":
       pathwiseOracleFun = self.headerRoutineGeneralPathwiseOracleFun
       valueTriggerFun = (lambda x: x==phaseEmbedCode)
-      #print(self.headerDict)
-      #augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndPathwiseOracle(self.headerDictTemplate, pathwiseOracleFun, (lambda x: x==phaseEmbedCode)))
       PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, valueTriggerFun)
-      #print(self.headerDict)
     elif self.opMode == "decode":
       valueTriggerFun = (lambda x: x==phaseEmbedCode)
-      augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndNextFun(self.headerDictTemplate, self.loadHeaderNum, valueTriggerFun)) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
+      PyDictTools.writeFromTemplateAndNextFun(self.headerDict, self.headerDictTemplate, self.loadHeaderValue, valueTriggerFun) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
     else:
       assert False, "invalid opMode."
     #print("header phase " + phaseName +" ended with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
@@ -287,43 +287,15 @@ class CellElimRunCodecState:
         for keyB in sorted(self.headerDict[keyA].keys()):
           if keyB == "size":
             self.size = self.headerDict[keyA][keyB]
-      
-  """
-  def headerRoutineAfterProcessBlock(self):
-    def resolveAndEncodeHeaderValues(name):
-      if name == "dbg_resolve_to_123456789":
-        return 123456789
-      elif name == "dbg_resolve_to_[123,456]":
-        return [123,456]
-      else:
-        raise NotImplementedError("The CellElimRunCodecState in opMode " + self.opMode + " didn't know how to resolve the header key " + str(name) + " of type " + str(type(name)) + ".")
-    if self.opMode == "encode":
-      for key in sorted(self.headerDict.keys()):
-        if self.headerDict[key] == "EMBED":
-          pressHeaderAddition = resolveAndEncodeHeaderValues(key)
-          if type(pressHeaderAddition) == int:
-            self.saveHeaderNum(pressHeaderAddition)
-          elif type(pressHeaderAddition) == list:
-            for value in pressHeaderAddition:
-              self.saveHeaderNum(value)
-          else:
-            raise ValueError("The resolved value of the header item " + key + " was not an integer or a list.")
-        else:
-          pass #skip the item, because this is information that doesn't need to be embedded - either the setting's value is the default value for that setting, the setting is stored globally for the file, or the setting must be remembered by the user.
-    elif self.opMode == "decode":
-      #print("CellElimRunCodecState.headerRoutineAfterProcessBlock has no job to do when opMode is decode.")
-      pass
-    else:
-      assert False, "invalid opMode."
-   """
 
-  def saveHeaderNum(self,value):
+
+  def saveHeaderValue(self,value):
     if type(value) != int:
       print("PyCellElimRun.CellElimRunCodecState.saveHeaderNum: Warning: the value being saved is of type " + str(type(value)) + ", not int! Codecs processing the output of this codec may not expect this!")
     self.pressHeaderValues.append(value)
     return value
 
-  def loadHeaderNum(self):
+  def loadHeaderValue(self):
     loadedNum = None
     try:
       loadedNum = next(self.inputDataGen)
@@ -354,44 +326,44 @@ class CellElimRunCodecState:
 
 
   def prepSpaceDefinition(self):
-
-    self.cellCatalogue = CellCatalogue(size=self.size)
+    size = self.headerDict["space_definition"]["size"]
+    
+    self.cellCatalogue = CellCatalogue(size=size)
 
     endpointInitMode = self.headerDict["space_definition"]["endpoint_init_mode"]
-    self.spline = Curves.Spline(size=self.size,endpointInitMode=endpointInitMode)
+    self.spline = Curves.Spline(size=size,endpointInitMode=endpointInitMode)
 
     if "bound_touches" in self.headerDict["space_definition"].keys():
       boundTouches = self.headerDict["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["north"],self.size[1]-1,dbgCatalogueValue=-238)
+        self.setPlaindataItem(boundTouches["north"], size[1]-1, dbgCatalogueValue=-238)
       if "south" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["south"],0,dbgCatalogueValue=-239)
+        self.setPlaindataItem(boundTouches["south"], 0, dbgCatalogueValue=-239)
 
 
   def prepOpMode(self):
     """
-    prepare CellEliminationRunCodecState to operate in the specified opMode by creating and initializing only the things that are needed for that mode of operation. This method requires self.size to be defined, so, prepSpaceDefinition should be run before this method.
+    prepare CellEliminationRunCodecState to operate in the specified opMode by creating and initializing only the things that are needed for that mode of operation.
     """
     if not self.opMode in ["encode","decode"]:
       raise ValueError("That opMode is nonexistent or not allowed.")
+      
+    size = self.headerDict["space_definition"]["size"]
 
-    #if not isGen(inputData):
-    #  print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: inputData is not a generator, but to make testing simpler, maybe it should be.")
-    
     if self.opMode == "encode":
-      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,self.size[0],onExhaustion="warn+partial")
+      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="warn+partial")
       if not len(self.plainDataInputArr) > 0:
         raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
-      if len(self.plainDataInputArr) < self.size[0]:
+      if len(self.plainDataInputArr) < size[0]:
         print("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: the input plainData is shorter than the (block) size, so the missing values will be replaced with zeroes.")
-      self.plainDataInputArr = ljustedArr(self.plainDataInputArr,self.size[0],fillItem=0)
-      assert len(self.plainDataInputArr) == self.size[0]
+      self.plainDataInputArr = ljustedArr(self.plainDataInputArr,size[0],fillItem=0)
+      assert len(self.plainDataInputArr) == size[0]
       self.pressDataOutputArr = []
     elif self.opMode == "decode":
       self.pressDataInputGen = self.inputDataGen
       self.plainDataOutputArr = []
       defaultSampleValue = None
-      self.plainDataOutputArr.extend([defaultSampleValue for i in range(self.size[0])])
+      self.plainDataOutputArr.extend([defaultSampleValue for i in range(size[0])])
     else:
       assert False, "invalid opMode."
 
