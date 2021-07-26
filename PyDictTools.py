@@ -26,7 +26,7 @@ def makeBlankResultFromTemplate(template):
     raise TypeError("unsupported template type: " + str(type(template)) + ".")
     
 def makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys=True):
-  return (makeBlankResultFromTemplate(template),makeFlatKeySeq(template, sortDictKeys=sortDictKeys))
+  return (makeBlankResultFromTemplate(template), makeFlatKeySeq(template, sortDictKeys=sortDictKeys))
 
 
 
@@ -52,26 +52,20 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
           else:
             print("PyDictTools.augmentDict: recursive: warning: inputs have a value type mismatch at key " + str(key) + " where recursion would otherwise be possible.")
           
-"""
-def augmentedDict(dict0, dict1, recursive=True, recursiveTypes=None):
-  result = {}
-  for key in dict0.keys():
-    result[key] = dict0[key]
-  for key in dict1.keys():
-    if not key in result.keys():
-      result[key] = dict1[key]
+def cloneDict(inputObject):
+  result, keySeq = makeBlankResultAndKeySeqFromTemplate(inputObject,sortDictKeys=False)
+  for key in keySeq:
+    if type(inputDict[key]) in [list,dict]:
+      result[key] = cloneDict(inputDict[key])
     else:
-      if recursive:
-        if type(dict0[key]) == dict:
-          if type(dict1[key]) == dict:
-            result[key] = augmentedDict(dict0[key],dict1[key],recursive=recursive)
-          else:
-            print("PyDictTools.augmentedDict: recursive: warning: dict0 has a subdict where dict1 has something of type " + str(type(dict1[key])) + ".")
-        else:
-          if type(dict1[key]) == dict:
-            print("PyDictTools.augmentedDict: recursive: warning: dict1 has a subdict where dict0 has something of type " + str(type(dict0[key])) + ".")
+      result[key] = eval(str(inputDict[key]))
   return result
-"""
+
+def augmentedDict(dict0, dict1, **kwargs):
+  result = cloneDict(dict0)
+  augmentDict(result, dict1, **kwargs)
+  return result
+
 
          
 """
