@@ -102,12 +102,12 @@ def bisectInsort(sortedList, newItem, keyFun=(lambda x: x)):
   insertLocation = iterativeBisectionSearch(sortedList, newItem, keyFun=keyFun)
   sortedList.insert(insertLocation, newItem)
     
-
-
-
 #insert sorted:
 insort = bisectInsort
     
+    
+    
+
     
 def bubbleSortSingleItemRight(inputArr,startIndex):
   #an O(N) method to modify a provided array to correct a single out-of-place item. It could have fewer compares if it relied on a O(log(N)) search, but it couldn't have fewer writes.

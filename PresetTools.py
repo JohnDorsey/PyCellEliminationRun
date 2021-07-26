@@ -16,9 +16,10 @@ import CodecTools
 
 
 cerNumHuffmanCodecs = {}
+cerBlockHuffmanCodecs = {}
 
 
-def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=1024):
+def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None):
   print("making new cerNumHuffmanCodec...")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
@@ -39,9 +40,12 @@ def makeCerBlockHuffmanCodec(inputData,extendToHeight=0):
   assert type(inputData) == list
   newCodec = CodecTools.Codec(None,None,None,zeroSafe=True)
   newCodec.huffmanCodecsByColumn = []
+  backgroundData = StatCurveTools.vectorSum(inputData)
   for columnData in inputData:
     assert type(columnData) == list
-    newCodec.huffmanCodecsByColumn.append(makeCerNumHuffmanCodec(columnData,extendToHeight))
+    strongColumnData = StatCurveTools.scaledVector(columnData,len(inputData)) #this should make the columnData expressed about as strongly as the rest of the data combined.
+    backedColumnData = StatCurveTools.vectorSum([backgroundData,strongColumnData])
+    newCodec.huffmanCodecsByColumn.append(makeCerNumHuffmanCodec(backedColumnData,extendToHeight))
   def newEncodeFun(newEncDataInput):
     for iEnc,itemEnc in enumerate(newEncDataInput):
       for outputBit in newCodec.huffmanCodecsByColumn[iEnc].encode(itemEnc):
@@ -58,9 +62,10 @@ def makeCerBlockHuffmanCodec(inputData,extendToHeight=0):
 cerNumHuffmanCodecs["linear_1024x256_moo_short"] = makeCerNumHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_all",extendToHeight=1)
 cerNumHuffmanCodecs["linear_512x256_moo"] = makeCerNumHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all",extendToHeight=1)
 
+"""
 cerBlockHuffmanCodecs["linear_1024x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_by_column")
 cerBlockHuffmanCodecs["linear_512x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all_by_column")
-
+"""
 
 
 

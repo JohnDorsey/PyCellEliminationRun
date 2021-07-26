@@ -100,16 +100,12 @@ def makeAutoBlurredListHist(inputListHist,overdoLevel=2):
   #populationBasedHillWidth += 1-(populationBasedHillWidth%2)
   holeWidths = makeArr(genMatchRunLengths(inputListHist,(lambda x: x in [None,0,0.0])))
   medianHoleWidth = 0
-  try:
+  if len(holeWidths) > 0:
     medianHoleWidth = int(round(IntArrMath.median(holeWidths)))
-  except ValueError:
-    print("StatCurveTools.makeAutoBlurredListHist: no median hole width could be found.")
   medGaussHill = getGaussianBlurHillShape(medianHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground") #the +1 makes the width odd as is necessary, the +2 makes up for cutting to ground.
   meanHoleWidth = 0
-  try:
+  if len(holeWidths) > 0:
     meanHoleWidth = int(round(IntArrMath.mean(holeWidths)))
-  except ValueError:
-    print("StatCurveTools.makeAutoBlurredListHist: no median hole width could be found.")
   meanGaussHill = getGaussianBlurHillShape(meanHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground")
   #print((medianHoleWidth,meanHoleWidth))
   patchedInput = patchedListHist(inputListHist,holeMatchFun=(lambda xx: xx in [None,0,0.0]))
@@ -199,4 +195,21 @@ def listHistToPrettyStr(inputListHist,lineLength=1024):
   return result
   
   
+  
+  
+  
+  
+def vectorSum(vectors): #@ slow.
+  result = [0 for i in range(max(len(vector) for vector in vectors))]
+  for vector in vectors:
+    for i,item in enumerate(vector):
+      result[i] += item
+  return result
+  
+def scaleVector(vector,value):
+  for i in range(len(vector)):
+    vector[i] *= value
+
+def scaledVector(vector,value):
+  return [item*value for item in vector]
   

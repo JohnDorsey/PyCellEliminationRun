@@ -4,7 +4,7 @@ import math
 
 from PyGenTools import ExhaustionError
 from Codes import ParseError
-from PyArrTools import bubbleSortSingleItemRight
+from PyArrTools import bubbleSortSingleItemRight,insort
 
 import StatCurveTools
 
@@ -30,9 +30,31 @@ def morphAscendingEntriesIntoHuffmanTree(entries):
     #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+".")
     eB, eA = (entries[entriesStart], entries[entriesStart+1])
     entries[entriesStart+1] = (eB[0]+eA[0], (eB[1], eA[1]))
+    #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+" after unsorted insertion.")
     #entries[entriesStart] = None
     entriesStart += 1
     bubbleSortSingleItemRight(entries,entriesStart)
+    #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+" after bubble sort.")
+    
+def drainAscendingEntriesIntoHuffmanTree(entries):
+  #modifies the input array and returns nothing.
+  #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
+  #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
+  if len(entries) < 2:
+    raise ValueError("can't make a tree with fewer than 2 entries. Try makeHuffmanTreeFromAscendingEntries instead.")
+  while len(entries) > 1:
+    #print("drainAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+".")
+    eB, eA = (entries[0], entries[1])
+    eNew = (eB[0]+eA[0], (eB[1], eA[1]))
+    #entries[0] = (0,None)
+    #entries[1] = (0,None)
+    #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" before insort of " + str(eNew) + ".")
+    insort(entries,eNew,keyFun=(lambda item: item[0]))
+    #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after insort.")
+    del entries[0] #@ slow. start point could be tracked and adjusted instead.
+    #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after first shortening.")
+    del entries[0]
+    #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after second shortening.")
 
 
 def makeHuffmanTreeFromAscendingEntries(entries):
@@ -44,7 +66,7 @@ def makeHuffmanTreeFromAscendingEntries(entries):
     print("HuffmanMath.makeHuffmanTreeFromAscendingEntries: creating single-node tree, which is experimental and may cause other HuffmanMath tools to break. The tree total probability will be set to 1, ignoring any other info in the entries list item.")
     return (1,entries[0][1])
   workingArr = [item for item in entries]
-  morphAscendingEntriesIntoHuffmanTree(workingArr)
+  drainAscendingEntriesIntoHuffmanTree(workingArr)
   #print("makeHuffmanTreeFromAscendingEntries: workingArr is " + str(workingArr)+".")
   return workingArr[-1][1]
 
@@ -142,4 +164,16 @@ def makeHuffmanCodecFromListHist(inputListHist,doPatch=False):
   workingListHist = StatCurveTools.patchedListHist(inputListHist) if doPatch else inputListHist
   entries = [(item,i) for i,item in enumerate(workingListHist)]
   return makeHuffmanCodecFromEntries(entries)
+  
+  
+  
+daeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
+maeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
+drainAscendingEntriesIntoHuffmanTree(daeTest)
+morphAscendingEntriesIntoHuffmanTree(maeTest)
+print(daeTest)
+print(maeTest)
+assert daeTest[-1] == maeTest[-1]
+del daeTest
+del maeTest
 
