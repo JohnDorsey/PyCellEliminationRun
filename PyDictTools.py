@@ -1,22 +1,59 @@
 from PyGenTools import makeGen, makeArr
 
 
-def augmentDict(dict0, dict1, recursive=True):
-  for key in dict1.keys():
-    if not key in dict0.keys():
+
+
+
+
+
+
+def makeFlatKeySeq(template, sortDictKeys=True): #flat means nonrescursive.
+  templateKeySeq = None
+  if type(template) == dict:
+    templateKeySeq = sorted(template.keys()) if sortDictKeys else template.keys()
+  elif type(template) == list:
+    templateKeySeq = range(len(template))
+  else:
+    raise TypeError("unsupported template type: " + str(type(template)) + ".")
+  return templateKeySeq
+
+def makeBlankResultFromTemplate(template):
+  if type(template) == dict:
+    return {}
+  elif type(template) == list:
+    return [None for i in range(len(template))]
+  else:
+    raise TypeError("unsupported template type: " + str(type(template)) + ".")
+    
+def makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys=True):
+  return (makeBlankResultFromTemplate(template),makeFlatKeySeq(template, sortDictKeys=sortDictKeys))
+
+
+
+
+
+
+
+
+
+def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
+  if recursiveTypes == None:
+    recursiveTypes = [list,dict]
+  if dict0 == None or dict1 == None:
+    raise ValueError("received None for a dict argument.")
+  for key in makeFlatKeySeq(dict1):
+    if not key in makeFlatKeySeq(dict0):
       dict0[key] = dict1[key]
     else:
       if recursive:
-        if type(dict0[key]) == dict:
-          if type(dict1[key]) == dict:
-            augmentDict(dict0[key],dict1[key],recursive=recursive)
+        if type(dict0[key]) in recursiveTypes and type(dict1[key]) in recursiveTypes:
+          if type(dict0[key]) == type(dict1[key]):
+            augmentDict(dict0[key],dict1[key],recursive=recursive,recursiveTypes=recursiveTypes)
           else:
-            print("PyDictTools.augmentDict: recursive: warning: dict0 has a subdict where dict1 has something of type " + str(type(dict1[key])) + ".")
-        else:
-          if type(dict1[key]) == dict:
-            print("PyDictTools.augmentDict: recursive: warning: dict1 has a subdict where dict0 has something of type " + str(type(dict0[key])) + ".")
-   
-def augmentedDict(dict0, dict1, recursive=True):
+            print("PyDictTools.augmentDict: recursive: warning: inputs have a value type mismatch at key " + str(key) + " where recursion would otherwise be possible.")
+          
+"""
+def augmentedDict(dict0, dict1, recursive=True, recursiveTypes=None):
   result = {}
   for key in dict0.keys():
     result[key] = dict0[key]
@@ -34,7 +71,7 @@ def augmentedDict(dict0, dict1, recursive=True):
           if type(dict1[key]) == dict:
             print("PyDictTools.augmentedDict: recursive: warning: dict1 has a subdict where dict0 has something of type " + str(type(dict0[key])) + ".")
   return result
-
+"""
 
          
 """
@@ -65,47 +102,34 @@ def replace(inputDict,a,b,recursive=True):
 
 
 
-def makeKeySeqFromTemplate(template, sortDictKeys):
-  templateKeySeq = None
-  if type(template) == dict:
-    templateKeySeq = sorted(template.keys()) if sortDictKeys else template.keys()
-  elif type(template) == list:
-    templateKeySeq = range(len(template))
-  else:
-    raise TypeError("unsupported template type: " + str(type(template)) + ".")
-  return templateKeySeq
-
-def makeBlankResultFromTemplate(template):
-  if type(template) == dict:
-    return {}
-  elif type(template) == list:
-    return [None for i in range(len(template))]
-  else:
-    raise TypeError("unsupported template type: " + str(type(template)) + ".")
-    
-    
-def makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys):
-  return (makeBlankResultFromTemplate(template),makeKeySeqFromTemplate(template, sortDictKeys))
 
 
-def makeFromTemplateAndSeq(template, inputSeq, triggerFun, sortDictKeys=True, recursive=True):
+def makeFromTemplateAndSeq(template, inputSeq, valueTriggerFun, sortDictKeys=True, recursive=True, recursiveTypes=None):
+  if recursiveTypes == None:
+    recursiveTypes = [list,dict]
   inputGen = makeGen(inputSeq)
-  result, templateKeySeq = makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys)
+  result, templateKeySeq = makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys=sortDictKeys)
 
   for templateKey in templateKeySeq:
     originalValue = template[templateKey]
-    if triggerFun(originalValue):
-      if type(originalValue) in [list,dict]:
-        raise ValueError("The provided triggerFun returned True when a value of type " + str(type(originalValue)) + " was tested with it. This makes recursion into that value impossible.")
+    if valueTriggerFun(originalValue):
+      if type(originalValue) in recursiveTypes:
+        raise ValueError("The provided valueTriggerFun returned True when a value of type " + str(type(originalValue)) + " was tested with it. This makes recursion into that value impossible.")
       result[templateKey] = next(inputGen)
     else:
-      if recursive and type(originalValue) in [list,dict]:
-        result[templateKey] = makeFromTemplateAndSeq(originalValue,inputGen,triggerFun,sortDictKeys=sortDictKeys,recursive=recursive)
+      if recursive and type(originalValue) in recursiveTypes:
+        result[templateKey] = makeFromTemplateAndSeq(originalValue, inputGen, valueTriggerFun, sortDictKeys=sortDictKeys, recursive=recursive, recursiveTypes=recursiveTypes)
       else:
         result[templateKey] = originalValue
   return result
 
-
+def makeFromTemplateAndNextFun(template, inputNextFun, valueTriggerFun, sortDictKeys=True, recursive=True, recursiveTypes=None):
+  if recursiveTypes == None:
+    recursiveTypes = [list,dict]
+  inputGen = (inputNextFun() for i in range(2**16))
+  return makeFromTemplateAndSeq(template, inputGen, valueTriggerFun, sortDictKeys=sortDictKeys, recursive=recursive, recursiveTypes=recursiveTypes)
+  
+"""
 def makeFromTemplateAndKeywiseOracle(template, keywiseOracleFun, valueTriggerFun, sortDictKeys=True, recursive=True):
   result, templateKeySeq = makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys)
 
@@ -121,6 +145,8 @@ def makeFromTemplateAndKeywiseOracle(template, keywiseOracleFun, valueTriggerFun
       else:
         result[templateKey] = originalValue
   return result
+"""
+
 
 
 def makeFromTemplateAndPathwiseOracle(template, pathwiseOracleFun, valueTriggerFun, path=None, sortDictKeys=True, recursive=True):

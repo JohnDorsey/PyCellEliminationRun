@@ -209,14 +209,16 @@ class CellElimRunCodecState:
     self.headerDictTemplate = self.TO_COMPLETED_HEADER_DICT_TEMPLATE(inputHeaderDictTemplate)
     self.headerDict = {}
     self.pressHeaderValues = [] #this is to remain empty until populated by the header loader. it _may_ be populated if the headerDictTemplate tells it to embed or access header info from the regular inputData.
-    augmentDict(self.headerDict, self.headerDictTemplate) #this shouldn't be long-term. Once header tool design is finished, items will be absent from the header until they are resolved.
+    augmentDict(self.headerDict, self.headerDictTemplate, recursive=True, recursiveTypes=[list,dict]) #this shouldn't be long-term. Once header tool design is finished, items will be absent from the header until they are resolved.
     
     self.headerPhaseRoutine("BEFORE_PREP_GROUP")
     self.tempApplyHeader() #@ FIX! this must be removed eventually!
 
-    self.prepSpaceDefinition()
-    self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
     self.prepOpMode()
+    self.headerPhaseRoutine("AFTER_PREP_OP_MODE")
+    self.prepSpaceDefinition()
+    self.headerPhaseRoutine("AFTER_PREP_SPACE_DEFINITION")
+    self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
 
     self.headerPhaseRoutine("AFTER_PREP_GROUP")
 
@@ -265,12 +267,14 @@ class CellElimRunCodecState:
     #PyDictTools.replace(self.headerDict,"EMBED",phaseEmbedCode)
     if self.opMode == "encode":
       pathwiseOracleFun = self.headerRoutineGeneralPathwiseOracleFun
+      valueTriggerFun = (lambda x: x==phaseEmbedCode)
       #print(self.headerDict)
       #augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndPathwiseOracle(self.headerDictTemplate, pathwiseOracleFun, (lambda x: x==phaseEmbedCode)))
-      PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, (lambda x: x==phaseEmbedCode))
+      PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, valueTriggerFun)
       #print(self.headerDict)
     elif self.opMode == "decode":
-      augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndSeq(self.headerDictTemplate, self.inputDataGen, (lambda x: x==phaseEmbedCode))) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
+      valueTriggerFun = (lambda x: x==phaseEmbedCode)
+      augmentDict(self.headerDict, PyDictTools.makeFromTemplateAndNextFun(self.headerDictTemplate, self.loadHeaderNum, valueTriggerFun)) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
     else:
       assert False, "invalid opMode."
     #print("header phase " + phaseName +" ended with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
