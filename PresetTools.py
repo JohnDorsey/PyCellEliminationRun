@@ -20,7 +20,7 @@ cerBlockHuffmanCodecs = {}
 
 
 def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None):
-  print("making new cerNumHuffmanCodec...")
+  print("PresetTools.makeCerNumHuffmanCodec: started.")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
     inputData = PresetData.__dict__[inputData]
@@ -29,6 +29,7 @@ def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None):
     inputData = inputData[:cutToHeight]
   probabilityDistribution = StatCurveTools.makeAutoBlurredListHist(inputData)
   StatCurveTools.extendListHistMinimally(probabilityDistribution, extendToHeight)
+  print("PresetTools.makeCerNumHuffmanCodec: continuing to HuffmanCodec creation using probabilityDistribution of length {}.".format(len(probabilityDistribution)))
   return HuffmanMath.makeHuffmanCodecFromListHist(probabilityDistribution)
   
   
@@ -57,11 +58,16 @@ def makeCerBlockHuffmanCodec(inputData,extendToHeight=0):
   newCodec.decodeFun = newDecodeFun
   return newCodec
   
+
+
+  
   
 
 cerNumHuffmanCodecs["linear_1024x256_moo_short"] = makeCerNumHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_all",extendToHeight=1)
 cerNumHuffmanCodecs["linear_512x256_moo"] = makeCerNumHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all",extendToHeight=1)
 
+
+#these could take more than a day to build, even with pypy.
 """
 cerBlockHuffmanCodecs["linear_1024x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_by_column")
 cerBlockHuffmanCodecs["linear_512x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all_by_column")

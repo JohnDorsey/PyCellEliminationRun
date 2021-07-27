@@ -103,17 +103,18 @@ def loadSounds():
 def toSerializableStr(inputSeq):
   return "["+",".join(("\n  " if (i%80==0 and i != 0) else "")+str(item) for i,item in enumerate(inputSeq))+"]"
 
-def wrapStr(inputStr,lineLength):
-  resultStr = ""
-  currentLineLength = 0
-  for inputChar in inputStr:
-    resultStr += inputChar
-    currentLineLength += 1
-    if currentLineLength > lineLength:
-      if inputChar in [",","[","("]:
-        resultStr += "\n  "
-        currentLineLength = 0
-  return resultStr
+def wrapStr(inputStr, targetLineLength, notifyInterval=8192):
+  resultArr = []
+  currentLine = ""
+  for i,inputChar in enumerate(inputStr):
+    if i%notifyInterval == 0 and i!=0:
+      print("WaveIO.wrapStr: i="+str(i)+".")
+    currentLine += inputChar
+    if len(currentLine) > targetLineLength:
+      if inputChar in [",", "[", "("]:
+        resultArr.append(currentLine)
+        currentLine = ""
+  return "\n  ".join(resultArr)
     
 
 def toPyShortStr(inputSeq,weaklyIntified=True):

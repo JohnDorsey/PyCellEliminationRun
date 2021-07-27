@@ -19,7 +19,8 @@ class AlienError(KeyError):
 
 
 
-def morphAscendingEntriesIntoHuffmanTree(entries):
+
+def morphAscendingEntriesIntoHuffmanTree(entries,includeTreeTotalChance=False):
   #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
@@ -35,9 +36,9 @@ def morphAscendingEntriesIntoHuffmanTree(entries):
     entriesStart += 1
     bubbleSortSingleItemRight(entries,entriesStart)
     #print("morphAscendingEntriesIntoHuffmanTree: entries is " + str(entries)+" after bubble sort.")
-  return entries[-1]
+  return entries[-1] if includeTreeTotalChance else entries[-1][1]
     
-def drainAscendingEntriesIntoHuffmanTree(entries):
+def drainAscendingEntriesIntoHuffmanTree(entries,includeTreeTotalChance=False):
   #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   #The tree ends up in last item of the input array as (sum of the chances of all items in the tree, tree).
@@ -56,7 +57,7 @@ def drainAscendingEntriesIntoHuffmanTree(entries):
     #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after first shortening.")
     del entries[0]
     #print("drainAscendingEntriesIntoHuffmanTree: entries is now " + str(entries)+" after second shortening.")
-  return entries[-1]
+  return entries[-1] if includeTreeTotalChance else entries[-1][1]
     
     
 def findLowestItemsInArrOfSortedArrs(inputArrArr,n,keyFun=(lambda x: x)):
@@ -85,7 +86,7 @@ def takeLowestItemsFromArrOfSortedArrs(inputArrArr,n,keyFun=(lambda x: x)):
     del inputArrArr[searchResult[0]][searchResult[1]]
   return searchResults
   
-def depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(entries):
+def depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(entries,includeTreeTotalChance=False):
   #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   if len(entries) < 2:
@@ -97,7 +98,9 @@ def depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(entries):
     insort(workingArrArr[assumedDepth],productToRestock,keyFun=(lambda xx: xx[0]))
   finishedTree = None
   while True:
+    #print("depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree: in loop before fetch: workingArrArr="+str(workingArrArr)+".")
     reactantFetchedResults = takeLowestItemsFromArrOfSortedArrs(workingArrArr,2,keyFun=(lambda x: x[0]))
+    #print("depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree: in loop after fetch: (workingArrArr, reactantFetchedResults)="+str((workingArrArr, reactantFetchedResults))+".")
     if len(reactantFetchedResults) < 2:
       assert len(reactantFetchedResults) == 1
       finishedTree = reactantFetchedResults[0][-1]
@@ -105,14 +108,114 @@ def depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(entries):
     reactantDepths = [reactantFetchedResult[0] for reactantFetchedResult in reactantFetchedResults]
     assumedProductDepth = max(reactantDepths) + 1
     reactants = [reactantFetchedResult[-1] for reactantFetchedResult in reactantFetchedResults]
+    #print("depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree: in loop after fetch: (reactantDepths, assumedProductDepth, reactants)="+str((reactantDepths, assumedProductDepth, reactants))+".")
     assert len(reactants) == 2
     product = (reactants[1][0]+reactants[0][0], (reactants[1][1], reactants[0][1]))
     restockWithAssumedDepth(product,assumedProductDepth)
-  return finishedTree
+  #print("depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree: finishedTree is {}.".format(finishedTree))
+  return finishedTree if includeTreeTotalChance else finishedTree[1]
+  
+
+
+
+
+
+class SegmentedSelfSortingList:
+  def __init__(self,inputList,segmentCount=None,inputLevelFun=None,expectedMaxAbsLogBase2=4,keyFun=None):
+    if segmentCount != None:
+      if segmentCount%2 != 0:
+        raise ValueError("segmentCount must be divisible by 2.")
+    else:
+      segmentCount = int(min([(len(inputList)+1)**0.5,8*expectedMaxAbsLogBase2])) #@ crude.
+    self.segmentCount = segmentCount
     
+    if inputLevelFun == None:
+      def inputLevelFun(levelFunInputValue):
+        if levelFunInputValue <= 0:
+          return 0 #avoid a later math domain error with math.log.
+        return (segmentCount>>1) + StatCurveTools.roundedScaledHyperbolicTangent(math.log(levelFunInputValue)/float(expectedMaxAbsLogBase2),segmentCount>>1)
+    self.levelFun = inputLevelFun
+    
+    if keyFun == None:
+      keyFun = (lambda x: x)
+    self.keyFun = keyFun
+    
+    self.data = [[] for i in range(self.segmentCount)]
+    for inputItem in inputList:
+      self.insort(inputItem)
+    
+    
+  def __getitem__(self,index):
+    if index < 0:
+      raise NotImplementedError("SegmentedSortedList.__getitem__ can't handle negative indices.")
+    workingIndex = index
+    for i in range(self.segmentCount):
+      if workingIndex < len(self.data[i]):
+        return self.data[i][workingIndex]
+      else:
+        workingIndex -= len(self.data[i])
+        assert workingIndex >= 0
+        continue
+    raise IndexError(str(index))
+    
+  def takeItem(self,index):
+    if index != 0:
+      raise NotImplementedError("SegmentedSortedList.takeItem can't handle indices other than 0.")
+    for i in range(self.segmentCount):
+      if len(self.data[i]) == 0:
+        continue
+      result = self.data[i][0]
+      del self.data[i][0]
+      return result
+    raise IndexError()
+  
+  """
+  def next(self):
+    try:
+      return self.takeItem(0)
+    except IndexError:
+      raise StopIteration()
+  """
+   
+  def insort(self,inputItem):
+    inputItemLevel = self.getLevelOfValue(self.keyFun(inputItem))
+    insort(self.data[inputItemLevel], inputItem)
+    
+  def getLevelOfValue(self,inputValue): #might be an unnecessary layer.
+    return self.levelFun(inputValue)
     
 
-def makeHuffmanTreeFromAscendingEntries(entries):
+
+
+
+
+def segmentedSelfSortingListBasedDrainAscendingEntriesIntoHuffmanTree(entries,segmentCount=None,includeTreeTotalChance=False):
+  #modifies the input array and returns a tree.
+  #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
+  if len(entries) < 2:
+    raise ValueError("can't make a tree with fewer than 2 entries. Try makeHuffmanTreeFromAscendingEntries instead.")
+  appxMaxAbsLogBase2 = (abs(math.log(sum(item[0] for item in entries),2)) + abs(math.log(min(item[0] for item in entries if item[0] != 0),2)))/2.0
+  if segmentCount == None:
+    segmentCount = int(appxMaxAbsLogBase2/2.0)*2 #make divisible by 2.
+  workingSelfSortingList = SegmentedSelfSortingList(entries,segmentCount=segmentCount,expectedMaxAbsLogBase2=appxMaxAbsLogBase2,keyFun=(lambda xC: xC[0]))
+  
+  finishedTree = None
+  reactants = None
+  while True:
+    reactants = [workingSelfSortingList.takeItem(0)]
+    try:
+      reactants.append(workingSelfSortingList.takeItem(0))
+    except IndexError:
+      assert len(reactants) == 1
+      finishedTree = reactants[0]
+      break
+    assert len(reactants) == 2
+    product = (reactants[1][0]+reactants[0][0], (reactants[1][1], reactants[0][1]))
+    workingSelfSortingList.insort(product)
+  return finishedTree if includeTreeTotalChance else finishedTree[1]
+
+
+def makeHuffmanTreeFromAscendingEntries(entries,includeTreeTotalChance=False):
   #the input array must be in the format [(chance_0, item_0), (chance_1, item_1), ...].
   #the chances do not need to be probabilities, do not need to sum to 1.0, and do not need to be floats. They only need to be usable on either side of the '+' operator, and comparable on either side of the '>' operator (within HuffmanMath.bubbleSortSingleItemRight).
   if len(entries) == 0:
@@ -121,14 +224,16 @@ def makeHuffmanTreeFromAscendingEntries(entries):
     print("HuffmanMath.makeHuffmanTreeFromAscendingEntries: creating single-node tree, which is experimental and may cause other HuffmanMath tools to break. The tree total probability will be set to 1, ignoring any other info in the entries list item.")
     return (1,entries[0][1])
   workingArr = [item for item in entries]
-  drainAscendingEntriesIntoHuffmanTree(workingArr)
+  result = depthBasedWaterfallDrainAscendingEntriesIntoHuffmanTree(workingArr,includeTreeTotalChance=includeTreeTotalChance)
   #print("makeHuffmanTreeFromAscendingEntries: workingArr is " + str(workingArr)+".")
-  return workingArr[-1][1]
+  return result
 
-def makeHuffmanTreeFromEntries(entries):
+def makeHuffmanTreeFromEntries(entries,includeTreeTotalChance=False):
   ascendingEntries = sorted(entries)
   #print("makeHuffmanTreeFromEntries: (entries,ascendingEntries) is " + str((entries,ascendingEntries))+".")
-  return makeHuffmanTreeFromAscendingEntries(ascendingEntries)
+  result = makeHuffmanTreeFromAscendingEntries(ascendingEntries,includeTreeTotalChance=includeTreeTotalChance)
+  #print("makeHuffmanTreeFromEntries: result is " + str(result)+".")
+  return result
 
 
 def genLeafIDs(tree):
@@ -180,6 +285,53 @@ def treeToReverseDict(tree):
     result[entry[1]] = entry[0]
   return result
 
+"""
+def writeToTreeLocation(tree,pathDefSeq,value):
+  #this would require a tree made of Lists instead of tuples.
+  raise NotImplementedError()
+
+def reverseDictToTree(reverseDict):
+  raise NotImplementedError()
+"""
+
+
+
+
+
+class HuffmanCodec(CodecTools.Codec):
+  def __init__(self,inputStructure,initType):
+    self.extraDataDict = {}
+    if initType == "entries":
+      assert type(inputStructure) == list
+      self.extraDataDict["entries"] = inputStructure
+      self.extraDataDict["huffman_tree"] = makeHuffmanTreeFromEntries(inputStructure)
+    elif initType == "tree":
+      assert type(inputStructure) == tuple
+      self.extraDataDict["huffman_tree"] = inputStructure
+    else:
+      raise ValueError("invalid initialization type.")
+    self.extraDataDict["huffman_reverse_dict"] = treeToReverseDict(self.extraDataDict["huffman_tree"])
+      
+    def newEncodeFun(newEncInput):
+      try:
+        return self.extraDataDict["huffman_reverse_dict"][newEncInput]
+      except KeyError:
+        raise AlienError("HuffmanMath.HuffmanCodec: Encode: can't encode this value.")
+    
+    def newDecodeFun(newDecInput):
+      try:
+        return accessTreeLocation(self.extraDataDict["huffman_tree"],newDecInput)
+      except ExhaustionError as ee:
+        raise ExhaustionError("HuffmanMath.HuffmanCodec: Decode: " + str(ee.message) + ".")
+      except ParseError as pe:
+        raise ParseError("HuffmanMath.HuffmanCodec: Decode: " + str(pe.message) + ".")
+        
+    CodecTools.Codec.__init__(self,newEncodeFun,newDecodeFun,zeroSafe=(0 in self.extraDataDict["huffman_reverse_dict"].keys()))
+    
+    
+  def clone(self,*args,**kwargs):
+    raise NotImplementedError("HuffmanCodec instances are not clonable.")
+
 
 
 
@@ -187,23 +339,12 @@ def treeToReverseDict(tree):
 
 
 def makeHuffmanCodecFromEntries(entries):
-  huffmanTree = makeHuffmanTreeFromEntries(entries)
-  huffmanReverseDict = treeToReverseDict(huffmanTree)
+  #huffmanTree = makeHuffmanTreeFromEntries(entries)
+  #huffmanReverseDict = treeToReverseDict(huffmanTree)
   #print(huffmanTree)
   #print(huffmanReverseDict)
-  def newEncodeFun(x):
-    try:
-      return huffmanReverseDict[x]
-    except KeyError:
-      raise AlienError("The CodecTools.Codec instance configured for Huffman coding can't encode this value.")
-  def newDecodeFun(y):
-    try:
-      return accessTreeLocation(huffmanTree,y)
-    except ExhaustionError as ee:
-      raise ExhaustionError("CodecTools.Codec instance configured for Huffman coding: Decode: " + str(ee.message) + ".")
-    except ParseError as pe:
-      raise ParseError("CodecTools.Codec instance configured for Huffman coding: Decode: " + str(pe.message) + ".")
-  return CodecTools.Codec(newEncodeFun,newDecodeFun,zeroSafe=(0 in huffmanReverseDict.keys()))
+  workingCodec = HuffmanCodec(entries,"entries")
+  return workingCodec
 
 def makeHuffmanCodecFromFormula(chanceFun,minInputInt,maxInputInt):
   entries = sorted((chanceFun(value),value) for value in range(minInputInt,maxInputInt+1))
@@ -218,6 +359,7 @@ def makeHuffmanCodecFromDictHist(inputDictHist,chanceExtractionFun=None):
 def makeHuffmanCodecFromListHist(inputListHist,doPatch=False):
   workingListHist = StatCurveTools.patchedListHist(inputListHist) if doPatch else inputListHist
   entries = [(item,i) for i,item in enumerate(workingListHist)]
+  print("HuffmanMath.makeHuffmanCodecFromListHist: finished patching {} item inputListHist.".format(len(inputListHist)))
   return makeHuffmanCodecFromEntries(entries)
   
   

@@ -182,14 +182,16 @@ def convolved1d(inputArr,shapeArr):
 
 
 
-def scaledTanH(value,coef):
+def scaledHyperbolicTangent(value,coef):
   return math.tanh(value/float(coef))*coef
 
+def roundedScaledHyperbolicTangent(value,coef):
+  return int(round(scaledHyperbolicTangent(value,coef)))
 
 def listHistToPrettyStr(inputListHist,lineLength=1024):
   alphabet = "?zyxwvutsrqponmlkjihgfedcba=ABCDEFGHIJKLMNOPQRSTUVWXYZ!"
   alphabetCenter = alphabet.index("=")
-  valueToChar = (lambda value: alphabet[alphabetCenter + int(round(scaledTanH(math.log(value,2),26)))])
+  valueToChar = (lambda value: alphabet[alphabetCenter + roundedScaledHyperbolicTangent(math.log(value,2),26)])
   #assert valueToChar(2**1024)=="Z"
   result = "["+"".join(valueToChar(item)+("\n" if i%lineLength==0 and i>0 else "") for i,item in enumerate(inputListHist))+"]"
   return result
