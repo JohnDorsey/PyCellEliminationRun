@@ -52,13 +52,15 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
           else:
             print("PyDictTools.augmentDict: recursive: warning: inputs have a value type mismatch at key " + str(key) + " where recursion would otherwise be possible.")
           
-def cloneDict(inputObject):
-  result, keySeq = makeBlankResultAndKeySeqFromTemplate(inputObject,sortDictKeys=False)
+def cloneDict(inputStructure):
+  result, keySeq = makeBlankResultAndKeySeqFromTemplate(inputStructure,sortDictKeys=False)
   for key in keySeq:
-    if type(inputDict[key]) in [list,dict]:
-      result[key] = cloneDict(inputDict[key])
+    if type(inputStructure[key]) in [list,dict]:
+      result[key] = cloneDict(inputStructure[key])
+    elif type(inputStructure[key]) == str:
+      result[key] = inputStructure[key]
     else:
-      result[key] = eval(str(inputDict[key]))
+      result[key] = eval(str(inputStructure[key]))
   return result
 
 def augmentedDict(dict0, dict1, **kwargs):
@@ -165,8 +167,8 @@ def makeFromTemplateAndPathwiseOracle(template, pathwiseOracleFun, valueTriggerF
 def writeFromTemplateAndPathwiseOracle(destination, template, pathwiseOracleFun, valueTriggerFun, path=None, sortDictKeys=True, recursive=True):
   if path == None:
     path = []
-  templateKeySeq = makeKeySeqFromTemplate(template,sortDictKeys)
-  destinationKeyArr = makeArr(makeKeySeqFromTemplate(destination,sortDictKeys))
+  templateKeySeq = makeFlatKeySeq(template,sortDictKeys)
+  destinationKeyArr = makeArr(makeFlatKeySeq(destination,sortDictKeys))
   
   for templateKey in templateKeySeq:
     originalValue = template[templateKey]
