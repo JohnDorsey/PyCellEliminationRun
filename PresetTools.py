@@ -67,7 +67,7 @@ cerNumHuffmanCodecs["linear_1024x256_moo_short"] = makeCerNumHuffmanCodec("CER_l
 cerNumHuffmanCodecs["linear_512x256_moo"] = makeCerNumHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all",extendToHeight=1)
 
 
-#these could take more than a day to build, even with pypy.
+#these could each take more than a hundred hours to build, even with pypy.
 """
 cerBlockHuffmanCodecs["linear_1024x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_by_column")
 cerBlockHuffmanCodecs["linear_512x256_moo_short"] = makeCerBlockHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all_by_column")

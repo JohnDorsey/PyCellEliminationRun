@@ -58,13 +58,31 @@ Usage:
 
 
 
-explanation of compression settings:
+Explanation of compression settings:
 
   The interpolation mode chosen for the Spline affects how the Spline will estimate the values of the missing samples. Interpolation modes that are better at approximating audio signals generally result in better compression. Valid interpolationModes are "hold", "nearest-neighbor", "linear", "sinusoidal", and "finite difference cubic hermite", the last two of which contain unreliable float comparisons, making "linear" the best reliable mode.
 
   The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 256 or 512 seems like a good balance.
-  
 
+
+
+Project terminology and naming rules:
+  
+  -The prefixes plain- and press- are analogous to plain- and cypher- as used in plaintext and ciphertext, but they instead refer to whether something is compressed or not.
+
+  -Anything called a "Codec" is an instance of CodecTools.Codec.
+  
+  -Any transcoding function (a function for encoding data, decoding data, or capable of doing either as instructed by its arguments) is always identified by its name suffixed with -Encode, -Decode, or -Transcode, respectively.
+  
+  -A transcoding function always has the data source as its first argument.
+  
+  -The direction of transcoding for a -Transcode function or other function handling both encoding and decoding actions is called its "opMode". An opMode is officially always either "encode" or "decode" and when it is given as an argument to a -Transcode function, it must always be the second argument.
+
+  -generator functions have names prefixed with gen-. Generator arguments have names suffixed with -Gen. A common reason for an argument to need to be a generator is that the function using it may take only a certain number of items, and then the generator that was passed in should remain in that condition, with that many items missing from the beginning. This completely replaces the need for a parse function that includes information about how much data it needed from an input array in its own output.
+  
+  -an argument with a name suffixed with -Seq must at least be iterable. An argument which only needs to be iterable for the function to work internally should usually be named with the suffix -Seq. Functions that are designed with the goal of transforming one generator into another should usually have their data argument's name suffixed with -Gen, with one exception: transcoding functions designed specifically for powering a CodecTools.Codec that transcodes sequences. Such Sequence Codec transcoding functions should have their data argument names end in -Seq, because they should accept either Lists or generators as inputs, and should ALSO act like generator transformers whenever possible - taking only as many items from their generator-type input data arguments as are taken from their generator-type outputs. In fact, if a Codec can't follow these rules, it shouldn't be called a Sequence Codec at all.
+  
+  -A function's taking items from a generator-type argument is sometimes called eating. Taking more items from the input than are absolutely necessary to produce as many output items as it yields is called over-eating, and it is a serious bug. It is guaranteed to happen whenever a generator tranformer function has a for-in loop directly iterating over its input argument's items and also has the possibility of exiting from the loop body before yielding the current item. Avoiding this bug is why many functions like genFunctionalDynamicMarkovTranscode have while loops and use "try: currentItem = next(inputGen) except StopIteration: break" at some point within them.
 
 
 
