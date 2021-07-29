@@ -330,24 +330,24 @@ def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCo
 
 def remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues): #used in CodecTools and MarkovTools.
   if opMode == "encode":
-    return inputValue + len(predictedValues) - len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+    return inputValue - len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
   elif opMode == "decode":
-    return inputValue - len(predictedValues) + len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+    return inputValue + len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
   else:
     assert False, "invalid opMode."
     
 
 def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNumCodec):
-  assert 0 in inputLimitedNumCodec.getDomain(), "currently, inputLimitedNumCodec must be zero-safe."
-  assert 0 in inputUnlimitedNumCodec.getDomain(),"currently, inputUnlimitedNumCodec must be zero-safe."
-  for i in range(1,len(inputLimitedNumCodec.getDomain())):
-    assert abs(inputLimitedNumCodec.getDomain()[i]-inputLimitedNumCodec.getDomain()[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
+  if not inputLimitedNumCodec.isZeroSafe():
+    print("CodecTools.makeUnlimitedNumCodecWithSelectionBit: warning: inputLimitedNumCodec is not zero safe, which may cause problems.")
+  #for i in range(1,len(inputLimitedNumCodec.getDomain())):
+  #  assert abs(inputLimitedNumCodec.getDomain()[i]-inputLimitedNumCodec.getDomain()[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
 
   def newEncodeFun(newEncInput):
     if newEncInput in inputLimitedNumCodec.getDomain():
-      return genConcatenatedElements([0,inputLimitedNumCodec.encode(newEncInput)])
+      return genConcatenatedElements([0,inputLimitedNumCodec.zeroSafeEncode(newEncInput)])
     else:
-      return genConcatenatedElements([1,inputUnlimitedNumCodec.encode(remapToOutsideValueArrTranscode(newEncInput,"encode",inputLimitedNumCodec.getDomain()))])
+      return genConcatenatedElements([1,inputUnlimitedNumCodec.zeroSafeEncode(remapToOutsideValueArrTranscode(newEncInput,"encode",inputLimitedNumCodec.getDomain()))])
       
   def newDecodeFun(newDecInput):
     newDecInput = makeGen(newDecInput)
@@ -357,9 +357,9 @@ def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNum
     except StopIteration:
       raise ExhaustionError("CodecTools.makeUnlimitedNumCodecWithSelectionBit-made-CodecTools.Codec: newDecodeFun: Received an empty newDecInput.")
     if selectionBit == 0:
-      return inputLimitedNumCodec.decode(newDecInput)
+      return inputLimitedNumCodec.zeroSafeDecode(newDecInput)
     elif selectionBit == 1:
-      valueBeforeRemapping = inputUnlimitedNumCodec.decode(newDecInput)
+      valueBeforeRemapping = inputUnlimitedNumCodec.zeroSafeDecode(newDecInput)
       return remapToOutsideValueArrTranscode(valueBeforeRemapping,"decode",inputLimitedNumCodec.getDomain())
     else:
       raise ParseError("CodecTools.makeUnlimitedNumCodecWithSelectionBit-made-CodecTools.Codec: newDecodeFun: Received an invalid selection bit with the value " + str(selectionBit) + ".")

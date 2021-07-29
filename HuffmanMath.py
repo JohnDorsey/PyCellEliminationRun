@@ -326,8 +326,22 @@ class HuffmanCodec(CodecTools.Codec):
       except ParseError as pe:
         raise ParseError("HuffmanMath.HuffmanCodec: Decode: " + str(pe.message) + ".")
         
-    CodecTools.Codec.__init__(self,newEncodeFun,newDecodeFun,zeroSafe=(0 in self.extraDataDict["huffman_reverse_dict"].keys()))
+    #CodecTools.Codec.__init__(self,newEncodeFun,newDecodeFun,zeroSafe=(0 in self.extraDataDict["huffman_reverse_dict"].keys()))
+    self.encodeFun = newEncodeFun
+    self.decodeFun = newDecodeFun
+    self.extraArgs = []
+    self.extraKwargs = dict()
+    self.private_domain = self.extraDataDict["huffman_reverse_dict"].keys()
     
+  def zeroSafeEncode(self,*args,**kwargs):
+    if 0 in self.private_domain:
+      return self.encode(*args,**kwargs)
+    raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeEncode. The value 0 must be included in the tree.")
+    
+  def zeroSafeEncode(self,*args,**kwargs):
+    if 0 in self.private_domain:
+      return self.decode(*args,**kwargs)
+    raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeDecode. The value 0 must be included in the tree.")
     
   def clone(self,*args,**kwargs):
     raise NotImplementedError("HuffmanCodec instances are not clonable.")

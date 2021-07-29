@@ -248,12 +248,12 @@ def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
     if inputValue in predictedValues:
       resultValue = predictedValues.index(inputValue)
     else:
-      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues)
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) + len(predictedValues)
   elif opMode == "decode":
     if inputValue < len(predictedValues):
       resultValue = predictedValues[inputValue]
     else:
-      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues)
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) - len(predictedValues)
   else:
     assert False, "reality error."
   return resultValue
