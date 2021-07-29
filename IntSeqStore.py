@@ -96,12 +96,13 @@ def genDecodeWithHavenBucket(inputBitSeq,numberCodec,havenBucketSizeFun,initialH
     assert havenBucketSize >= 0
     parseResult = None
     try:
-      parseResult = numberCodec.decode(inputBitSeq)
+      parseResult = numberCodec.zeroSafeDecode(inputBitSeq)
     except ExhaustionError:
       break #out of data.
     assert parseResult != None, "None-based generator stopping should be phased out."
     havenBucketBits = arrTakeOnly(inputBitSeq,havenBucketSize)
-    decodedValue = ((parseResult-(0 if numberCodec.zeroSafe else 1))<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
+    #parseResult -= (0 if numberCodec.zeroSafe else 1)
+    decodedValue = ((parseResult)<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
     yield decodedValue
     havenBucketSize = havenBucketSizeFun(decodedValue)
 
@@ -112,7 +113,7 @@ def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialH
   justStarted = True #used only to control debug commas.
   for num in inputIntSeq:
     assert havenBucketSize >= 0
-    encodedBitArr = makeArr(numberCodec.encode((num >> havenBucketSize) + (0 if numberCodec.zeroSafe else 1)))
+    encodedBitArr = makeArr(numberCodec.zeroSafeEncode(num >> havenBucketSize))
     if addDbgCommas:
       encodedBitArr.append(".")
     havenBucketData = rjustedArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
@@ -126,8 +127,8 @@ def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialH
       yield item
     havenBucketSize = havenBucketSizeFun(num)
 
-havenBucketCodecs = {}
-havenBucketCodecs["base"] = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,zeroSafe=True)
+havenBucketCodecs = dict()
+havenBucketCodecs["base"] = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,domain="UNSIGNED")
 #HLL = half last length.
 havenBucketCodecs["HLL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: len(bin(x)[2:])>>1)])
 havenBucketCodecs["HLL_eliasGamma"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["eliasGamma"],(lambda x: len(bin(x)[2:])>>1)])

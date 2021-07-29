@@ -611,9 +611,9 @@ def genCellElimRunBlockSeqTranscode(inputData,opMode,*args,**kwargs):
 
 
 
-cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode,zeroSafe=True)
+cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode,domain="UNSIGNED")
 
-cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRunBlockSeqTranscode,zeroSafe=True)
+cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRunBlockSeqTranscode,domain="UNSIGNED")
 
 
 

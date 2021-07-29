@@ -118,6 +118,13 @@ class IntStaggering(InfiniteIntSeq):
   def __iter__(self):
     raise NotImplementedError()
     
+
+class intSeqWithExclusion(InfiniteIntSeq):
+  def __init__(self,inclusionSeq,exclusionSeq):
+    self.inclusionSeq, self.exclusionSeq = (inclusionSeq, exclusionSeq)
+    pass
+  
+    
 simpleIntDomains = {"UNSIGNED":IntRay(0),"UNSIGNED_NONZERO":IntRay(1),"SIGNED":IntStaggering(0)}
 
 
@@ -137,16 +144,19 @@ class Codec:
       print("CodecTools.Codec.__init__: Warning: initialization using the zeroSafe argument is deprecated. Please specify a domain instead. A domain will be assumed.")
       domain = simpleIntDomains["UNSIGNED" if zeroSafe else "UNSIGNED_NONZERO"]
     if domain == None:
-      print("CodecTools.Codec.__init__: Warning: No domain was provided. Assuming UNSIGNED.")
-      domain = simpleIntDomains["UNSIGNED"]
+      #print("CodecTools.Codec.__init__: Warning: No domain was provided.")
+      #domain = simpleIntDomains["UNSIGNED"]
+      pass
     elif type(domain) == str:
       if domain not in simpleIntDomains.keys():
         raise ValueError("the domain string argument is not a valid key for CodecTools.simpleIntDomains.")
       domain = simpleIntDomains[domain]
     self.domain = domain
-    self.zeroSafe = (0 in self.domain) #remove soon.
+    #self.zeroSafe = (0 in self.domain) #remove soon.
     
   def getDomain(self):
+    if self.domain == None:
+      raise AttributeError("No Codec domain was provided.")
     return self.domain
     
   def isZeroSafe(self):
@@ -277,7 +287,7 @@ def makeSeqCodec(inputCodec,demoPlainData,zeroSafe):
 
 
 
-def genConcatenatedElements(sourcesArr):
+def genConcatenatedElements(sourcesArr): #used only by makeUnlimitedNumCodecWithEscapeCode.
   for source in sourcesArr:
     if type(source) == list or isGen(source):
       for outputElement in source:
@@ -308,8 +318,8 @@ def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCo
 def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNumCodec):
   assert 0 in inputLimitedNumCodec.getDomain(), "currently, inputLimitedNumCodec must be zero-safe."
   assert 0 in inputUnlimitedNumCodec.getDomain(),"currently, inputUnlimitedNumCodec must be zero-safe."
-  for i in range(1,len(inputLimitedNumCodec.domain)):
-    assert abs(inputLimitedNumCodec.domain[i]-inputLimitedNumCodec.domain[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
+  for i in range(1,len(inputLimitedNumCodec.getDomain())):
+    assert abs(inputLimitedNumCodec.getDomain()[i]-inputLimitedNumCodec.getDomain()[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
 
   def newEncodeFun(newEncInput):
     #use the tools designed for MarkovTools.
@@ -317,6 +327,7 @@ def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNum
   def newDecodeFun(newDecInput):
     pass
   result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
+  return result
 
 
 
