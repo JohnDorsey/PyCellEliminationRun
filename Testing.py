@@ -90,7 +90,8 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCo
     offset += blockWidth
     pressDataNums = pcer.cellElimRunBlockTranscode(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
     print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
-    pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.encode([item+(0 if numberSeqCodec.zeroSafe else 1) for item in pressDataNums])) + "\n"
+    #@ the following line might make an unecessary conversion to a list.
+    pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.zeroSafeEncode([item for item in pressDataNums])) + "\n"
     print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
     destFile.write(pressDataBitStr)
   destFile.close()
@@ -115,7 +116,8 @@ def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
       break
     print("Testing.decompressFull: loaded a line of length " + str(len(loadedLine)) + " which starts with " + loadedLine[:PEEK] + ".")
     pressDataBitArr = CodecTools.bitSeqToStrCodec.decode(loadedLine)
-    pressDataNums = [item-(0 if numberSeqCodec.zeroSafe else 1) for item in numberSeqCodec.decode(pressDataBitArr)]
+    #@ the following line might make an unecessary conversion to a list.
+    pressDataNums = [item for item in numberSeqCodec.zeroSafeDecode(pressDataBitArr)]
     assert min(pressDataNums) == 0
     if not len(pressDataNums) == blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending. It is less likely to happen now that the UniversalCoding class is no longer used.
       print("Testing.decompressFull: pressDataNums is the wrong length. Trimming will be attempted.") 
@@ -199,6 +201,7 @@ class PressNumsAnalysis:
 #tests performed on load.
 assert len(WaveIO.sounds["samples/moo8bmono44100.txt"]) > 0
 
+#fix these to use improved zero-safe design.
 assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]})]))],"decode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]}) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
 
 #test of streaming CER blocks:

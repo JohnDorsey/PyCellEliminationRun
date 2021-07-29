@@ -56,7 +56,7 @@ Usage:
 
   The above loads the new sound into WaveIO. Also, WaveIO.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time WaveIO.py is loaded.
 
-
+---
 
 Explanation of compression settings:
 
@@ -64,7 +64,7 @@ Explanation of compression settings:
 
   The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 256 or 512 seems like a good balance.
 
-
+---
 
 Project terminology and naming rules:
   
@@ -84,7 +84,7 @@ Project terminology and naming rules:
   
   -A function's taking items from a generator-type argument is sometimes called eating. Taking more items from the input than are absolutely necessary to produce as many output items as it yields is called over-eating, and it is a serious bug. It is guaranteed to happen whenever a generator tranformer function has a for-in loop directly iterating over its input argument's items and also has the possibility of exiting from the loop body before yielding the current item. Avoiding this bug is why many functions like genFunctionalDynamicMarkovTranscode have while loops and use "try: currentItem = next(inputGen) except StopIteration: break" at some point within them.
 
-
+---
 
 Design notes:
 
