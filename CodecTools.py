@@ -56,13 +56,6 @@ def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=Fa
   return result
 
 
-"""
-class Infinity:
-  def __init__(self,signSrc):
-    self.sign = signSrc
-    
-  def __le__(self
-"""
 
 class InfiniteIntSeq:
   def __len__(self,testValue):
@@ -118,13 +111,31 @@ class IntStaggering(InfiniteIntSeq):
   def __iter__(self):
     raise NotImplementedError()
     
-
-class intSeqWithExclusion(InfiniteIntSeq):
+"""
+#this might be cancelled for being very prone to accidentally using slow linear searches.
+class InfiniteIntRangeWithFiniteExclusionSeq(InfiniteIntSeq):
   def __init__(self,inclusionSeq,exclusionSeq):
     self.inclusionSeq, self.exclusionSeq = (inclusionSeq, exclusionSeq)
-    pass
   
+  def __contains__(self,testValue):
+    if testValue in self.inclusionSeq:
+      if not testValue in self.exclusionSeq:
+        return True
+    return False
     
+  def __getitem__(self,index):
+    if index < min(self.exclusionSeq):
+      return self.inclusionSeq[index]
+    elif index <= max(self.exclusionSeq):
+      pass
+    else:
+      pass
+"""
+
+#def remapToOutsideValueSeq(value,exclusionSeq):
+#def remapToOutsideValueRangeEncode(index,inclusionRangeStart,exclusionRangeStart,exclusionRangeEnd):
+#  exlusionRangeWidth = exclusionRangeEnd - exclusionRangeStart
+  
 simpleIntDomains = {"UNSIGNED":IntRay(0),"UNSIGNED_NONZERO":IntRay(1),"SIGNED":IntStaggering(0)}
 
 
@@ -151,15 +162,16 @@ class Codec:
       if domain not in simpleIntDomains.keys():
         raise ValueError("the domain string argument is not a valid key for CodecTools.simpleIntDomains.")
       domain = simpleIntDomains[domain]
-    self.domain = domain
+    self.private_domain = domain
     #self.zeroSafe = (0 in self.domain) #remove soon.
     
   def getDomain(self):
-    if self.domain == None:
+    if self.private_domain == None:
       raise AttributeError("No Codec domain was provided.")
-    return self.domain
+    return self.private_domain
     
   def isZeroSafe(self):
+    #print("CodecTools.Codec.isZeroSafe: this method is deprecated.")
     return 0 in self.getDomain()
     
 
@@ -219,7 +231,7 @@ class Codec:
       print("CodecTools.Codec.clone: warning: some existing extraKwargs will not be cloned.")
     argsToUse = extraArgs if extraArgs else self.extraArgs
     kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
-    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,domain=self.domain,extraArgs=argsToUse,extraKwargs=kwargsToUse)
+    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,domain=self.private_domain,extraArgs=argsToUse,extraKwargs=kwargsToUse)
 
 
 
@@ -315,6 +327,16 @@ def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCo
   result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
 """
 
+
+def remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues): #used in CodecTools and MarkovTools.
+  if opMode == "encode":
+    return inputValue + len(predictedValues) - len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+  elif opMode == "decode":
+    return inputValue - len(predictedValues) + len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+  else:
+    assert False, "invalid opMode."
+    
+
 def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNumCodec):
   assert 0 in inputLimitedNumCodec.getDomain(), "currently, inputLimitedNumCodec must be zero-safe."
   assert 0 in inputUnlimitedNumCodec.getDomain(),"currently, inputUnlimitedNumCodec must be zero-safe."
@@ -322,10 +344,26 @@ def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNum
     assert abs(inputLimitedNumCodec.getDomain()[i]-inputLimitedNumCodec.getDomain()[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
 
   def newEncodeFun(newEncInput):
-    #use the tools designed for MarkovTools.
-    pass
+    if newEncInput in inputLimitedNumCodec.getDomain():
+      return genConcatenatedElements([0,inputLimitedNumCodec.encode(newEncInput)])
+    else:
+      return genConcatenatedElements([1,inputUnlimitedNumCodec.encode(remapToOutsideValueArrTranscode(newEncInput,"encode",inputLimitedNumCodec.getDomain()))])
+      
   def newDecodeFun(newDecInput):
-    pass
+    newDecInput = makeGen(newDecInput)
+    selectionBit = None
+    try:
+      selectionBit = next(newDecInput)
+    except StopIteration:
+      raise ExhaustionError("CodecTools.makeUnlimitedNumCodecWithSelectionBit-made-CodecTools.Codec: newDecodeFun: Received an empty newDecInput.")
+    if selectionBit == 0:
+      return inputLimitedNumCodec.decode(newDecInput)
+    elif selectionBit == 1:
+      valueBeforeRemapping = inputUnlimitedNumCodec.decode(newDecInput)
+      return remapToOutsideValueArrTranscode(valueBeforeRemapping,"decode",inputLimitedNumCodec.getDomain())
+    else:
+      raise ParseError("CodecTools.makeUnlimitedNumCodecWithSelectionBit-made-CodecTools.Codec: newDecodeFun: Received an invalid selection bit with the value " + str(selectionBit) + ".")
+      
   result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
   return result
 

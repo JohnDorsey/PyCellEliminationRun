@@ -372,11 +372,13 @@ assert testArrArr1 == [[1,200,300],[2,300,400],[3,4,500],[5,6,7]]
 
 daeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
 maeTest = sorted([(1,2),(3,4),(6,5),(8,7),(5,4),(3.1,2),(1.1,0)],key=(lambda x: x[0]))
-drainAscendingEntriesIntoHuffmanTree(daeTest)
-morphAscendingEntriesIntoHuffmanTree(maeTest)
-print("HuffmanMath testing: " + str(daeTest) + ".")
-print("HuffmanMath testing: " + str(maeTest) + ".")
-assert daeTest[-1] == maeTest[-1]
+daeTestResult = drainAscendingEntriesIntoHuffmanTree(daeTest)
+maeTestResult = morphAscendingEntriesIntoHuffmanTree(maeTest)
+#print("HuffmanMath testing: " + str(daeTest) + ".")
+#print("HuffmanMath testing: " + str(maeTest) + ".")
+assert daeTestResult == maeTestResult
 del daeTest
+del daeTestResult
 del maeTest
+del maeTestResult
 

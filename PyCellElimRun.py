@@ -354,7 +354,7 @@ class CellElimRunCodecState:
     size = self.headerDict["space_definition"]["size"]
 
     if self.opMode == "encode":
-      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="warn+partial")
+      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="partial")
       if not len(self.plainDataInputArr) > 0:
         raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
       if len(self.plainDataInputArr) < size[0]:

@@ -445,7 +445,7 @@ def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt):
   inputBitSeq = makeGen(inputBitSeq)
   maxPayloadLength = len(bin(maxInputInt)[3:])
   prefixLength = len(bin(maxPayloadLength)[2:])
-  prefixValue = binaryBitArrToInt(arrTakeOnly(inputBitSeq,prefixLength,onExhaustion="fail"))
+  prefixValue = binaryBitArrToInt(arrTakeOnly(inputBitSeq,prefixLength,onExhaustion=ExhaustionError("Codes.eliasGammaIotaBitSeqToInt didn't have enough bits for the prefix.")))
   assert prefixValue != None, "None-based termination is being phased out."
   try:
     return extendIntByBits(1,inputBitSeq,prefixValue)

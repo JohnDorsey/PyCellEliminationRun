@@ -10,6 +10,7 @@ from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, E
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
+from CodecTools import remapToOutsideValueArrTranscode
 import Codes
 
 
@@ -237,6 +238,8 @@ def getValueChancesFromHistory(history,maxContextLength,chanceFun,singleUsageHis
     print("MarkovTools.getValueChancesFromHistory: warning: returning a dict with a value sum of 0.")
   return itemChanceDict
   
+
+
   
 def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
   if opMode not in ["encode","decode"]:
@@ -245,12 +248,12 @@ def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
     if inputValue in predictedValues:
       resultValue = predictedValues.index(inputValue)
     else:
-      resultValue = inputValue + len(predictedValues) - len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues)
   elif opMode == "decode":
     if inputValue < len(predictedValues):
       resultValue = predictedValues[inputValue]
     else:
-      resultValue = inputValue - len(predictedValues) + len([predictedValue for predictedValue in predictedValues if predictedValue < inputValue])
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues)
   else:
     assert False, "reality error."
   return resultValue
@@ -447,8 +450,9 @@ def genNonFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16
     try:
       inputValue = next(inputSeq)
     except StopIteration:
-      print("MarkovTools.genNonFunctionalDynamicMarkovTranscode: stopping because inputSeq is now empty.")
-      return
+      #print("MarkovTools.genNonFunctionalDynamicMarkovTranscode: stopping because inputSeq is now empty.")
+      #return
+      break
     #analyze phase:
     #all known history, but NOT the current plainData or pressData item, is used to create a map that can be used to convert between a plainData value and a pressData value. This map will LATER be used to transcode whatever the current value is, in whichever direction it must be transcoded.
     predictedValues = getPredictedValuesFromHistory(history,singleUsageHist,maxContextLength,scoreMode)
@@ -476,6 +480,7 @@ def genNonFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16
       singleUsageHist.register(resultValue)
     else:
       assert False
+  #end of generator items.
 
 
 

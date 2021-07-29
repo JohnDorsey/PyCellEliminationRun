@@ -7,8 +7,6 @@ No other files require Testing.py
 
 """
 
-import sys
-print(sys.path)
 
 
 

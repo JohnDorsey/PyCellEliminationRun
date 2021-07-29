@@ -6,9 +6,18 @@ PyGenTools.py contains tools that work on python generators without handling the
 
 """
 
+import traceback
+
+
 class ExhaustionError(Exception):
   """
   ExhaustionError is raised when a function that eats items from an input generator runs out of items in that generator, but did not have a strict target count of items to eat.
+  """
+  pass
+  
+class IterationFailure(Exception):
+  """
+  IterationFailure is raised when an iterable runs out of items, in a situation where it never should have run out of items.
   """
   pass
 
@@ -35,51 +44,50 @@ def makeArr(thing):
 
 
 
+def handleOnExhaustion(methodName,yieldedCount,targetCount,onExhaustion):
+  if isinstance(onExhaustion,Exception):
+    raise onExhaustion
+  elif onExhaustion == "fail":
+    raise IterationFailure(methodName + " ran out of items, and its onExhaustion action is \"fail\".")
+  if onExhaustion == "ExhaustionError":
+    raise ExhaustionError(methodName + " ran out of items, and its onExhaustion action is \"ExhaustionError\".")
+  if "warn" in onExhaustion:
+    print("...\n" + "".join(traceback.format_list(traceback.extract_stack())) + ": " + methodName + " ran out of items. (yieldedCount,targetCount,onExhaustion)=" + str((yieldedCount, targetCount, onExhaustion)) + ".")
+  if "partial" in onExhaustion:
+    return
+  if "None" in onExhaustion:
+    raise ValueError(methodName + ": the onExhaustion action \"None\" is no longer supported.")
+  raise ValueError(methodName + ": the value of onExhaustion is invalid. (yieldedCount,targetCount,onExhaustion)=" + str((yieldedCount, targetCount, onExhaustion)) + ".")
 
-def genTakeOnly(inputGen,count,onExhaustion="partial"):
+def genTakeOnly(inputGen,targetCount,onExhaustion="partial"):
   #take ONLY _count_ items from a generator _inputGen_ and yield them, so that if other functions call .next on the generator that was shared with this function, they will pick up exactly where this function's output left off (no missing items).
-  assert onExhaustion in ["partial","ExhaustionError","warn"]
-  assert count >= 0
-  if count == 0:
+  assert onExhaustion in ["fail","ExhaustionError","partial","warn"]
+  assert targetCount >= 0
+  if targetCount == 0:
     return
   i = 0
   for item in inputGen:
-    if i < count:
+    if i < targetCount:
       yield item
       i += 1
-    if not i < count:
+    if not i < targetCount:
       return
-  if onExhaustion == "partial":
-    return
-  elif onExhaustion == "ExhaustionError":
-    raise ExhaustionError("PyGenTools.genTakeOnly ran out of items, and its onExhaustion action is \"ExhaustionError\".")
-  elif onExhaustion == "warn":
-    print("PyGenTools.genTakeOnly: count argument was " + str(count) + ", but inputGen ran out after just " + str(i) + " items.")
-  else:
-    raise ValueError("PyGenTools.genTakeOnly: the value of keyword argument onExhaustion is invalid.")
+  handleOnExhaustion("PyGenTools.genTakeOnly", i, targetCount, onExhaustion)
 
+def arrTakeOnly(inputGen,targetCount,onExhaustion="partial"):
+  #just like genTakeOnly, but bundle the taken items together into an array.
+  assert isinstance(onExhaustion,Exception) or onExhaustion in ["fail","ExhaustionError","warn+partial","partial"]
+  result = [item for item in genTakeOnly(inputGen,targetCount)]
+  if len(result) < targetCount:
+    handleOnExhaustion("PyGenTools.arrTakeOnly", len(result), targetCount, onExhaustion)
+  return result
+  
+  
 def genSkipFirst(inputGen,count):
   assert isGen(inputGen)
   for i in range(count):
     forget = next(inputGen)
   return inputGen
-
-def arrTakeOnly(inputGen,count,onExhaustion="partial"):
-  #just like genTakeOnly, but bundle the taken items together into an array.
-  assert onExhaustion in ["fail","warn+partial","partial","warn+None","None"]
-  result = [item for item in genTakeOnly(inputGen,count)]
-  if len(result) < count:
-    if onExhaustion == "fail":
-      raise ExhaustionError("PyGenTools.arrTakeOnly ran out of items, and its onExhaustion action is \"fail\".")
-    elif "warn" in onExhaustion:
-      print("PyGenTools.arrTakeOnly ran out of items, and will return only part of the requested array.")
-    if "partial" in onExhaustion:
-      return result
-    elif "None" in onExhaustion:
-      return None
-    else:
-      raise ValueError("PyGenTools.arrTakeOnly: the value of keyword argument onExhaustion is invalid.")
-  return result
   
 def genTakeUntil(inputGen,stopFun,stopSignalsNeeded=1): #might be used in MarkovTools someday.
   stopSignalCount = 0
