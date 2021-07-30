@@ -31,8 +31,7 @@ PEEEK = 2048
 defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
 sampleCerPressNums = {
   "linear":{
-    1024:{256:None},
-    512:{256:None}
+    key:{256:None} for key in [1024,512,256,128,64,32,16,8]
   }
 }
 

@@ -301,7 +301,11 @@ def reverseDictToTree(reverseDict):
 class HuffmanCodec(CodecTools.Codec):
   def __init__(self,inputStructure,initType):
     self.extraDataDict = {}
-    if initType == "entries":
+    if initType == "ascending_entries": #a bit faster than "entries".
+      assert type(inputStructure) == list
+      self.extraDataDict["ascending_entries"] = inputStructure
+      self.extraDataDict["huffman_tree"] = makeHuffmanTreeFromAscendingEntries(inputStructure)
+    elif initType == "entries":
       assert type(inputStructure) == list
       self.extraDataDict["entries"] = inputStructure
       self.extraDataDict["huffman_tree"] = makeHuffmanTreeFromEntries(inputStructure)
@@ -309,7 +313,7 @@ class HuffmanCodec(CodecTools.Codec):
       assert type(inputStructure) == tuple
       self.extraDataDict["huffman_tree"] = inputStructure
     else:
-      raise ValueError("invalid initialization type.")
+      raise ValueError("invalid initType argument value: " + initType + ".")
     self.extraDataDict["huffman_reverse_dict"] = treeToReverseDict(self.extraDataDict["huffman_tree"])
       
     def newEncodeFun(newEncInput):
@@ -357,7 +361,7 @@ def makeHuffmanCodecFromEntries(entries):
   #huffmanReverseDict = treeToReverseDict(huffmanTree)
   #print(huffmanTree)
   #print(huffmanReverseDict)
-  workingCodec = HuffmanCodec(entries,"entries")
+  workingCodec = HuffmanCodec(entries,"ascending_entries")
   return workingCodec
 
 def makeHuffmanCodecFromFormula(chanceFun,minInputInt,maxInputInt):

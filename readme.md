@@ -107,6 +107,8 @@ Design notes:
     -Blocks.
 
   Todo:
+  
+    -make better preset storage tools.
     
     -make a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
 
