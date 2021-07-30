@@ -1,3 +1,17 @@
+"""
+
+PyDictTools.py by John Dorsey.
+
+PyDictTools.py contains tools for manipulating dictionaries as needed.
+
+"""
+
+
+
+
+
+
+
 from PyGenTools import makeGen, makeArr
 
 
@@ -101,6 +115,9 @@ def replace(inputDict,a,b,recursive=True):
 
 
 def makeFromTemplateAndSeq(template, inputSeq, valueTriggerFun, sortDictKeys=True, recursive=True, recursiveTypes=None):
+  """
+  maybe this should be rewritten as a fancy wrapper for makeFromTemplateAndPathwiseOracle.
+  """
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
   inputGen = makeGen(inputSeq)
@@ -164,7 +181,15 @@ def makeFromTemplateAndPathwiseOracle(template, pathwiseOracleFun, valueTriggerF
   return result
 
 
-def writeFromTemplateAndPathwiseOracle(destination, template, pathwiseOracleFun, valueTriggerFun, path=None, sortDictKeys=True, recursive=True):
+def writeFromTemplateAndPathwiseOracle(destination, template, pathwiseOracleFun, valueTriggerFun, path=None, sortDictKeys=True, recursive=True): # -> None:
+  """
+  Recursively explores a destination dictionary and a similarly shaped template dictionary in parallel, and uses the provided valueTriggerFun to identify special values in the template dictionary that should be transformed by the provided pathwiseOracleFun and written into the destination dictionary at the same location as their original location in the template dictionary.
+  This method is useful for processing complex header data with nested dictionaries and lists, and filling in missing data. Example:
+    step 1: With a header dictionary like {"pet":{"name":"EMBED"}}, a valueTriggerFun like (lambda val: val in ["EMBED","PROMPT"]) would identify the "name" entry in the "pet" structure as one requiring processing using the pathwiseOracleFun.
+    step 2: Then a pathwiseOracleFun like (lambda path, val: (dialogueBox.askForDogName() if val == "PROMPT" else database.loadNextDogName() if val == "EMBED" else "TRIGGER_FUN_ERROR") if (path == ["pet","name"]) else val) would pass the value through unmodified if it were found at any location other than the value at the "name" key in a dictionary at the "pet" key in another dictionary, or prompt the user if the original value were "PROMPT", or load a dog name from a database if the original value were "EMBED", or give the value "TRIGGER_FUN_ERROR" if for some reason the pathwiseOracleFun were called in a situation it was unprepared for.
+  The path kwarg is used for providing the pathwiseOracleFun with the correct dictionary path during recursive calls to writeFromTemplateAndPathwiseOracle.
+  sortDictKeys controls whether dictionary keys are visited in sorted order, which is important when the pathwiseOracleFun's behavior depends on the order in which it is applied to different things (e.g. it is getting its output values from a buffer).
+  """
   if path == None:
     path = []
   templateKeySeq = makeFlatKeySeq(template,sortDictKeys)
@@ -196,7 +221,10 @@ def writeFromTemplateAndNextFun(destination, template, inputNextFun, valueTrigge
 
 
 
-def dictToList(inputDict,extractionFun=None):
+def dictToList(inputDict,extractionFun=None): # -> list:
+  """
+  Returns a list where each value is indexed in the same way that it was keyed in the original dictionary. Dictionary items with keys that aren't integers will not make it into the output.
+  """
   if extractionFun == None:
     extractionFun = (lambda x: x)
   errorCount = 0

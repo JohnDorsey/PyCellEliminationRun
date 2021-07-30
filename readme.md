@@ -108,31 +108,69 @@ Design notes:
 
   Todo:
   
-    -make better preset storage tools.
+    -external features:
     
-    -make a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
-
-    -rename QuickTimers to QuickClocks.
-
-    -replace CodecTools.Codec.zeroSafe with easier-to-use CodecTools.Codec.minStorable.
- 
-    -complete and test grid mode for CellCatalogue.
+      -add a full-length sample song.
     
-    -move more header tools out of CellElimRunBlockState.
+      -add more output file formats, including plaintext python integer lists.
 
-    -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
+      -inclusion of GZIP and/or LZMA.
+
+      -finish higher-order fibonacci coding.
+      
+    -internal features:
+
+      -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
+      
+      -implement efficient spline value caching based on the knowledge of how much of a spline can be affected by a modification for each interpolationMode.
+      
+      -make it so that most CellCatalogue methods don't need to know whether it is in grid mode or limits mode.
     
-    -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
-
-    -add more output file formats, including plaintext python integer lists.
-
-    -inclusion of GZIP and/or LZMA.
+      -complete and test grid mode for CellCatalogue.
+    
+      -move more header tools out of CellElimRunBlockState.
+      
+      -make it possible to enforce structure in the pressNums of a header.
+      
+      -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
+      
+      -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
+      
+      -consider alternatives to merging Spline and CellCatalogue for the purpose of having them control each other.
+    
+      -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
+    
+    -maintenance:
   
-    -make a better way to make numberSeqCodecs from numberCodecs.
-  
-    -make CER easier to understand and modify.
+      -reduce file count.
+    
+      -increase testing.
+      
+      -rename QuickTimers to QuickClocks.
+      
+    -structure:
+    
+      -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
-    -finish higher-order fibonacci coding.
+      -make a better way to make numberSeqCodecs from numberCodecs.
+    
+      -make CER easier to understand and modify.
+
+    -proper use of builtins:
+      -transition from custom-built histograms to collections.Counter where possible.
+      -use set() for deduping.
+      
+    -time complexity:
+      -self-sorting lists.
+      -list-like objects that track their own sortedness for bisection searches, performance warnings when falling back to linear searches, etc.
+  
+    -choose a language version (python 2 for pypy, or python 3 for numba and numpy) and commit to it.
+  
+    -make better preset storage tools:
+      -memory management and memory warnings.
+      -make a helpful database.
+      -pickling?
+    
 
   Feature wish list (CR = compression ratio):
 
@@ -171,3 +209,5 @@ Design notes:
     -in genDynamicMarkovTranscode, move each possible item into the search sequence so that the search directly decides the probability of that item being the next item, instead of needing a separate singleUsageHistogram.
     
     -add huffman coding to markov tools.
+    
+    -replace CodecTools.Codec.zeroSafe with easier-to-use CodecTools.Codec.getDomain().
