@@ -338,7 +338,7 @@ class HuffmanCodec(CodecTools.Codec):
       return self.encode(*args,**kwargs)
     raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeEncode. The value 0 must be included in the tree.")
     
-  def zeroSafeEncode(self,*args,**kwargs):
+  def zeroSafeDecode(self,*args,**kwargs):
     if 0 in self.private_domain:
       return self.decode(*args,**kwargs)
     raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeDecode. The value 0 must be included in the tree.")

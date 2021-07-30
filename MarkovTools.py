@@ -10,7 +10,7 @@ from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, E
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
-from CodecTools import remapToOutsideValueArrTranscode
+from CodecTools import remapToValueArrCodec, remapToValueArrTranscode
 import Codes
 
 
@@ -240,25 +240,6 @@ def getValueChancesFromHistory(history,maxContextLength,chanceFun,singleUsageHis
   
 
 
-  
-def remapToPredictedValuesTranscode(inputValue,opMode,predictedValues):
-  if opMode not in ["encode","decode"]:
-    raise ValueError("invalid opMode.")
-  if opMode == "encode":
-    if inputValue in predictedValues:
-      resultValue = predictedValues.index(inputValue)
-    else:
-      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) + len(predictedValues)
-  elif opMode == "decode":
-    if inputValue < len(predictedValues):
-      resultValue = predictedValues[inputValue]
-    else:
-      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) - len(predictedValues)
-  else:
-    assert False, "reality error."
-  return resultValue
-  
-remapToPredictedValuesCodec = CodecTools.Codec(None,None,transcodeFun=remapToPredictedValuesTranscode)
 
 
 def findMax(inputSeq,keyFun=None):
@@ -336,7 +317,7 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
     noveltyCodec = Codes.codecs["fibonacci"]
   if type(noveltyIndexRemapCodec) == str:
     if noveltyIndexRemapCodec == "linear":
-      noveltyIndexRemapCodec = remapToPredictedValuesCodec
+      noveltyIndexRemapCodec = remapToValueArrCodec
     elif noveltyIndexRemapCodec == "bleed":
       noveltyIndexRemapCodec = bleedingSortedArrRemapCodec.clone(extraKwargs={"noNegatives":True,"skipSeedArr":True})
   
@@ -460,7 +441,7 @@ def genNonFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16
     #transcode phase.
     resultValue = None
     if scoreMode.endswith(",-y)"):
-      resultValue = remapToPredictedValuesTranscode(inputValue,opMode,predictedValues)
+      resultValue = remapToValueArrTranscode(inputValue,opMode,predictedValues)
     else:
       assert False, "unfinished."
       

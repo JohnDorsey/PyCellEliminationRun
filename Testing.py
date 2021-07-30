@@ -28,11 +28,17 @@ SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 PEEK = 64 #these control how much information is shown in previews in the console.
 PEEEK = 2048
 
+defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
+sampleCerPressNums = {
+  "linear":{
+    1024:{256:None},
+    512:{256:None}
+  }
+}
 
 
 
-
-def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr="WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]", soundLength=1024):
+def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
   #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
   
   print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
@@ -72,6 +78,16 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
 
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
+
+
+
+
+def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
+  soundToCompress = eval(soundSrcStr)
+  for interpolationMode, IMSub in sampleCerPressNums.items():
+    for blockSizeHoriz, BSHSub in IMSub.items():
+      for blockSizeVert, BSVSub in BSHSub.items():
+        sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}))
 
 
 def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCodec):

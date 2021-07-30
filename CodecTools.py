@@ -307,25 +307,7 @@ def genConcatenatedElements(sourcesArr): #used only by makeUnlimitedNumCodecWith
     else:
       yield source
 
-"""
-#disabled because it might not be finishable as a non-sequential codec.
-def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCodec,escapeCode):
 
-  assert escapeCode in inputLimitedNumCodec.domain
-  assert 0 in inputLimitedNumCodec.domain, "currently, inputLimitedNumCodec must be zero-safe."
-  assert 0 in inputUnlimitedNumCodec.domain,"currently, inputUnlimitedNumCodec must be zero-safe."
-  for i in range(1,len(inputLimitedNumCodec.domain)):
-    assert abs(inputLimitedNumCodec.domain[i]-inputLimitedNumCodec.domain[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not supported."
-  def limitedEncodeSafe(testValue):
-    return testValue in inputLimitedNumCodec.domain and testValue != escapeCode
-  def newEncodeFun(newEncInput):
-    if limitedEncodeSafe(newEncInput):
-      return inputLimitedNumCodec.encode(newEncInput)
-    return genConcatenatedElements(inputLimitedNumCodec.
-  def newDecodeFun(newDecInput):
-    pass
-  result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
-"""
 
 
 def remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues): #used in CodecTools and MarkovTools.
@@ -336,10 +318,31 @@ def remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues): #used in
   else:
     assert False, "invalid opMode."
     
+  
+def remapToValueArrTranscode(inputValue,opMode,predictedValues):
+  if opMode not in ["encode","decode"]:
+    raise ValueError("invalid opMode.")
+  if opMode == "encode":
+    if inputValue in predictedValues:
+      resultValue = predictedValues.index(inputValue)
+    else:
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) + len(predictedValues)
+  elif opMode == "decode":
+    if inputValue < len(predictedValues):
+      resultValue = predictedValues[inputValue]
+    else:
+      resultValue = remapToOutsideValueArrTranscode(inputValue,opMode,predictedValues) - len(predictedValues)
+  else:
+    assert False, "reality error."
+  return resultValue
+  
+remapToValueArrCodec = Codec(None,None,transcodeFun=remapToValueArrTranscode)
+
+
 
 def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNumCodec):
   if not inputLimitedNumCodec.isZeroSafe():
-    print("CodecTools.makeUnlimitedNumCodecWithSelectionBit: warning: inputLimitedNumCodec is not zero safe, which may cause problems.")
+    print("CodecTools.makeUnlimitedNumCodecWithSelectionBit: warning: inputLimitedNumCodec is not zero safe, which may reduce CR.")
   #for i in range(1,len(inputLimitedNumCodec.getDomain())):
   #  assert abs(inputLimitedNumCodec.getDomain()[i]-inputLimitedNumCodec.getDomain()[i-1]) == 1, "non-contiguous inputLimitedNumCodec domains are not yet supported."
 
@@ -364,6 +367,34 @@ def makeUnlimitedNumCodecWithSelectionBit(inputLimitedNumCodec,inputUnlimitedNum
     else:
       raise ParseError("CodecTools.makeUnlimitedNumCodecWithSelectionBit-made-CodecTools.Codec: newDecodeFun: Received an invalid selection bit with the value " + str(selectionBit) + ".")
       
+  result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
+  return result
+
+
+def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCodec,escapeCode):
+  if not inputLimitedNumCodec.isZeroSafe():
+    print("CodecTools.makeUnlimitedNumCodecWithSelectionBit: warning: inputLimitedNumCodec is not zero safe, which may reduce CR.")
+  assert escapeCode in inputLimitedNumCodec.getDomain()
+  
+  noEscapeDomain = [item for item in inputLimitedNumCodec.getDomain() if item != escapeCode] #@ slow. Slow to search through later.
+
+  storableWithoutEscape = (lambda x: x in inputLimitedNumCodec.getDomain() and x != escapeCode)
+
+  def newEncodeFun(newEncInput):
+    if storableWithoutEscape(newEncInput):
+      return genConcatenatedElements([inputLimitedNumCodec.zeroSafeEncode(newEncInput)])
+    else:
+      return genConcatenatedElements([inputLimitedNumCodec.zeroSafeEncode(escapeCode), inputUnlimitedNumCodec.zeroSafeEncode(remapToOutsideValueArrTranscode(newEncInput, "encode", noEscapeDomain))])
+      
+  def newDecodeFun(newDecInput):
+    newDecInput = makeGen(newDecInput)
+    limitedResult = inputLimitedNumCodec.zeroSafeDecode(newDecInput)
+    if limitedResult != escapeCode:
+      return limitedResult
+    else:
+      valueBeforeRemapping = inputUnlimitedNumCodec.zeroSafeDecode(newDecInput)
+      return remapToOutsideValueArrTranscode(valueBeforeRemapping,"decode",noEscapeDomain)
+
   result = Codec(newEncodeFun,newDecodeFun,domain="UNSIGNED")
   return result
 
