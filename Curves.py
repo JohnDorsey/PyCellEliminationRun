@@ -8,6 +8,11 @@ Curves.py contains tools like the Spline class for creating curves and doing cal
 
 import math
 
+try:
+  range = xrange
+except NameError:
+  pass
+  
 
 DODBGPRINT = False #print debug info.
 DOVIS = False #show pretty printing, mostly for debugging.
@@ -24,10 +29,15 @@ def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
-  #ENDPOINTS_AT_ZERO = False
-  CACHE_BONE_DISTANCE_ABS = True
+
   SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite"]
   SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
+  
+  CACHE_VALUES = True #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
+  CACHE_BONE_DISTANCE_ABS = True #only applies when valueCache misses.
+  
+  #in the following dictionary, integers represent points relative to the new point 0. 1 is the next anchor point to the right of the new point, 2 is the point to the right of that one, and the points -1 and -2 are similar. a tuple of two ints represents the span between those two points. Future interpolation methods might require more than this notation can offer, such as trig (fourier) requiring a keyword like "ENTIRE".
+  VALUE_CACHE_UPDATE_TYPES = {"hold":[(0,1)],"nearest_neighbor":[(-1,0),(0,1)],"linear":[(-1,0),(0,1)],"sinusoidal":[(-1,0),(0,1)],"finite_difference_cubic_hermite":[(-2,-1),(-1,0),(0,1),(1,2)]}
 
   def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpointInitMode=None):
     
@@ -38,6 +48,9 @@ class Spline:
     self.boneDistanceAbs = None
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs = [None for i in range(len(self.data))]
+    self.valueCache = None
+    if Spline.CACHE_VALUES:
+      self.valueCache = [None for i in range(len(self.data))]
     self.__setitem__(0,self.endpoints[0][1])
     self.__setitem__(-1,self.endpoints[1][1])
     assert len(self.data) == self.size[0]
@@ -142,7 +155,7 @@ class Spline:
   def getPointInDirection(self,location,direction,skipStart=True):
     #dbgPrint("Curves.Spline.getPointInDirection: "+str((location,direction,skipStart)))
     #assert type(direction) == int
-    assert direction in [-1,1]
+    #assert direction in [-1,1]
     #assert 0 <= location < len(self.data)
     #print(direction)
     if Spline.CACHE_BONE_DISTANCE_ABS:
@@ -182,7 +195,19 @@ class Spline:
     #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow searches of a mostly empty array are used. Caching the value of the spline at every position would probably be faster in almost all situations.
     if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
-    elif self.interpolationMode == "hold":
+    elif Spline.CACHE_VALUES:
+      if self.valueCache[index] != None:
+        return self.valueCache[index]
+      else:
+        result = self.solveItem(index)
+        self.valueCache[index] = result
+        return result
+    else:
+      return self.solveItem(index)
+      
+        
+  def solveItem(self,index):
+    if self.interpolationMode == "hold":
       result = self.getPointInDirection(index,-1)
       if result != None:
         return result[1]
@@ -262,8 +287,7 @@ class Spline:
         result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #@ not tested.
 
     else:
-      print("the interpolationMode is " + self.interpolationMode)
-      assert False, "The current interpolationMode isn't fully supported."
+      assert False, "The current interpolationMode of {} isn't fully supported.".format(self.interpolationMode)
     
     #apply some outputFilters:
     if "global_clip" in self.outputFilters:
@@ -272,35 +296,51 @@ class Spline:
       result = int(round(result))
 
     return result
+    
 
+  def clearCacheInDirection(self,index,direction,times=1):
+    #skips clearing the value at index.
+    #times indicates the number of times to skip over a value of None and continue.
+    clearingIndex = index
+    try:
+      for i in range(times):
+        clearingIndex += direction
+        while self.valueCache[clearingIndex] != None:
+          self.valueCache[clearingIndex] = None
+          clearingIndex += direction
+    except IndexError:
+      pass
+    
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
     assert not (value == None and Spline.CACHE_BONE_DISTANCE_ABS), "None values can't be set while bone distance abs caching is enabled."
-    if self.data[index] != None:
-      dbgPrint("Curves.Spline.__setitem__: overwriting an item at index " + str(index) + ".")
+    #if self.data[index] != None:
+    #  dbgPrint("Curves.Spline.__setitem__: overwriting an item at index " + str(index) + ".")
     self.data[index] = value
+    
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs[index] = 0
-      x = index + 1
-      while x < len(self.data):
-        oldDist = self.boneDistanceAbs[x]
-        newDist = abs(x - index) #abs included even when the result is expected to be positive, just for symmetry.
-        if oldDist != None:
-          if newDist >= oldDist:
-            break
-        self.boneDistanceAbs[x] = newDist
-        x += 1
-      x = index - 1
-      while x >= 0:
-        oldDist = self.boneDistanceAbs[x]
-        newDist = abs(x - index)
-        if oldDist != None:
-          if newDist >= oldDist:
-            break
-        self.boneDistanceAbs[x] = newDist
-        x += -1
+      for direction in [-1,1]:
+        #x = index + direction
+        #while x < len(self.data):
+        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
+          oldDist = self.boneDistanceAbs[x]
+          newDist = abs(x - index)
+          if oldDist != None:
+            if newDist >= oldDist:
+              break
+          self.boneDistanceAbs[x] = newDist
+          x += direction
 
-
-
+    if Spline.CACHE_VALUES:
+      #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
+      updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolationMode]
+      if type(updateType) != list:
+        raise ValueError("updateType definitions of types other than list are not supported yet.")
+      self.valueCache[index] = None
+      if (0,1) in updateType:
+        self.clearCacheInDirection(index, 1, times=(2 if (1,2) in updateType else 1))
+      if (-1,0) in updateType:
+        self.clearCacheInDirection(index, -1, times=(2 if (-2,-1) in updateType else 1))

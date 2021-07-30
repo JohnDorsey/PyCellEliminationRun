@@ -118,6 +118,8 @@ Design notes:
 
       -finish higher-order fibonacci coding.
       
+      -arithmetic coding.
+      
     -internal features:
 
       -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
