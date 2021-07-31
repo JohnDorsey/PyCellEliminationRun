@@ -27,6 +27,7 @@ SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 
 PEEK = 64 #these control how much information is shown in previews in the console.
 PEEEK = 2048
+VERBOSE = True
 
 defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
 sampleCerPressNums = {
@@ -37,15 +38,13 @@ sampleCerPressNums = {
 
 
 
-def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "finite_difference_cubic_hermite&global_clip", "finite_difference_cubic_hermite&span_clip"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
-  #This method tests that the round trip from raw audio to coded (using a universal code) data and back does not change the data.
-  
-  print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
-  VERBOSE = True
-
+def test(interpolationModesToTest=["linear", "sinusoidal", "finite_difference_cubic_hermite"], scoreModesToTest=["vertical_distance","bilog_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
+  #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
+  #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")
-  testSound = eval(soundSrcStr)[:soundLength]
+  
   print("Testing.test: the sound source string is " + str(soundSrcStr) + ".")
+  testSound = eval(soundSrcStr)[:soundLength]
   testSoundSize = [soundLength,SAMPLE_VALUE_UPPER_BOUND]
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
@@ -53,33 +52,39 @@ def test(interpolationModesToTest=["hold", "nearest_neighbor", "linear", "linear
   print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + ((" and is equal to " + str(testSound)) if VERBOSE else (" and the start of it looks like " + str(testSound[:PEEK])[:PEEK])) + ".")
 
   for interpolationMode in interpolationModesToTest: #test all specified interpolation modes.
-    print("\nTesting.test: interpolation mode " + interpolationMode + ": ")
-    testCERCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[interpolationMode,testSoundSize])
-
-    pressDataNums = testCERCodec.encode(testSound)
-    print("Testing.test: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
-    if VERBOSE:
-      print("Testing.test: The pressDataNums are " + str(pressDataNums))
-
-    for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["HLL_fibonacci","HLL_eliasGamma","HLL_eliasDelta"]]:
-      print("testing with "+numberSeqCodecSrcStr+":")
-      numberSeqCodec = eval(numberSeqCodecSrcStr)
-      CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
-      assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
-
-    reconstPlainDataNums = testCERCodec.decode(pressDataNums)
-    if reconstPlainDataNums == testSound:
-      print("Testing.test: test passed.\n")
-      for i in range(len(testSound)):
-        assert testSound[i] == reconstPlainDataNums[i]
-    else:
-      print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.\n")
+    for scoreMode in scoreModesToTest:
+      inputHeaderDict = {"interpolation_mode":interpolationMode,"score_mode":scoreMode,"space_definition":{"size":testSoundSize}}
+      print("\nTesting.test: settings: " + str(inputHeaderDict)+".")
+      testCERCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
+      testCellElimRunCodec(testCERCodec, testSound)
 
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
+def testCellElimRunCodec(testCERCodec,testSound):
 
+  pressDataNums = testCERCodec.encode(testSound)
+  print("Testing.test: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
+  if VERBOSE:
+    print("Testing.test: The pressDataNums are " + str(pressDataNums))
 
+  for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["HLL_fibonacci","HLL_eliasGamma","HLL_eliasDelta"]]:
+    print("testing with "+numberSeqCodecSrcStr+":")
+    numberSeqCodec = eval(numberSeqCodecSrcStr)
+    CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
+    assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
+
+  reconstPlainDataNums = testCERCodec.decode(pressDataNums)
+  if reconstPlainDataNums == testSound:
+    print("Testing.test: test passed.\n")
+    for i in range(len(testSound)):
+      assert testSound[i] == reconstPlainDataNums[i]
+  else:
+    print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.\n")
+      
+      
+      
+      
 
 def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
   soundToCompress = eval(soundSrcStr)
