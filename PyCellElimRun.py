@@ -196,6 +196,14 @@ class LimitsCellCatalogueColumn(CellCatalogue):
     self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
     self.limits = [-1,self.size]
     
+  def imposeMinimum(self,newMinimum):
+    self.limits[0] = max(self.limits[0],newMinimum-1)
+    assert self.limits[1]-self.limits[0] > 4, "this could cause critical column routine problems."
+  
+  def imposeMaximum(self,newMaximum):
+    self.limits[1] = min(self.limits[1],newMaximum+1)
+    assert self.limits[1]-self.limits[0] > 4, "this could cause critical column routine problems."
+    
   def toPrettyStr(self):
     alignmentError = False
     result = "LCCCPSTR:"
@@ -219,13 +227,13 @@ class LimitsCellCatalogueColumn(CellCatalogue):
 
   def eliminateCell(self,cellHeight):
     if self.getCellStatus(cellHeight) == CellCatalogue.ELIMVAL:
-      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
+      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} is already eliminated. eliminateCell should not be called on cells that are already eliminated (the limits for this column are {})! But let's see what happens if the program continues to run.".format(cellHeight,self.limits))
     if cellHeight == self.limits[0]+1:
       self.limits[0] += 1
     elif cellHeight == self.limits[1]-1:
       self.limits[1] -= 1
     else:
-      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
+      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} can't be eliminated, because it is not at the edge of the area of eliminated cells (the limits for this column are {})! but let's see what happens if the program continues to run.".format(cellHeight,self.limits))
     if self.limits[0] + 2 == self.limits[1]:
       return True #indicate that the column is critical.
     return False #indicate that the column is not critical.
@@ -235,11 +243,11 @@ class LimitsCellCatalogueColumn(CellCatalogue):
       sides = [True,True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
     if self.limits[1]-self.limits[0] < 2: #if there is no space between the floor and ceiling of what has not been eliminated...
       if self.limits[1]-self.limits[0] == 1:
-        print("PyCellElimRun.LimitsCellCatalogueColumn.genExtremeUnknownCells: warning: column was improperly eliminated!")
+        print("PyCellElimRun.LimitsCellCatalogueColumn.genExtremeUnknownCells: warning: column was improperly eliminated! does this have something to do with imposeMinimum?")
       return #nothing in this column.
     elif self.limits[1]-self.limits[0] == 2: #special case to avoid registering the same cell twice when the cell just above the floor and just below the ceiling are the same cell. At the time of this writing, I don't know whether this will ever happen because I haven't decided how the CellCatalogue will/should behave in columns where the sample's value is known.
       yield self.limits[0]+1
-      print("WARNING: PyCellElimRun.LimitsCellCatalogueColumn.genExtremeUnknownCells had to merge two cells in its result, meaning that the column could have been eliminated earlier!")
+      print("WARNING: PyCellElimRun.LimitsCellCatalogueColumn.genExtremeUnknownCells had to merge two cells in its result, meaning that the column could have been eliminated earlier! does this have something to do with imposeMinimum?")
     else:
       if sides[0]:
         yield self.limits[0]+1
@@ -248,6 +256,7 @@ class LimitsCellCatalogueColumn(CellCatalogue):
     return
 
   def clampCell(self,cellHeight): #move a cell's value to make it comply with the catalogue of eliminated cells.
+    assert self.limits[1]-self.limits[0] > 1, "This column can no longer clamp cells, because it has no unknown space! Its limits are {}.".format(self.limits)
     result = clamp(cellHeight,(self.limits[0]+1,self.limits[1]-1))
     assert result != cellHeight, "this function failed."
     return result
@@ -272,6 +281,14 @@ class ColumnCellCatalogue(CellCatalogue):
         return LimitsCellCatalogueColumn(size=initSize[-1])
       return [dataInitializer(initSize[1:]) for i in range(initSize[0])]
     self.data = dataInitializer(self.size)
+    
+  def imposeMinimum(self,newMinimum):
+    for columnID,column in self.iterColumnsAndIDs():
+      column.imposeMinimum(newMinimum)
+    
+  def imposeMaximum(self,newMaximum):
+    for columnID,column in self.iterColumnsAndIDs():
+      column.imposeMaximum(newMaximum)
     
   def toPrettyStr(self):
     result = ""
@@ -312,21 +329,39 @@ class ColumnCellCatalogue(CellCatalogue):
 
   def eliminateColumn(self,columnID,dbgCustomValue=-1):
     self.getColumn(columnID).eliminateColumn(dbgCustomValue=dbgCustomValue)
+    
+  def isCellInBounds(self,cell):
+    for i,cellElement in enumerate(cell):
+      if cellElement < 0 or cellElement >= self.size[i]:
+        return False
+    return True
+    
+  def diagnoseCell(self,cell):
+    if not self.isCellInBounds(cell):
+      try:
+        raise ValueError("Cell {} is out of bounds. Its column limits are {}.".format(cell,self.getColumn(cell[:-1]).limits))
+      except IndexError:
+        raise ValueError("Cell {} is out of bounds on some axis other than vertical.".format(cell))
 
   def eliminateCell(self,cell):
     #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
     relevantColumn = self.getColumn(cell[:-1])
+    return relevantColumn.eliminateCell(cell[-1])
+    """
     if relevantColumn.getCellStatus(cell[-1]) == CellCatalogue.ELIMVAL:
       print("PyCellElimRun.ColumnCellCatalogue.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
+      self.diagnoseCell(cell)
     if cell[-1] == relevantColumn.limits[0]+1:
       relevantColumn.limits[0] += 1
     elif cell[1] == relevantColumn.limits[1]-1:
       relevantColumn.limits[1] -= 1
     else:
       print("PyCellElimRun.ColumnCellCatalogue.eliminateCell: The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
+      self.diagnoseCell(cell)
     if relevantColumn.limits[0] + 2 == relevantColumn.limits[1]:
       return True #indicate that the column is critical.
     return False #indicate that the column is not critical.
+    """
 
   def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
     if sides == None:
@@ -357,7 +392,8 @@ class CellElimRunCodecState:
   DO_CRITICAL_COLUMN_ROUTINE = True #this is responsible for most of the process of ensuring that trailing zeroes are trimmed and CER blocks may be self-delimiting.
   DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample. Some of the process of making CER blocks self-delimiting depends on the use of setPlaindataSample with the expectation that this is set to True.
   
-  DEFAULT_HEADER_DICT_TEMPLATE = {"interpolation_mode":"linear", "score_mode":"vertical_distance","space_definition":{"size":[256,256],"endpoint_init_mode":"middle"}}
+  DEFAULT_HEADER_DICT_TEMPLATE = {"interpolation_mode":"linear", "score_mode":"vertical_distance", "space_definition":{"size":[256, 256], "bounds":{}, "bound_touches":{}, "endpoint_init_mode":"middle"}}
+  ALLOW_BOUND_ASSUMPTIONS = False
 
 
   def __init__(self, inputData, opMode, inputHeaderDictTemplate):
@@ -379,6 +415,7 @@ class CellElimRunCodecState:
 
     self.prepOpMode()
     self.headerPhaseRoutine("AFTER_PREP_OP_MODE")
+    self.headerPhaseRoutine("AFTER_PREP_OP_MODE:1")
     self.prepSpaceDefinition()
     self.headerPhaseRoutine("AFTER_PREP_SPACE_DEFINITION")
     self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
@@ -392,6 +429,8 @@ class CellElimRunCodecState:
 
     self.applyHeader()
     assert self.size[0] == len(self.spline.data)
+
+
 
   def initializeByDefault(self):
     """
@@ -415,10 +454,6 @@ class CellElimRunCodecState:
     self.logStr += str(text) + "\n"
     return text
     
-  #def logp(self,text):
-  #  self.log(text)
-  #  print(text)
-    
     
     
   def headerRoutinePathwiseOracleFun(self, inputPath, inputValue):
@@ -426,13 +461,58 @@ class CellElimRunCodecState:
     result = inputValue
     if inputPath[-3:] == ["space_definition","size",1]:
       result = max(self.plainDataInputArr)+1
+    elif inputPath[-3:-1] == ["space_definition","bound_touches"]:
+      assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bound_touches is only available for 2D data."
+      try:
+        try:
+          bounds = self.headerDict["space_definition"]["bounds"]
+        except KeyError as ke:
+          print(self.headerDictTemplate)
+          print(self.headerDict)
+          raise ke
+        if inputPath[-1] == "north":
+          if "upper" not in bounds.keys():
+            warningText = "north bound touch should only be embedded if the upper bound is also embedded."
+            if CellElimRunCodecState.ALLOW_BOUND_ASSUMPTIONS:
+              print("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: " + warningText)
+              print("Assuming upper bound is size[-1]...")
+              bounds["upper"] = self.headerDict["space_definition"]["size"][-1]
+            else:
+              raise ValueError(warningText)
+          result = self.plainDataInputArr.index(bounds["upper"]-1)
+        elif inputPath[-1] == "south":
+          if "lower" not in bounds.keys():
+            warningText = "south bound touch should only be embedded if the upper bound is also embedded."
+            if CellElimRunCodecState.ALLOW_BOUND_ASSUMPTIONS:
+              print("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: " + warningText)
+              print("Assuming lower bound is 0...")
+              bounds["lower"] = 0
+            else:
+              raise ValueError(warningText)
+          result = self.plainDataInputArr.index(bounds["lower"])
+        elif inputPath[-1] == "east":
+          result = self.plainDataInputArr[-1]
+        elif inputPath[-1] == "west":
+          result = self.plainDataInputArr[0]
+        else:
+          raise ValueError("unknown header item in space_definition.bound_touches.")
+      except IndexError:
+        raise IndexError("There is no such boundary touch as {}.".format(repr(inputPath[-1])))
+    elif inputPath[-3:-1] == ["space_definition","bounds"]:
+      assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bounds is currently only available for 2D data."
+      if inputPath[-1] == "lower":
+        result = min(self.plainDataInputArr)
+      elif inputPath[-1] == "upper":
+        result = max(self.plainDataInputArr) + 1
+      else:
+        raise ValueError("unknown header item in space_definition.bounds.")
     elif inputPath[-1] == "dbg_resolve_to_123456789":
       result = 123456789
     elif inputPath[-1] == "dbg_resolve_to_[123,456]":
       result = [123,456]
     else:
       print(self.log("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: no substitute was found for (inputPath,inputValue)="+str((inputPath,inputValue))+"."))
-    return self.saveHeaderValue(result)
+    return self.saveHeaderValue(result) #assume it should be saved, and save it.
 
 
   def headerPhaseRoutine(self,phaseName):
@@ -498,13 +578,25 @@ class CellElimRunCodecState:
 
     endpointInitMode = self.headerDict["space_definition"]["endpoint_init_mode"]
     self.spline = Curves.Spline(size=size,endpointInitMode=endpointInitMode)
+    
+    if "bounds" in self.headerDict["space_definition"].keys():
+      bounds = self.headerDict["space_definition"]["bounds"]
+      if "lower" in bounds.keys():
+        self.cellCatalogue.imposeMinimum(bounds["lower"])
+      if "upper" in bounds.keys():
+        self.cellCatalogue.imposeMaximum(bounds["upper"]-1)
 
     if "bound_touches" in self.headerDict["space_definition"].keys():
       boundTouches = self.headerDict["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["north"], size[1]-1, dbgCatalogueValue=-238)
+        self.setPlaindataItem(boundTouches["north"], self.headerDict["space_definition"]["bounds"]["upper"]-1, dbgCatalogueValue=-518)
       if "south" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["south"], 0, dbgCatalogueValue=-239)
+        self.setPlaindataItem(boundTouches["south"], self.headerDict["space_definition"]["bounds"]["lower"], dbgCatalogueValue=-520)
+      if "east" in boundTouches.keys():
+        self.setPlaindataItem(size[0]-1, boundTouches["east"], dbgCatalogueValue=-522)
+      if "west" in boundTouches.keys():
+        self.setPlaindataItem(0, boundTouches["west"], dbgCatalogueValue=-524)
+        
 
 
   def prepOpMode(self): # -> None:
@@ -685,7 +777,7 @@ class CellElimRunCodecState:
     #for cell in self.cellCatalogue.genExtremeUnknownCells():
     #  insort(rankings, (self.scoreFun(cell), cell), keyFun=self.rankingsInsortKeyFun)
     
-    rankings = sorted(([self.scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.genExtremeUnknownCells()),key=self.rankingsInsortKeyFun)
+    rankings = sorted(((self.scoreFun(extremeCell), extremeCell) for extremeCell in self.cellCatalogue.genExtremeUnknownCells()),key=self.rankingsInsortKeyFun)
     
     #pre-loop termination check:
     if len(rankings) == 0:
@@ -707,7 +799,7 @@ class CellElimRunCodecState:
       
       if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
-        self.cellCatalogue.eliminateColumn(outputCell[0],dbgCustomValue=-7)
+        self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-70000000-((self.runIndex%1000)*1000+(self.stepIndex%1000)))
         #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
         yield ("fix",replacementCell)
         del rankings[0]
@@ -812,14 +904,17 @@ assert testResult[0] == 20
 assert sum(testResult[1:]) == 0
 assert cellElimRunBlockTranscode([20],"decode","linear",{"size":[5,5]}) == [2,2,2,2,2]
 
-testResult = cellElimRunBlockTranscode([5,6,7,6,5],"encode","linear",{"size":[5,10],"endpoint_init_mode":"middle"})
+testResult = cellElimRunBlockTranscode([5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})
 assert testResult[:2] == [32,10]
 assert sum(testResult[2:]) == 0
-assert cellElimRunBlockTranscode([32,10,0,0,0],"decode","linear",{"size":[5,10],"endpoint_init_mode":"middle"}) == [5,6,7,6,5]
+assert cellElimRunBlockTranscode([32,10,0,0,0], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}) == [5,6,7,6,5]
 
-testResult = makeArr(genCellElimRunBlockSeqTranscode([5,6,7,6,5,5,6,7,6,5],"encode","linear",{"size":[5,10],"endpoint_init_mode":"middle"}))
+testResult = makeArr(genCellElimRunBlockSeqTranscode([5,6,7,6,5,5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}))
 assert testResult == [32,10,32,10]
-assert makeArr(genCellElimRunBlockSeqTranscode([32,10,32,10],"decode","linear",{"size":[5,10],"endpoint_init_mode":"middle"})) == [5,6,7,6,5,5,6,7,6,5]
+assert makeArr(genCellElimRunBlockSeqTranscode([32,10,32,10], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})) == [5,6,7,6,5,5,6,7,6,5]
+
+testResult = cellElimRunBlockCodec.encode([5,6,7,8,9,8,7,6,5,4], {"space_definition":{"size":[10,10], "bounds":{"lower":"EMBED:AFTER_PREP_OP_MODE", "upper":"EMBED:AFTER_PREP_OP_MODE"}, "bound_touches":{"east":"EMBED:AFTER_PREP_OP_MODE:1", "north":"EMBED:AFTER_PREP_OP_MODE:1", "south":"EMBED:AFTER_PREP_OP_MODE:1",  "west":"EMBED:AFTER_PREP_OP_MODE:1"}}})
+assert testResult == [4,10,4,4,9,5,35]
 
 
 for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
