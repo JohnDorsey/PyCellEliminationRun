@@ -122,17 +122,21 @@ Design notes:
       
     -internal features:
 
+      -add bound-touch header features.
+      
+      -make EmbedCode class to allow original values for settings to be embedded.
+      
+      -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
+
       -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
       
-      -implement efficient spline value caching based on the knowledge of how much of a spline can be affected by a modification for each interpolationMode.
+      -make genCellCheckOrder more customizable.
       
-      -make it so that most CellCatalogue methods don't need to know whether it is in grid mode or limits mode.
-    
-      -complete and test grid mode for CellCatalogue.
+      -accelerate Spline value cache rebuilding by caching bone locations.
     
       -move more header tools out of CellElimRunBlockState.
       
-      -make it possible to enforce structure in the pressNums of a header.
+      -make it possible to define a structure for the storage of header pressNums.
       
       -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
       
@@ -141,6 +145,8 @@ Design notes:
       -consider alternatives to merging Spline and CellCatalogue for the purpose of having them control each other.
     
       -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
+    
+      -complete and test grid mode for CellCatalogue.
     
     -maintenance:
   
@@ -213,3 +219,7 @@ Design notes:
     -add huffman coding to markov tools.
     
     -replace CodecTools.Codec.zeroSafe with easier-to-use CodecTools.Codec.getDomain().
+      
+    -make it so that most CellCatalogue methods don't need to know whether it is in grid mode or limits mode.
+      
+    -implement efficient spline value caching based on the knowledge of how much of a spline can be affected by a modification for each interpolationMode.
