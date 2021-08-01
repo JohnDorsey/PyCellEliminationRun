@@ -7,6 +7,13 @@ PyDictTools.py contains tools for manipulating dictionaries as needed.
 """
 
 
+try:
+  range = xrange
+  #no NameError yet? we're in python3.
+  getDictKeys = (lambda inputDict: inputDict.iterkeys())
+except NameError:
+  #we're in python2.
+  getDictKeys = (lambda inputDict: inputDict.keys())
 
 
 
@@ -20,11 +27,11 @@ from PyGenTools import makeGen, makeArr
 
 
 
-
-def makeFlatKeySeq(template, sortDictKeys=True): #flat means nonrescursive.
+def makeFlatKeySeq(template, sortDictKeys=True):
+  #flat means nonrescursive.
   templateKeySeq = None
   if type(template) == dict:
-    templateKeySeq = sorted(template.keys()) if sortDictKeys else template.keys()
+    templateKeySeq = sorted(template.keys()) if sortDictKeys else getDictKeys(template)
   elif type(template) == list:
     templateKeySeq = range(len(template))
   else:

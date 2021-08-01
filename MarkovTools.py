@@ -7,6 +7,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 """
 
 from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, ExhaustionError, indexOfValueInGen, valueAtIndexInGen, genSkipFirst
+from PyArrTools import insort
 from HistTools import OrderlyHist
 import HuffmanMath
 import CodecTools
@@ -33,23 +34,36 @@ def getEndingIndicesOfGrowingSubSequences(inputArr, searchTerm, keepOnlyLongest=
   if len(searchTerm) == 0:
     return [(0,[])]
   result = [(0,[]),(1,[])]
-  for location in range(len(inputArr)):
+  
+  for location in range(len(inputArr)): #populate list of matches with LENGTH OF ONE!
     if inputArr[location] == searchTerm[-1]:
       result[-1][1].append(location)
+      
   for currentLength in range(2,len(searchTerm)+1):
     result.append((currentLength,[]))
-    for location in result[-2][1]:
+    i = 0
+    while i < len(result[-2][1]):
+      location = result[-2][1][i]
       if location+1-currentLength < 0: #This test prevents wrapping around to the other end of the inputArr and general chaos. Without this test, the method finds nonexistant matches.
+        i += 1
         continue
       if searchTerm[-currentLength] == inputArr[location+1-currentLength]:
         result[-1][1].append(location)
-    if keepOnlyLongest:
-      i = 0
-      while i < len(result[-2][1]):
-        if result[-2][1][i] in result[-1][1]:
+        if keepOnlyLongest:
           del result[-2][1][i]
+          continue #skip incrementing i, because the items have shifted.
+      i += 1
+    #this is probably slower:
+    """
+    if keepOnlyLongest:
+      ii = 0
+      while ii < len(result[-2][1]):
+        if result[-2][1][ii] in result[-1][1]:
+          assert False, "this loop should have nothing to do!"
+          del result[-2][1][ii]
         else:
-          i += 1
+          ii += 1
+    """
     if len(result[-1][1]) == 0:
       break
   return result
@@ -66,6 +80,7 @@ def ordify(inputStr):
 
 def genBleedSortedArr(inputArr,noNegatives=False):
   #this generator will help in using a markov model with values the model has not seen before, by mapping them to smaller numbers when they are closer to a value that has been seen before.
+  #this code could use sorted list searches for all lists. It could also use no searches at all if it stored all spots in the same list along with the directions they are taveling in.
   if noNegatives:
     if inputArr[0] < 0:
       raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
@@ -153,7 +168,10 @@ def remapToGeneratedValuesTranscode(mainItem,opMode,inputGen,startIndex=0,timeou
     raise ValueError("invalid opMode.")
     
 def remapToBleedingSortedArrTranscode(mainItem,opMode,seedArr,noNegatives=True,skipSeedArr=False,timeout=2**20):
-  assert type(seedArr) == list
+  assert type(seedArr) in [list,set]
+  if type(seedArr) == set:
+    print("MarkovTools.remapToBleedingSortedArrTranscode: warning: converting set to list is slow!")
+    seedArr = sorted(seedArr)
   assert opMode in ["encode","decode"]
   if len(seedArr) == 0: #happens when this codec is used by genfunctionalDynamicMarkovTranscode when it shouldn't be, like when the history is empty except for items that are filtered out like an escapeValue.
     return mainItem
@@ -220,23 +238,26 @@ def getPredictedValuesFromHistory(history,singleUsageHist,maxContextLength,score
     assert False, "invalid scoreMode."
   return predictedValues
   
-def getValueChancesFromHistory(history,maxContextLength,chanceFun,singleUsageHist=None):
-  itemChanceDict = dict()
-  searchItemGen = None #searchItemGen may be built in different ways and give different item orders, but it doesn't really matter since in this method, the probability given to each item doesn't depend on when it is processed or what the unfinished output looks like so far.
-  if singleUsageHist != None:
+
+def getValueChancesFromHistory(history,chanceFun,maxContextLength,searchValueSrc=None):
+  valueChanceDict = dict()
+  searchValueSrcSeq = None #searchItemGen may be built in different ways and give different item orders, but it doesn't really matter since in this method, the probability given to each item doesn't depend on when it is processed or what the unfinished output looks like so far.
+  if type(searchValueSrc) in [set,list]:
+    searchValueSrcSeq = searchValueSrc
+  elif searchValueSrc != None:
     try:
-      searchItemGen = singleUsageHist.keysInDescendingRelevanceOrder()
+      searchValueSrcSeq = searchValueSrc.keysInDescendingRelevanceOrder()
     except AttributeError: #it's probably of type dict and not a histogram class.
-      searchItemGen = singleUsageHist.keys()
+      searchValueSrcSeq= searchValueSrc.keys()
   else:
-    searchItemGen = genDeduped(history)
-  for searchItem in searchItemGen:
-    searchTerm = history[-maxContextLength:] + [searchItem]
+    searchValueSrcSeq = genDeduped(history)
+  for searchValue in searchValueSrcSeq:
+    searchTerm = history[-maxContextLength:] + [searchValue]
     matchEndIndices = getEndingIndicesOfGrowingSubSequences(history,searchTerm)
-    itemChanceDict[searchItem] = chanceFun(matchEndIndices,len(history))
-  if sum(itemChanceDict.values()) == 0:
+    valueChanceDict[searchValue] = chanceFun(matchEndIndices,len(history))
+  if all(value == 0 for value in valueChanceDict.values()):
     print("MarkovTools.getValueChancesFromHistory: warning: returning a dict with a value sum of 0.")
-  return itemChanceDict
+  return valueChanceDict
   
 
 
@@ -295,10 +316,29 @@ class Escape:
 
 
 
+"""
+class History:
+  def __init__(self,inputList):
+    self.data = []
+    self.uniqueValues = set()
+    for item in inputList:
+      self.append(item)
+      
+  def __iter__(self):
+    return self.data
+      
+  def extend(self,extension):
+    for item in extension:
+      self.append(item)
 
-
-
-
+  def append(self,item):
+    self.data.append(item)
+    if not item in self.uniqueValues:
+      self.uniqueValues.add(item)
+      
+  def __contains__(self,item):
+    return item in self.uniqueValues
+"""
 
 
 def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, noveltyIndexRemapCodec="linear", scoreFun=None, addDbgChars=False, addDbgWords=False):
@@ -320,13 +360,33 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
       noveltyIndexRemapCodec = remapToValueArrCodec
     elif noveltyIndexRemapCodec == "bleed":
       noveltyIndexRemapCodec = bleedingSortedArrRemapCodec.clone(extraKwargs={"noNegatives":True,"skipSeedArr":True})
+    else:
+      raise KeyError("unknown noveltyIndexRemapCodec string ID {}.".format(repr(noveltyIndexRemapCodec)))
   
   escapeValue = Escape() #just keep one instance of this for use inside here.
   history = []
+  encounteredValues = set()
+  #encounteredIntValues = set()
+  ascendingEncounteredIntValues = []
+  #encounteredIntValues are not sorted, so when using bleed remapping, a sort is performed for every call to remap.
+  def register(valueToRegister):
+    history.append(valueToRegister)
+    if not valueToRegister in encounteredValues:
+      if type(valueToRegister) == int:
+        #encounteredIntValues.add(valueToRegister)
+        insort(ascendingEncounteredIntValues,valueToRegister)
+      encounteredValues.add(valueToRegister)
   
-  noveltyCodecWithContext = CodecTools.Codec((lambda encArg0,encValListArg: noveltyCodec.zeroSafeEncode(noveltyIndexRemapCodec.encode(encArg0,[itemA for itemA in encValListArg if type(itemA)==int]))),(lambda decArg0,decValListArg: noveltyIndexRemapCodec.decode(noveltyCodec.zeroSafeDecode(decArg0),[itemB for itemB in decValListArg if type(itemB)==int]))) #non-integer items can't be included in the context because they (usually???) can't be mapped around by the noveltyIndexRemapCodec.
+  valueChanceDict = None
+  valueHuffmanCodec = None
+    
+  #noveltyCodecWithMixedContext = CodecTools.Codec((lambda encArg0,encValueListArg: noveltyCodec.zeroSafeEncode(noveltyIndexRemapCodec.encode(encArg0,[itemA for itemA in encValueListArg if type(itemA)==int]))),(lambda decArg0,decValueListArg: noveltyIndexRemapCodec.decode(noveltyCodec.zeroSafeDecode(decArg0),[itemB for itemB in decValueListArg if type(itemB)==int]))) #non-integer items can't be included in the context because they (usually???) can't be mapped around by the noveltyIndexRemapCodec. MIGHT NEED SORTING.
+  noveltyCodecWithIntOnlyContext = CodecTools.Codec((lambda encArg0,encValueListArg: noveltyCodec.zeroSafeEncode(noveltyIndexRemapCodec.encode(encArg0,encValueListArg))),(lambda decArg0,decValueListArg: noveltyIndexRemapCodec.decode(noveltyCodec.zeroSafeDecode(decArg0),decValueListArg))) #a shortcut to avoid the need for filtering a list.
 
-  getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue] if len(history) == 0 else history, maxContextLength, scoreFun)) #this exists as a function just so that it can easily be repeated in the attempt loop. When history length is 0, escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict to represent it. But when history is longer than 0 items, escapeValue isn't prepended, because history must already contain escapeValue just as many times as it has been used.
+
+  getNewValueChanceDict = (lambda: getValueChancesFromHistory([escapeValue] if len(history) == 0 else history, scoreFun, maxContextLength, searchValueSrc=([escapeValue] if len(history) == 0 else encounteredValues)))
+  # ^ this exists as a function just so that it can easily be repeated in the attempt loop. When history length is 0, escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict to represent it. But when history is longer than 0 items, escapeValue isn't prepended, because history must already contain escapeValue just as many times as it has been used.
+  
   getNewValueHuffmanCodec = (lambda: HuffmanMath.makeHuffmanCodecFromDictHist(valueChanceDict)) #this exists as a function just so that it can easily be repeated in the attempt loop.
 
   while True:
@@ -349,30 +409,30 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
           if addDbgWords:
             yield "(fail in attempt loop; huffman-coded escapeValue and noveltyCodec-coded inputValue to follow.)"
             
-          for outputComponent in valueHuffmanCodec.encode(escapeValue): #it should be able to do this.
-            yield outputComponent
+          for outputElement in valueHuffmanCodec.encode(escapeValue): #it should be able to do this.
+            yield outputElement
           if addDbgChars:
             yield ","
-          history.append(escapeValue)
+          register(escapeValue)
           #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
           
           #for outputComponent in noveltyCodec.encode(inputValue):
-          for outputComponent in noveltyCodecWithContext.encode(inputValue,makeArr(genDeduped(history))): #@ very slow.
-            yield outputComponent
+          for outputElement in noveltyCodecWithIntOnlyContext.encode(inputValue,ascendingEncounteredIntValues):
+            yield outputElement
           if addDbgChars:
             yield ","
-          history.append(inputValue)
+          register(inputValue)
           
           valueChanceDict = getNewValueChanceDict()
           valueHuffmanCodec = getNewValueHuffmanCodec()
       
       if addDbgWords:
         yield "(" + str(inputValue) + " became:)"
-      for outputComponent in resultValue:
-        yield outputComponent
+      for outputElement in resultValue:
+        yield outputElement
       if addDbgChars:
         yield ","
-      history.append(inputValue)
+      register(inputValue)
           
     elif opMode == "decode":
     
@@ -384,13 +444,13 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
       except ExhaustionError:
         print("MarkovTools.genFunctionalDynamicMarkovTranscode: ending due to ExhaustionError from valueHuffmanCodec.")
         return
-      history.append(resultValue)
+      register(resultValue)
       #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
       if resultValue == escapeValue:
         #no version of the escapeValue will be yielded. Anyone reading the plaindata does not need to know!.
         #resultValue = noveltyCodec.decode(inputSeq)
-        resultValue = noveltyCodecWithContext.decode(inputSeq,makeArr(genDeduped(history))) #@ very slow.
-        history.append(resultValue)
+        resultValue = noveltyCodecWithIntOnlyContext.decode(inputSeq,ascendingEncounteredIntValues)
+        register(resultValue)
         
       if addDbgWords:
         yield "(dec out:)"      
