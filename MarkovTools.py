@@ -13,6 +13,7 @@ import HuffmanMath
 import CodecTools
 from CodecTools import remapToValueArrCodec, remapToValueArrTranscode
 import Codes
+import itertools
 
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
@@ -77,10 +78,15 @@ def ordify(inputStr):
   return [ord(char) for char in inputStr]
 
 
-
 def genBleedSortedArr(inputArr,noNegatives=False):
   #this generator will help in using a markov model with values the model has not seen before, by mapping them to smaller numbers when they are closer to a value that has been seen before.
-  #this code could use sorted list searches for all lists. It could also use no searches at all if it stored all spots in the same list along with the directions they are taveling in.
+  return genBleedSortedArrWithoutSearches(inputArr,noNegatives=noNegatives)
+
+
+def genBleedSortedArrWithSearches(inputArr,noNegatives=False):
+  """
+  This is the original version of genBleedSortedArr. It involves lots of list searches. A much faster version involving no list searches exists and should usually be used instead.
+  """
   if noNegatives:
     if inputArr[0] < 0:
       raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
@@ -149,6 +155,90 @@ def genBleedSortedArr(inputArr,noNegatives=False):
     #print("iterating through " + str(currentArr))
     for item in currentArr:
       yield item
+      
+      
+      
+      
+
+def genBleedSortedArrWithoutSearches(seedArr,noNegatives=False):
+  #futher optimization is possible, but not necessary. movingSpots beyond all others and moving outwards could be removed from collision detection.
+  if noNegatives:
+    if seedArr[0] < 0:
+      raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
+  for item in seedArr:
+    yield item
+  #assume there are no duplicate values in inputArr.
+  #this works, but doesn't handle collisions:
+  #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[-1,spot-1],[1,spot+1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
+  
+  #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[direction,spot+direction] for direction in [-1,1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
+  genLocalNeighborsWithMutualErasure = (lambda calcSpotIndex,calcSpot,calcArr: (localNeighbor for localNeighbor in [[-1,calcSpot-1],[1,calcSpot+1]] if localNeighbor[1] != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)]))
+
+  genLocalNeighborsWithCollisions = (lambda calcSpotIndex,calcSpot,calcArr: (nonNoneLocalNeighbor for nonNoneLocalNeighbor in ((localNeighbor if sum(localNeighbor) != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)] else ([0,localNeighbor[1]] if localNeighbor[0]>0 else None)) for localNeighbor in genLocalNeighborsWithMutualErasure(calcSpotIndex,calcSpot,calcArr)) if nonNoneLocalNeighbor != None))
+  
+  movingSpots = [neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genLocalNeighborsWithCollisions(spotIndex,spot,seedArr)]
+  
+  while True:
+    #print(movingSpots)
+    if noNegatives:
+      if movingSpots[0][1] < 0:
+        del movingSpots[0] #it is possible to do this at a better time.
+        if all(spot[0] == 1 for spot in movingSpots):
+          break
+    i = 0
+    while i < len(movingSpots):
+      currentSpot = movingSpots[i]
+      yield currentSpot[1]
+      i += 1
+    iSrc = 0
+    iDest = 0
+    while iSrc < len(movingSpots):
+      oldSpot = movingSpots[iSrc]
+      if oldSpot[0] == 0: #if it's a collision spot:
+        iSrc += 1
+        continue
+      newSpot = [oldSpot[0],sum(oldSpot)] #what oldSpot wants to be.
+      assert newSpot[0] != 0
+      if oldSpot[0] == -1:
+        if iDest == 0: #if there's nothing to the left of this spot, so no collision can happen:
+          movingSpots[0] = newSpot
+          iDest = 1 #iDest += 1
+          iSrc += 1
+          continue
+        assert iDest > 0
+        assert iSrc > 0
+        spotLeftOfDest = movingSpots[iDest-1]
+        if spotLeftOfDest[0] == 1: #if left spot is collidable because it is moving in the opposite direction:
+          if spotLeftOfDest[1] == newSpot[1]: #if collision:
+            movingSpots[iDest-1] = [0,spotLeftOfDest[1]] #merge
+            iSrc += 1
+            continue
+          if spotLeftOfDest[1] == oldSpot[1]: #if slip (needs mutual erasure):
+            iDest -= 1
+            iSrc += 1
+            continue
+          movingSpots[iDest] = newSpot
+          iDest += 1
+          iSrc += 1
+          continue
+        assert spotLeftOfDest[0] != 0
+        assert spotLeftOfDest[0] == -1
+      assert oldSpot[0] == 1
+      movingSpots[iDest] = newSpot
+      iSrc += 1
+      iDest += 1
+      continue
+    while len(movingSpots) > iDest: #trim.
+      del movingSpots[iDest]
+  #after the above loop breaks, there are only movingSpots with directions equal to 1, so no more testing needs to be done.
+  uniformlyMovingSpots = [spot[1] for spot in movingSpots]
+  for offset in itertools.count(0):
+    for value in uniformlyMovingSpots:
+      yield value+offset
+      
+      
+      
+      
 
 def remapToGeneratedValuesTranscode(mainItem,opMode,inputGen,startIndex=0,timeout=2**20):
   if opMode == "encode":
@@ -297,7 +387,10 @@ def basicMatchIndexArrArrScoreFun(inputMatchIndexArrArr,currentHistoryLength): #
     
     locationOfLatestLongestMatch = float(max(inputMatchIndexArrArr[maxMatchLengthIndex][1]))
     assert 0 <= locationOfLatestLongestMatch <= currentHistoryLength
-    result = sum((len(matchesOfLengthX)*x) for x,matchesOfLengthX in inputMatchIndexArrArr)
+    result = 0
+    for x,matchesOfLengthX in inputMatchIndexArrArr:
+      #result = min(result,result.bit_length()) #don't let even a huge amount of very short matches overpower any very long matches.
+      result = len(matchesOfLengthX)**x
     #the following scaling operation avoids the need for floats and ensures that every scored value will have a unique integer score.
     result = (result * currentHistoryLength) + locationOfLatestLongestMatch
   else:
@@ -341,7 +434,7 @@ class History:
 """
 
 
-def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, noveltyIndexRemapCodec="linear", scoreFun=None, addDbgChars=False, addDbgWords=False):
+def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, noveltyIndexRemapCodec="linear", scoreFun=None, redundantEscapesInHistory=False, addDbgChars=False, addDbgWords=False):
   """
   inputSeq is the source, which may be a generator.
   maxContextLength is the maximum length of a match that will be recognized. Larger values should give better compression without significant performance impact, see performance notes on getEndingIndicesOfGrowingSubSequence.
@@ -370,7 +463,10 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
   ascendingEncounteredIntValues = []
   #encounteredIntValues are not sorted, so when using bleed remapping, a sort is performed for every call to remap.
   def register(valueToRegister):
-    history.append(valueToRegister)
+    if (valueToRegister != escapeValue) or redundantEscapesInHistory:
+      history.append(valueToRegister)
+    elif escapeValue not in history: #slow, but simple.
+      history.append(escapeValue)
     if not valueToRegister in encounteredValues:
       if type(valueToRegister) == int:
         #encounteredIntValues.add(valueToRegister)
@@ -388,7 +484,8 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
   # ^ this exists as a function just so that it can easily be repeated in the attempt loop. When history length is 0, escapeValue is prepended to history so that encoding escapeValue should be immediately possible for the huffman coding codec created from the returned dict to represent it. But when history is longer than 0 items, escapeValue isn't prepended, because history must already contain escapeValue just as many times as it has been used.
   
   getNewValueHuffmanCodec = (lambda: HuffmanMath.makeHuffmanCodecFromDictHist(valueChanceDict)) #this exists as a function just so that it can easily be repeated in the attempt loop.
-
+  
+  breakAll = False
   while True:
     inputValue = None #to be initialized later.
     resultValue = None #to be initialized later.
@@ -401,7 +498,11 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
       #the attempt loop.
       while True:
         try:
-          inputValue = next(inputSeq)
+          try:
+            inputValue = next(inputSeq)
+          except StopIteration:
+            breakAll = True
+            break
           resultValue = valueHuffmanCodec.encode(inputValue)
           break
         except HuffmanMath.AlienError: #if the item is not representable by valueHuffmanCodec because it has never been seen before...
@@ -425,6 +526,8 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
           
           valueChanceDict = getNewValueChanceDict()
           valueHuffmanCodec = getNewValueHuffmanCodec()
+      if breakAll:
+        break
       
       if addDbgWords:
         yield "(" + str(inputValue) + " became:)"
@@ -443,7 +546,7 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
         resultValue = valueHuffmanCodec.decode(inputSeq)
       except ExhaustionError:
         print("MarkovTools.genFunctionalDynamicMarkovTranscode: ending due to ExhaustionError from valueHuffmanCodec.")
-        return
+        break
       register(resultValue)
       #it isn't necessary to update valueHuffmanCodec at this time because it won't be used before the next time it is updated.
       if resultValue == escapeValue:
@@ -459,6 +562,9 @@ def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, n
         yield ","
     else:
       assert False, "invalid opMode."
+  if addDbgWords:
+    print("MarkovTools.genFunctionalDynamicMarkovTranscode: end: history started out like {} and had length {}.".format(history[:1024],len(history)))
+    print("MarkovTools.genFunctionalDynamicMarkovTranscode: end: The final huffman codec extraDataDict was {}.".format(valueHuffmanCodec.extraDataDict))
 
 functionalDynamicMarkovCodec = CodecTools.Codec(None,None,transcodeFun=genFunctionalDynamicMarkovTranscode)
 
