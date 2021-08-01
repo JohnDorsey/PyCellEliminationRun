@@ -121,32 +121,36 @@ Design notes:
       -arithmetic coding.
       
     -internal features:
-
-      -add bound-touch header features.
+    
+      -simplify the CellElimRunCodecState:
+    
+        -make a curve world class, where Spline and CellCatalogue are kept together. Move cell check order calculations there, and make cell check order not provided by a generator. Instead, make it the responsibility of one world method to get the next cell to check, and another world method to provide a response to the world.
+        
+        -consider moving the entry point for execution into the world, making it like the player of a one-player game.
+      
+        -move more header tools out of CellElimRunBlockState.
+      
+        -separate experimental features from the headerDict and header routines.
+      
+        -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
       
       -make EmbedCode class to allow original values for settings to be embedded.
-      
-      -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
 
       -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
       
       -make genCellCheckOrder more customizable.
-      
-      -accelerate Spline value cache rebuilding by caching bone locations.
     
-      -move more header tools out of CellElimRunBlockState.
+      -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
       
       -make it possible to define a structure for the storage of header pressNums.
       
       -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
       
       -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
-      
-      -consider alternatives to merging Spline and CellCatalogue for the purpose of having them control each other.
-    
-      -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
     
       -complete and test grid mode for CellCatalogue.
+      
+      -accelerate Spline value cache rebuilding by caching bone locations.
     
     -maintenance:
   
@@ -223,3 +227,5 @@ Design notes:
     -make it so that most CellCatalogue methods don't need to know whether it is in grid mode or limits mode.
       
     -implement efficient spline value caching based on the knowledge of how much of a spline can be affected by a modification for each interpolationMode.
+
+    -add bound-touch header features.

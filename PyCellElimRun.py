@@ -83,114 +83,81 @@ class CellCatalogue:
 
 
 
-
-
-
-
-class GridCellCatalogue(CellCatalogue):
-
-  def __init__(self, size=(0,0)): #size might be off by one.
-    self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
-    self.grid = [[CellCatalogue.UNKVAL for value in range(0,self.size[1])] for index in range(0,self.size[0])]
-
-  def getCellStatus(self,cell):
-    return self.grid[cell[0]][cell[1]]
-
-  def eliminateColumn(self,columnIndex,dbgCustomValue=-1):
-    #this makes it impossible for any other method to doubt that the column has no cells of any kind but eliminated.
-    #it definitely changes the output, and seems to improve compression in some tests. It is only necessary because the generator for cells to check is usually responsible for eliminating cells in the catalogue, but it can't do that when the run terminates and the generator method is also terminated.
-    #It is not really compatible with the AUTOLIVE idea.
-    #print("eliminateColumn called for column " + str(columnIndex) + " and dbgCustomValue " + str(dbgCustomValue) + ".")
-    for i in range(len(self.grid[columnIndex])):
-      self.grid[columnIndex][i] = CellCatalogue.ELIMVAL
-
-  def eliminateCell(self,cell):
-    #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
-    if self.getCellStatus(cell) == CellCatalogue.ELIMVAL:
-      print("PyCellElimRun.CellCatalogue.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
-    self.grid[cell[0]][cell[1]] = CellCatalogue.ELIMVAL
-    print("PyCellElimRun.GridCellCatalogue.eliminateCell: warning: critical column support does not exist here yet!")
-    return False #indicate that the column is not critical.
-
-
-
-
-
-
-
-
-class LimitsCellCatalogue(CellCatalogue):
-
-  def __init__(self, size=(0,0)): #size might be off by one.
-    self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
-    self.limits = [[-1,self.size[1]] for i in range(self.size[0])]
-
-  def getCellStatus(self,cell):
-    return CellCatalogue.UNKVAL if (self.limits[cell[0]][0] < cell[1]) and (cell[1] < self.limits[cell[0]][1]) else CellCatalogue.ELIMVAL
-
-  def countUnknowns(self): #this could just be tracked by the methods that eliminate cells, but that could be less reliable.
-    total = 0
-    for columnIndex in range(0,self.size[0]):
-      total += max(0,self.limits[columnIndex][1]-self.limits[columnIndex][0]-1)
-    return total
-
-  def eliminateColumn(self,columnIndex,dbgCustomValue=-1):
-    #this makes it impossible for any other method to doubt that the column has no cells of any kind but eliminated.
-    #it definitely changes the output, and seems to improve compression in some tests. It is only necessary because the generator for cells to check is usually responsible for eliminating cells in the catalogue, but it can't do that when the run terminates and the generator method is also terminated.
-    #It is not really compatible with the AUTOLIVE idea.
-    #print("eliminateColumn called for column " + str(columnIndex) + " and dbgCustomValue " + str(dbgCustomValue) + ".")
-    self.limits[columnIndex][0] = dbgCustomValue
-    self.limits[columnIndex][1] = dbgCustomValue
-
-  def eliminateCell(self,cell):
-    #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
-    if self.getCellStatus(cell) == CellCatalogue.ELIMVAL:
-      print("PyCellElimRun.CellCatalogue.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
-    if cell[1] == self.limits[cell[0]][0]+1:
-      self.limits[cell[0]][0] += 1
-    elif cell[1] == self.limits[cell[0]][1]-1:
-      self.limits[cell[0]][1] -= 1
-    else:
-      print("PyCellElimRun.CellCatalogue.eliminateCell: The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
-    if self.limits[cell[0]][0] + 2 == self.limits[cell[0]][1]:
-      #print("WARNING: PyCellElimRun.CellCatalogue.eliminateCell: there is now only one cell within the limits of column " + str(cell[0]) + "!")
-      return True #indicate that the column is critical.
-    return False #indicate that the column is not critical.
-
-  def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
-    if sides == None:
-      sides = [True,True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
-    #result = []
-    for columnIndex in range(0,self.size[0]):
-      columnLimits = self.limits[columnIndex]
-      if columnLimits[1]-columnLimits[0] < 2: #if there is no space between the floor and ceiling of what has not been eliminated...
-        if columnLimits[1]-columnLimits[0] == 1:
-          print("PyCellElimRun.genExtremeUnknownCells: warning: column at index {} was improperly eliminated!".format(columnIndex)) 
-        continue #register nothing for this column.
-      if columnLimits[1]-columnLimits[0] == 2: #special case to avoid registering the same cell twice when the cell just above the floor and just below the ceiling are the same cell. At the time of this writing, I don't know whether this will ever happen because I haven't decided how the CellCatalogue will/should behave in columns where the sample's value is known.
-        #result.append((columnIndex,columnLimits[0]+1))
-        yield (columnIndex, columnLimits[0]+1)
-        print("WARNING: PyCellElimRun.CellCatalogue.genExtremeUnknownCells had to merge two cells in its result, meaning that column " + str(columnIndex) + " could have been eliminated earlier!")
-      else:
-        if sides[0]:
-          yield (columnIndex, columnLimits[0]+1)
-        if sides[1]:
-          yield (columnIndex, columnLimits[1]-1)
-    return
-
-  def clampCell(self,cell): #move a cell's value to make it comply with the catalogue of eliminated cells.
-    result = (cell[0],clamp(cell[1],(self.limits[cell[0]][0]+1,self.limits[cell[0]][1]-1)))
-    assert result != cell, "CellCatalogue.clampCell(cell): this function failed."
+class CellCatalogueColumn(CellCatalogue):
+    
+  def imposeMinimum(self,newMinimum):
+    raise NotImplementedError()
+  
+  def imposeMaximum(self,newMaximum):
+    raise NotImplementedError()
+    
+  def getCellStatus(self,cellHeight):
+    raise NotImplementedError()
+    
+  def toPrettyStr(self):
+    alignmentError = False
+    result = "CCCSTR:"
+    for y in range(self.size):
+      addition = str(self.getCellStatus(y))
+      if len(addition) != 1:
+        alignmentError = True
+      result += addition
+    result += ",alignmentError="+str(alignmentError)
     return result
 
+  def countUnknowns(self):
+    print("CellCatalogueColumn.countUnknowns: warning: falling back to potentially slow method because the subclass does not have countUnknowns.")
+    return sum((self.getCellStatus(i) == CellCatalogue.UNKVAL) for i in range(self.size))
+
+  def eliminateColumn(self,dbgCustomValue=-1):
+    raise NotImplementedError()
+
+  def eliminateCell(self,cellHeight):
+    raise NotImplementedError()
+
+  def genExtremeUnknownCells(self,sides=None):
+    raise NotImplementedError()
+
+  def clampCell(self,cellHeight):
+    raise NotImplementedError()
 
 
 
 
 
 
+class GridCellCatalogueColumn(CellCatalogueColumn):
 
-class LimitsCellCatalogueColumn(CellCatalogue):
+  def __init__(self, size=0):
+    self.size = size 
+    self.grid = [CellCatalogue.UNKVAL for value in range(0,self.size)]
+
+  def imposeMinimum(self,newMinimum):
+    #remember to check whether critical.
+    raise NotImplementedError()
+  
+  def imposeMaximum(self,newMaximum):
+    #remember to check whether critical.
+    raise NotImplementedError()
+    
+  def getCellStatus(self,cellHeight):
+    return self.grid[cellHeight]
+
+  def eliminateColumn(self,dbgCustomValue=-1):
+    print("GridCellCatalogueColumn.eliminateColumn called for column " + str(columnIndex) + " and dbgCustomValue " + str(dbgCustomValue) + ". The dbgCustomValue will be ignored.")
+    for i in range(len(self.grid)):
+      self.grid[i] = CellCatalogue.ELIMVAL
+
+  def eliminateCell(self,cellHeight):
+    if self.getCellStatus(cellHeight) == CellCatalogue.ELIMVAL:
+      print("PyCellElimRun.GridCellCatalogueColumn.eliminateCell: The cell " + str(cellHeight) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
+    self.grid[cellHeight] = CellCatalogue.ELIMVAL
+    print("PyCellElimRun.GridCellCatalogueColumn.eliminateCell: warning: critical column support does not exist here yet!")
+    return False #indicate that the column is not critical.
+
+
+
+class LimitsCellCatalogueColumn(CellCatalogueColumn):
 
   def __init__(self, size=0): #size might be off by one.
     self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
@@ -203,10 +170,13 @@ class LimitsCellCatalogueColumn(CellCatalogue):
   def imposeMaximum(self,newMaximum):
     self.limits[1] = min(self.limits[1],newMaximum+1)
     assert self.limits[1]-self.limits[0] > 4, "this could cause critical column routine problems."
+
+  def getCellStatus(self,cellHeight):
+    return CellCatalogue.UNKVAL if (self.limits[0] < cellHeight) and (cellHeight < self.limits[1]) else CellCatalogue.ELIMVAL
     
   def toPrettyStr(self):
     alignmentError = False
-    result = "LCCCPSTR:"
+    result = "CCCSTR:"
     for y in range(self.size):
       addition = str(self.getCellStatus(y))
       if len(addition) != 1:
@@ -214,9 +184,6 @@ class LimitsCellCatalogueColumn(CellCatalogue):
       result += addition
     result += ",alignmentError="+str(alignmentError)
     return result
-
-  def getCellStatus(self,cellHeight):
-    return CellCatalogue.UNKVAL if (self.limits[0] < cellHeight) and (cellHeight < self.limits[1]) else CellCatalogue.ELIMVAL
 
   def countUnknowns(self):
     return max(0,self.limits[1]-self.limits[0]-1)
@@ -275,10 +242,14 @@ class ColumnCellCatalogue(CellCatalogue):
   def __init__(self, storageMode="limits", size=[0,0]): #size might be off by one.
     self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
     self.storageMode = storageMode
-    assert self.storageMode == "limits", "not all modes are supported yet."
     def dataInitializer(initSize):
       if len(initSize) == 1:
-        return LimitsCellCatalogueColumn(size=initSize[-1])
+        if storageMode == "limits":
+          return LimitsCellCatalogueColumn(size=initSize[-1])
+        elif storageMode == "grid":
+          return GridCellCatalogueColumn(size=initSize[-1])
+        else:
+          raise KeyError("storageMode key {} is invalid.".format(repr(storageMode)))
       return [dataInitializer(initSize[1:]) for i in range(initSize[0])]
     self.data = dataInitializer(self.size)
     
@@ -337,6 +308,7 @@ class ColumnCellCatalogue(CellCatalogue):
     return True
     
   def diagnoseCell(self,cell):
+    #this method may be used to verify that there is nothing obviously wrong with a cell that has already caused a minor problem somewhere else.
     if not self.isCellInBounds(cell):
       try:
         raise ValueError("Cell {} is out of bounds. Its column limits are {}.".format(cell,self.getColumn(cell[:-1]).limits))
@@ -347,21 +319,6 @@ class ColumnCellCatalogue(CellCatalogue):
     #this method may someday make adjustments to fourier-transform-based predictions, if it eliminates a cell that any fourier transform in use would have guessed as an actual value. To do this, access to the Spline would be needed.
     relevantColumn = self.getColumn(cell[:-1])
     return relevantColumn.eliminateCell(cell[-1])
-    """
-    if relevantColumn.getCellStatus(cell[-1]) == CellCatalogue.ELIMVAL:
-      print("PyCellElimRun.ColumnCellCatalogue.eliminateCell: The cell " + str(cell) + " is already eliminated. eliminateCell should not be called on cells that are already eliminated! But let's see what happens if the program continues to run.")
-      self.diagnoseCell(cell)
-    if cell[-1] == relevantColumn.limits[0]+1:
-      relevantColumn.limits[0] += 1
-    elif cell[1] == relevantColumn.limits[1]-1:
-      relevantColumn.limits[1] -= 1
-    else:
-      print("PyCellElimRun.ColumnCellCatalogue.eliminateCell: The cell " + str(cell) + " can't be eliminated, because it is not at the edge of the area of eliminated cells! but let's see what happens if the program continues to run.")
-      self.diagnoseCell(cell)
-    if relevantColumn.limits[0] + 2 == relevantColumn.limits[1]:
-      return True #indicate that the column is critical.
-    return False #indicate that the column is not critical.
-    """
 
   def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
     if sides == None:
@@ -393,7 +350,7 @@ class CellElimRunCodecState:
   DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample. Some of the process of making CER blocks self-delimiting depends on the use of setPlaindataSample with the expectation that this is set to True.
   
   DEFAULT_HEADER_DICT_TEMPLATE = {"interpolation_mode":"linear", "score_mode":"vertical_distance", "space_definition":{"size":[256, 256], "bounds":{}, "bound_touches":{}, "endpoint_init_mode":"middle"}}
-  ALLOW_BOUND_ASSUMPTIONS = False
+  ALLOW_BOUND_ASSUMPTIONS = False #allow bound touch locations to be specified in the header without also providing the locations of bounaries in the header info - in this case, the bounaries are assumed based on "size". In case bounds were excluded from the header on accident, this assumption is incorrect, the plaindata values that are set based on the bound touch parameters will be set incorrectly, and the transcoding process will either crash or produce garbage.
 
 
   def __init__(self, inputData, opMode, inputHeaderDictTemplate):
@@ -421,7 +378,6 @@ class CellElimRunCodecState:
     self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
     self.prepScoreMode()
       
-
     self.headerPhaseRoutine("AFTER_PREP_GROUP")
 
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
