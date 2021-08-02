@@ -484,9 +484,9 @@ class CellElimRunCodecState:
 
   def initializeByDefault(self):
     """ initializeByDefault initializes things that can't be changed by class settings and don't depend on header information. """
-    self.plainDataInputArr, self.pressDataInputGen = (None,None)
-    self.pressDataOutputArr = None
-    self.plainDataOutputArr = None
+    self._input_plaindata_matrix, self._input_pressdata_gen = None, None
+    self._output_pressdata_list = None
+    self._output_plaindata_matrix = None
     self.TO_COMPLETED_HEADER_DICT_TEMPLATE = (lambda inputObject: augmentedDict(inputObject, CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE))
     
   def applyHeader(self):
@@ -528,7 +528,7 @@ class CellElimRunCodecState:
               bounds["upper"] = self.headerDict["space_definition"]["size"][-1]
             else:
               raise ValueError(warningText)
-          result = self.plainDataInputArr.index(bounds["upper"]-1)
+          result = self._input_plaindata_matrix.index(bounds["upper"]-1)
         elif inputPath[-1] == "south":
           if "lower" not in bounds.keys():
             warningText = "south bound touch should only be embedded if the upper bound is also embedded."
@@ -538,11 +538,11 @@ class CellElimRunCodecState:
               bounds["lower"] = 0
             else:
               raise ValueError(warningText)
-          result = self.plainDataInputArr.index(bounds["lower"])
+          result = self._input_plaindata_matrix.index(bounds["lower"])
         elif inputPath[-1] == "east":
-          result = self.plainDataInputArr[-1]
+          result = self._input_plaindata_matrix[-1]
         elif inputPath[-1] == "west":
-          result = self.plainDataInputArr[0]
+          result = self._input_plaindata_matrix[0]
         else:
           raise ValueError("unknown header item in space_definition.bound_touches.")
       except IndexError:
@@ -550,9 +550,9 @@ class CellElimRunCodecState:
     elif inputPath[-3:-1] == ["space_definition","bounds"]:
       assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bounds is currently only available for 2D data."
       if inputPath[-1] == "lower":
-        result = min(self.plainDataInputArr)
+        result = min(self._input_plaindata_matrix)
       elif inputPath[-1] == "upper":
-        result = max(self.plainDataInputArr) + 1
+        result = max(self._input_plaindata_matrix) + 1
       else:
         raise ValueError("unknown header item in space_definition.bounds.")
     elif inputPath[-1] == "dbg_resolve_to_123456789":
@@ -608,14 +608,14 @@ class CellElimRunCodecState:
       self.cellCatalogue.eliminateColumn(cellToSet[:-1], dbgCustomValue=dbgCatalogueValue)
     if modifyOutputArr:
       if self.opMode == "decode":
-        PyDeepArrTools.setValueUsingCell(self.plainDataOutputArr, cellToSet)
+        PyDeepArrTools.setValueUsingCell(self._output_plaindata_matrix, cellToSet)
 
 
   def getOutput(self):
     if self.opMode == "encode":
-      return self.pressHeaderValues + self.pressDataOutputArr
+      return self.pressHeaderValues + self._output_pressdata_list
     elif self.opMode == "decode":
-      return self.plainDataOutputArr
+      return self._output_plaindata_matrix
     else:
       assert False, "invalid opMode."
 
@@ -660,19 +660,19 @@ class CellElimRunCodecState:
     size = self.headerDict["space_definition"]["size"]
 
     if self.opMode == "encode":
-      self.plainDataInputArr = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="partial")
-      if not len(self.plainDataInputArr) > 0:
+      self._input_plaindata_matrix = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="partial")
+      if not len(self._input_plaindata_matrix) > 0:
         raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
-      if len(self.plainDataInputArr) < size[0]:
+      if len(self._input_plaindata_matrix) < size[0]:
         print(self.log("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: the input plainData is shorter than the (block) size, so the missing values will be replaced with zeroes."))
-      self.plainDataInputArr = ljustedArr(self.plainDataInputArr,size[0],fillItem=0)
-      assert len(self.plainDataInputArr) == size[0]
-      self.pressDataOutputArr = []
+      self._input_plaindata_matrix = ljustedArr(self._input_plaindata_matrix,size[0],fillItem=0)
+      assert len(self._input_plaindata_matrix) == size[0]
+      self._output_pressdata_list = []
     elif self.opMode == "decode":
-      self.pressDataInputGen = self.inputDataGen
-      self.plainDataOutputArr = []
+      self._input_pressdata_gen = self.inputDataGen
+      self._output_plaindata_matrix = []
       defaultSampleValue = None
-      self.plainDataOutputArr.extend([defaultSampleValue for i in range(size[0])])
+      self._output_plaindata_matrix.extend([defaultSampleValue for i in range(size[0])])
     else:
       assert False, "invalid opMode."
       
@@ -696,7 +696,7 @@ class CellElimRunCodecState:
     """
     self.processAllRuns()
     if self.opMode == "decode" and not allowMissingValues:
-      self.interpolateMissingValues(self.plainDataOutputArr)
+      self.interpolateMissingValues(self._output_plaindata_matrix)
     
     self.headerPhaseRoutine("AFTER_PROCESS_BLOCK")
     return
@@ -716,10 +716,10 @@ class CellElimRunCodecState:
         if self.opMode == "encode":
           print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
         elif self.opMode == "decode":
-          if allAreEqual(countIn(iterateDeeply(self.plainDataOutputArr),None,includeDenominator=True)):
+          if allAreEqual(countIn(iterateDeeply(self._output_plaindata_matrix),None,includeDenominator=True)):
             raise ExhaustionError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs. Maybe the input data was empty to begin with. The error was {}.".format(self.runIndex, repr(ee)))
           else:
-            raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self.plainDataOutputArr is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(self.runIndex, repr(ee)))
+            raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self._output_plaindata_matrix is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(self.runIndex, repr(ee)))
         else:
           assert False, "invalid opMode."
 
@@ -734,13 +734,13 @@ class CellElimRunCodecState:
     cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerDict["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
     cellTargeter.buildRankings() #this is probably slower than refreshing the rankings, but also simpler.
     
-    if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
+    if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self._input_pressdata_gen.
       return False #indicate that processing should stop.
     
     currentPressdataNum = None
     if self.opMode == "decode": #access to the currentPressDataNum is only needed while decoding. it doesn't exist while encoding.
       try:
-        currentPressdataNum = next(self.pressDataInputGen)
+        currentPressdataNum = next(self._input_pressdata_gen)
       except StopIteration:
         self.log("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
         raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
@@ -751,7 +751,7 @@ class CellElimRunCodecState:
       if self.dimensions < 2:
         raise ValueError("Invalid self.dimensions")
       if self.dimensions == 2:#this version is only different from the higher-dimensional version for performance reasons.
-        hitTest = (lambda: self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]) 
+        hitTest = (lambda: self._input_plaindata_matrix[cellToCheck[0]] == cellToCheck[1]) 
       else:
         hitTest = (lambda: PyDeepArrTools.getValueUsingPath(cellToCheck[:-1]) == cellToCheck[-1])
     elif self.opMode == "decode":
@@ -767,7 +767,7 @@ class CellElimRunCodecState:
         self.stepIndex += 1
       else:
         if self.opMode == "encode":
-          self.pressDataOutputArr.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
+          self._output_pressdata_list.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
         elif self.opMode == "decode":
           pass #nothing in this branch because it is instead handled by setPlaindataItem in a few lines.
         else:
