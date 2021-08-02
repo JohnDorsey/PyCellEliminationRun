@@ -339,6 +339,107 @@ class ColumnCellCatalogue(CellCatalogue):
 
 
 
+
+
+
+
+
+class CellTargeter:
+  def __init__(self,size,spline,cellCatalogue,scoreFun):
+    #print("CellTargeter initialized.")
+    self.size = size
+    self.spline = spline
+    self.cellCatalogue = cellCatalogue
+    self.prepScoreMode(scoreFun)
+    self.rankings = None
+    self.rankingsInsortKeyFun = (lambda item: item[0]) #used by genCellCheckOrder.
+    
+    
+  def prepScoreMode(self,scoreFun): # -> None:
+    if type(scoreFun)==str:
+      if scoreFun=="vertical_distance":
+        def scoreFun(cell):
+          return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
+      elif scoreFun in ["absolute_distance", "bilog_distance","manhattan_distance"]:
+        distanceFun = None
+        if scoreFun == "absolute_distance":
+          distanceFun = (lambda x, y: (x**2 + y**2)**0.5)
+        elif scoreFun == "bilog_distance":
+          distanceFun = (lambda x, y: (math.log(x+1)**2 + math.log(y+1)**2)**0.5)
+        elif scoreFun == "manhattan_distance":
+          distanceFun = (lambda x, y: x + y)
+        else:
+          assert False
+        def scoreFun(cell):
+          minKnownDist, curRiseLeft, curRiseRight, offset = distanceFun(0,abs(self.spline[cell[0]]-cell[1])), self.size[1], self.size[1], 1
+          while distanceFun(offset,0) < minKnownDist:
+            if cell[0]-offset >= 0:
+              curRiseLeft = abs(self.spline[cell[0]-offset]-cell[1])
+            if cell[0]+offset < self.size[0]:
+              curRiseRight = abs(self.spline[cell[0]+offset]-cell[1])
+            minKnownDist, offset = min(minKnownDist,distanceFun(offset,min(curRiseLeft,curRiseRight))), offset+1
+          return self.size[1]-minKnownDist
+      else:
+        raise KeyError("unrecognized scoreFun key.")
+    else:
+      assert type(scoreFun) == type(lambda x: x) #works in python3, untested in python2.
+    self.scoreFun = scoreFun
+
+  def newRankings(self):
+    return sorted(([self.scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.genExtremeUnknownCells()),key=self.rankingsInsortKeyFun)
+    
+  def buildRankings(self):
+    self.rankings = self.newRankings()
+    
+  def refreshRankings(self):
+    for i,rankingsEntry in enumerate(self.rankings):
+      self.rankings[i][0] = self.scoreFun(rankingsEntry[1])
+    self.rankings.sort(key=self.rankingsInsortKeyFun)
+    #print("CellTargeter: doing slow check of refreshed rankings!")
+    #assert self.rankings == self.newRankings() #@ slow
+    
+  def optionsExist(self):
+    return len(self.rankings) > 0
+  
+  def genCellCheckOrder(self):
+    #assert hasattr(self,"scoreFun")
+    #assert hasattr(self,"rankingsInsortKeyFun")
+    
+    #pre-loop termination check:
+    if not self.optionsExist():
+      #self.log("genCellCheckOrder ran out of items before its main loop.")
+      assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
+      return
+      
+    while True: #the generator loop.
+      
+      #in-loop rankings depletion check is disabled because if it is possible for this to happen, an index error would be more noticable. Also, performance reasons.
+      
+      outputCell = self.rankings[0][1]
+      #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
+      yield ("visit", outputCell)
+      
+      columnCritical = self.cellCatalogue.eliminateCell(outputCell)
+      replacementCell = self.cellCatalogue.clampCell(outputCell)
+      assert str(outputCell) != str(replacementCell) #debug.
+      
+      if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
+        #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
+        self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-777)
+        #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
+        yield ("fix",replacementCell)
+        del self.rankings[0]
+      else:
+        del self.rankings[0]
+        insort(self.rankings, (self.scoreFun(replacementCell), replacementCell), keyFun=self.rankingsInsortKeyFun)
+        #extremely slow:
+        #rankings[0] = [scoreFun(replacementCell), replacementCell]
+        #bubbleSortSingleItemRight(rankings,0)
+    assert False, "genCellCheckOrder has ended. This has never happened before."
+
+
+
+
 class CellElimRunCodecState:
   """
   the CellElimRunCodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
@@ -376,7 +477,6 @@ class CellElimRunCodecState:
     self.prepSpaceDefinition()
     self.headerPhaseRoutine("AFTER_PREP_SPACE_DEFINITION")
     self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
-    self.prepScoreMode()
       
     self.headerPhaseRoutine("AFTER_PREP_GROUP")
 
@@ -389,15 +489,10 @@ class CellElimRunCodecState:
 
 
   def initializeByDefault(self):
-    """
-    initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
-    """
-    self.logStr = ""
+    """ initializeByDefault initializes things that can't be changed by class settings and don't depend on header information. """
     self.plainDataInputArr, self.pressDataInputGen = (None,None)
     self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
-    self.rankingsInsortKeyFun = (lambda item: item[0]) #used by genCellCheckOrder.
     self.TO_COMPLETED_HEADER_DICT_TEMPLATE = (lambda inputObject: augmentedDict(inputObject, CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE))
-    #sorting by the 2-item array of cell score and cell can be up to twice as slow. it has no real benefits.
     
   def applyHeader(self):
     for keyA in makeFlatKeySeq(self.headerDict):
@@ -405,8 +500,11 @@ class CellElimRunCodecState:
         for keyB in makeFlatKeySeq(self.headerDict[keyA]):
           if keyB == "size":
             self.size = self.headerDict[keyA][keyB]
+            self.stepIndexTimeout = ((self.size[0]+1)*(self.size[1]+1)+2)
             
   def log(self,text):
+    if not hasattr(self,"logStr"):
+      self.logStr = ""
     self.logStr += str(text) + "\n"
     return text
     
@@ -506,8 +604,6 @@ class CellElimRunCodecState:
     return loadedNum
 
 
-
-
   def setPlaindataItem(self,index,value,dbgCatalogueValue=-260):
     """
     This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
@@ -554,7 +650,6 @@ class CellElimRunCodecState:
         self.setPlaindataItem(0, boundTouches["west"], dbgCatalogueValue=-524)
         
 
-
   def prepOpMode(self): # -> None:
     """
     prepare CellEliminationRunCodecState to operate in the specified opMode by creating and initializing only the things that are needed for that mode of operation.
@@ -582,38 +677,18 @@ class CellElimRunCodecState:
       assert False, "invalid opMode."
       
 
-  def prepScoreMode(self): # -> None:
-    scoreFun = self.headerDict["score_mode"]
-    if type(scoreFun)==str:
-      if scoreFun=="vertical_distance":
-        def scoreFun(cell):
-          return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
-      elif scoreFun in ["absolute_distance", "bilog_distance","manhattan_distance"]:
-        distanceFun = None
-        if scoreFun == "absolute_distance":
-          distanceFun = (lambda x, y: (x**2 + y**2)**0.5)
-        elif scoreFun == "bilog_distance":
-          distanceFun = (lambda x, y: (math.log(x+1)**2 + math.log(y+1)**2)**0.5)
-        elif scoreFun == "manhattan_distance":
-          distanceFun = (lambda x, y: x + y)
-        else:
-          assert False
-        def scoreFun(cell):
-          minKnownDist, curRiseLeft, curRiseRight, offset = distanceFun(0,abs(self.spline[cell[0]]-cell[1])), self.size[1], self.size[1], 1
-          while distanceFun(offset,0) < minKnownDist:
-            if cell[0]-offset >= 0:
-              curRiseLeft = abs(self.spline[cell[0]-offset]-cell[1])
-            if cell[0]+offset < self.size[0]:
-              curRiseRight = abs(self.spline[cell[0]+offset]-cell[1])
-            minKnownDist, offset = min(minKnownDist,distanceFun(offset,min(curRiseLeft,curRiseRight))), offset+1
-          return self.size[1]-minKnownDist
-      else:
-        raise KeyError("unrecognized scoreFun key.")
+
+  def interpolateMissingValues(self,targetArr):
+    if None in targetArr:
+      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(targetArr.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
+      self.log("The missing values are at the indices " + str([i for i in range(len(targetArr)) if targetArr[i] == None]) + ".")
+      for index in range(len(targetArr)):
+        if targetArr[index] == None:
+          targetArr[index] = self.spline[index]
     else:
-      assert type(scoreFun) == type(lambda x: x) #works in python3, untested in python2.
-    self.scoreFun = scoreFun
-
-
+      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
+      pass
+      
 
   def processBlock(self,allowMissingValues=False):
     """
@@ -652,46 +727,40 @@ class CellElimRunCodecState:
         break
 
 
-  def interpolateMissingValues(self,targetArr):
-    if None in targetArr:
-      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(targetArr.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
-      self.log("The missing values are at the indices " + str([i for i in range(len(targetArr)) if targetArr[i] == None]) + ".")
-      for index in range(len(targetArr)):
-        if targetArr[index] == None:
-          targetArr[index] = self.spline[index]
-    else:
-      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
-      pass
       
 
   def processRun(self): #do one run, either encoding or decoding.
-    #print("PyCellElimRun.CellElimRunCodecState.processRun: runIndex = " + str(self.runIndex) + ".")
     self.stepIndex = 0
-    
     runShouldContinue = True
-    justStarted = True #so that (if decoding) pressDataInputGen.next() may be called only once and only after the loop starts successfully, since getGenCellCheckOrder yielding no items is one way that the end of processing is signalled.
-
-    for orderEntry in self.genCellCheckOrder():
-      assert self.stepIndex <= ((self.size[0]+1)*(self.size[1]+1)+2), "This loop has run for an impossibly long time."
     
-      if justStarted:
-        currentPressDataNum = None
-        if self.opMode == "decode":
-          try:
-            currentPressDataNum = next(self.pressDataInputGen)
-          except StopIteration:
-            self.log("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
-            raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
-            return False #indicate that processing should stop.
-        justStarted = False
+    cellTargeter = CellTargeter(self.size,self.spline,self.cellCatalogue,self.headerDict["score_mode"]) #@ this should be moved to much earlier and not occur once per processRun - instead, only a method to refresh the rankings should be called at this time.
+    cellTargeter.buildRankings()
+    #cellTargeter.refreshRankings() #enable once rankings are built in some other method.
+    
+    if not cellTargeter.optionsExist():
+      #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
+      return False #indicate that processing should stop. This is just like the old strategy of returning False after skipping the loop is skipped due to the seq containing no items.
         
-      cellToCheck = orderEntry[1]
-      if orderEntry[0] == "fix":
+    currentPressDataNum = None
+    if self.opMode == "decode": #access to the currentPressDataNum is only needed while decoding. it doesn't exist while encoding.
+      try:
+        currentPressDataNum = next(self.pressDataInputGen)
+      except StopIteration:
+        self.log("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
+        raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
+        return False #indicate that processing should stop. This shouldn't be reached anyway, due to the exhaustion error.
+    
+    targetSeq = cellTargeter.genCellCheckOrder()
+    for targetEntry in targetSeq:
+      assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time."
+        
+      cellToCheck = targetEntry[1]
+      if targetEntry[0] == "fix":
         #print("order entry " + str(orderEntry) + " will be fixed")
         assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "fix is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
         self.spline[cellToCheck[0]] = cellToCheck[1]
         continue
-      assert orderEntry[0] == "visit"
+      assert targetEntry[0] == "visit"
       
       if self.opMode == "encode":
         if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...
@@ -699,74 +768,25 @@ class CellElimRunCodecState:
           runShouldContinue = False #run should not continue.
         else:
           self.stepIndex += 1
-          #runShouldContinue remains True.
       elif self.opMode == "decode":
         if currentPressDataNum == self.stepIndex: #if run is ending...
           self.plainDataOutputArr[cellToCheck[0]] = cellToCheck[1] #then a new hit is known.
           runShouldContinue = False #run should not continue.
         else:
           self.stepIndex += 1
-          #runShouldContinue remains True.
       else:
         assert False, "invalid opMode."
       
-      if not runShouldContinue:
-        #print("found " + str(cellToCheck) + ".")
+      if not runShouldContinue: #if cellToCheck is a hit:
         self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
         if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
           self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
-        #print("breaking run; cellToCheck is " + str(cellToCheck) + ".")
         return True #indicate that processing should continue.
-    #print("PyCellElimRun.processRun ended by running out of options.")
-    return False #indicate that processing should stop.
+    assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
+
     
       
   
-  def genCellCheckOrder(self):
-    #returns a generator whose next value is an (index,value) pair of the next cell to be checked while on a cell elimination run. It can be much more efficient than a function that finds the next best cell to check and is called again for every check.
-    #print("genCellCheckOrder called.")
-    
-    #rankings array will store items in format [(score, cell), likelyhood score (lower is less likely and better to visit in an elimination run)]. In more efficient versions of this codec, especially where the likelyhood scores of all cells don't change all over at the same time when new info is discovered (as could happen with fourier interpolation), the rankings should be passed into this method from the outside so that they can be edited from the outside (such as by setting the scores to None for all samples near a new sample added to a spline with linear interpolation, so that this method regenerates those scores and re-sorts the array that is already mostly sorted.
-    
-    #old version, probably slightly slower:
-    #rankings = [] 
-    #for cell in self.cellCatalogue.genExtremeUnknownCells():
-    #  insort(rankings, (self.scoreFun(cell), cell), keyFun=self.rankingsInsortKeyFun)
-    
-    rankings = sorted(((self.scoreFun(extremeCell), extremeCell) for extremeCell in self.cellCatalogue.genExtremeUnknownCells()),key=self.rankingsInsortKeyFun)
-    
-    #pre-loop termination check:
-    if len(rankings) == 0:
-      #self.log("genCellCheckOrder ran out of items before its main loop.")
-      assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
-      return
-      
-    while True: #the generator loop.
-      
-      #in-loop rankings depletion check is disabled because if it is possible for this to happen, an index error would be more noticable. Also, performance reasons.
-      
-      outputCell = rankings[0][1]
-      #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
-      yield ("visit", outputCell)
-      
-      columnCritical = self.cellCatalogue.eliminateCell(outputCell)
-      replacementCell = self.cellCatalogue.clampCell(outputCell)
-      assert str(outputCell) != str(replacementCell) #debug.
-      
-      if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
-        #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
-        self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-70000000-((self.runIndex%1000)*1000+(self.stepIndex%1000)))
-        #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
-        yield ("fix",replacementCell)
-        del rankings[0]
-      else:
-        del rankings[0]
-        insort(rankings, (self.scoreFun(replacementCell), replacementCell), keyFun=self.rankingsInsortKeyFun)
-        #extremely slow:
-        #rankings[0] = [scoreFun(replacementCell), replacementCell]
-        #bubbleSortSingleItemRight(rankings,0)
-    print(self.log("genCellCheckOrder has ended. This has never happened before."))
-
 
 
 
