@@ -413,17 +413,14 @@ class CellTargeter:
     
     #pre-loop termination check:
     if not self.optionsExist():
-      #self.log("genCellCheckOrder ran out of items before its main loop.")
       assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "this return is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
       return
       
     while True: #the generator loop.
-      
-      #in-loop rankings depletion check is disabled because if it is possible for this to happen, an index error would be more noticable. Also, performance reasons.
+      #during the generator loop, no test is done for whether self.rankings has been depleted, because if it is possible for this to happen, an index error would be more noticable. Also, performance reasons.
       
       outputCell = self.rankings[0][1]
-      #dbgPrint("getGenCellCheckOrder: yielding " + str(outputCell)) #debug. 
-      yield ("visit", outputCell)
+      yield outputCell
       
       columnCritical = self.cellCatalogue.eliminateCell(outputCell)
       replacementCell = self.cellCatalogue.clampCell(outputCell)
@@ -432,29 +429,27 @@ class CellTargeter:
       if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
         #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
-        #the following are disabled because they are supposed to be handled by the critCellCallbackFun instead.
-        #self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-777)
-        #yield ("fix",replacementCell)
         self.critCellCallbackMethod(replacementCell,dbgCatalogueValue=-438438)
         del self.rankings[0]
       else:
         del self.rankings[0]
         insort(self.rankings, (self.scoreFun(replacementCell), replacementCell), keyFun=self.rankingsInsortKeyFun)
-        #extremely slow:
-        #rankings[0] = [scoreFun(replacementCell), replacementCell]
-        #bubbleSortSingleItemRight(rankings,0)
     assert False, "genCellCheckOrder has ended. This has never happened before."
+
+
+
+
 
 
 
 
 class CellElimRunCodecState:
   """
-  the CellElimRunCodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
+  The CellElimRunCodecState is responsible for owning and operating a Spline and CellCatalogue, and using them to either encode or decode data. Encoding and decoding are supposed to share as much code as possible. This makes improving or expanding the core mathematics of the compression vastly easier - as long as the important code is only ever called in identical ways by both the encoding and the decoding methods, any change to the method of predicting unknown data from known data won't break the symmetry of those methods.
   """
   
   #the following column-related options control whether entire columns of unknown or un-visited cells can be eliminated from the cellCatalogue at various times that the cellCatalogue would NOT eliminate them on its own. For instance, the algorithm always eliminates the cellCatalogue column when it hits a live cell, but it's also possible to eliminate a column when that column has two unknown cells and one of them is visited but not hit - this is the purpose of the critical column routine.
-  DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it changes the output in a way that isn't simple. Compression Ratio seems to be better with it turned on, but this wasn't expected, so the loss of compression with it turned off is probably a bug. Changing this parameter shouldn't break symmetry.
+  DO_COLUMN_ELIMINATION_AT_GEN_END = True #this should not be turned off, because it changes the output in a way that isn't simple. Compression Ratio seems to be better with it turned on, but this wasn't expected, so the loss of compression with it turned off is probably a bug. Changing this setting shouldn't break symmetry.
   DO_CRITICAL_COLUMN_ROUTINE = True #this is responsible for most of the process of ensuring that trailing zeroes are trimmed and CER blocks may be self-delimiting.
   DO_COLUMN_ELIMINATION_OFFICIALLY = True #This controls whether column elimination can be performed by setPlaindataSample. Some of the process of making CER blocks self-delimiting depends on the use of setPlaindataSample with the expectation that this is set to True.
   
@@ -711,7 +706,6 @@ class CellElimRunCodecState:
     """
     This method is the host to the encoding or decoding process of the Cell Elimination Run algorithm. This method processes all the data that is currently loaded into or available to the CellElimRunCodecState, which is supposed to be one block of data. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way - the variables like self.runIndex and self.stepIndex are not reset, so that they can be reviewed later. For this purpose, the main transcode method (PyCellElimRun.cellElimRunBlockTranscode) has an argument to return the entire codec state instead of the output data.
     """
-    #assert allowMissingValues == True
     self.processAllRuns()
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self.plainDataOutputArr)
@@ -767,16 +761,8 @@ class CellElimRunCodecState:
         return False #indicate that processing should stop. This shouldn't be reached anyway, due to the exhaustion error.
     
     targetSeq = cellTargeter.genCellCheckOrder()
-    for targetEntry in targetSeq:
+    for cellToCheck in targetSeq:
       assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time."
-        
-      cellToCheck = targetEntry[1]
-      if targetEntry[0] == "fix":
-        #print("order entry " + str(orderEntry) + " will be fixed")
-        assert CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE, "fix is not supposed to happen while DO_CRITICAL_COLUMN_ROUTINE is disabled!"
-        self.spline[cellToCheck[0]] = cellToCheck[1]
-        continue
-      assert targetEntry[0] == "visit"
       
       if self.opMode == "encode":
         if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...
@@ -791,13 +777,10 @@ class CellElimRunCodecState:
         if self.opMode == "encode":
           self.pressDataOutputArr.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
         elif self.opMode == "decode":
-          pass #nothing in this branch because it is instead handled by setPlaindataItem.
+          pass #nothing in this branch because it is instead handled by setPlaindataItem in a few lines.
         else:
           assert False, "Invalid opMode."
         self.setPlaindataItem(cellToCheck, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
-        #self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
-        #if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
-        #  self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
         return True #indicate that processing should continue.
       self.stepIndex += 1
     assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
