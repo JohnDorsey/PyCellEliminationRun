@@ -12,11 +12,12 @@ import Curves
 import CodecTools
 
 from IntArrMath import intify
-from PyArrTools import insort
 
 from Codes import ParseError
-from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
-from PyArrTools import ljustedArr, bubbleSortSingleItemRight
+from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate
+from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
+import PyDeepArrTools
+from PyDeepArrTools import shape, enumerateDeeply
 import PyDictTools
 from PyDictTools import augmentDict, augmentedDict, makeFlatKeySeq
 
@@ -277,21 +278,7 @@ class ColumnCellCatalogue(CellCatalogue):
     return workingSection
     
   def iterColumnsAndIDs(self):
-    def deepIterator(inputItem):
-      if type(inputItem) == list:
-        for i,subItem in enumerate(inputItem):
-          if isinstance(subItem,LimitsCellCatalogueColumn):
-            yield [i, subItem]
-          elif type(subItem) == list:
-            subItemIterator = deepIterator(subItem)
-            for item in subItemIterator:
-              assert type(item) == list
-              yield [i] + item
-          else:
-            raise ValueError("some item in the structure is of an invalid type: type {} at index {}.".format(repr(type(subItem)),str(i)))
-      else:
-        raise ValueError("deepIterator called on invalid type.")
-    return ((outputArr[:-1],outputArr[-1]) for outputArr in deepIterator(self.data))
+    return enumerateDeeply(self.data,uniformDepth=True)
     
   def getCellStatus(self,cell):
     return self.getColumn(cell[:-1]).getCellStatus(cell[-1])
@@ -508,7 +495,7 @@ class CellElimRunCodecState:
         for keyB in makeFlatKeySeq(self.headerDict[keyA]):
           if keyB == "size":
             self.size = self.headerDict[keyA][keyB]
-            self.stepIndexTimeout = ((self.size[0]+1)*(self.size[1]+1)+2)
+            self.stepIndexTimeout = accumulate((measure+2 for measure in self.size),"*")
             
   def log(self,text):
     if not hasattr(self,"logStr"):
@@ -521,9 +508,7 @@ class CellElimRunCodecState:
   def headerRoutinePathwiseOracleFun(self, inputPath, inputValue):
     #print("headerRoutineGeneralPathwiseOracleFun called with args " + str([inputPath,inputValue]) + ".")
     result = inputValue
-    if inputPath[-3:] == ["space_definition","size",1]:
-      result = max(self.plainDataInputArr)+1
-    elif inputPath[-3:-1] == ["space_definition","bound_touches"]:
+    if inputPath[-3:-1] == ["space_definition","bound_touches"]:
       assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bound_touches is only available for 2D data."
       try:
         try:
@@ -616,13 +601,12 @@ class CellElimRunCodecState:
     """
     This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
     """
-    index, value = cellToSet
-    self.spline[index] = value
+    self.spline.setValueUsingCell(cellToSet)
     if (eliminateColumn == None and CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY) or (eliminateColumn):
-      self.cellCatalogue.eliminateColumn(index, dbgCustomValue=dbgCatalogueValue)
+      self.cellCatalogue.eliminateColumn(cellToSet[:-1], dbgCustomValue=dbgCatalogueValue)
     if modifyOutputArr:
       if self.opMode == "decode":
-        self.plainDataOutputArr[index] = value
+        PyDeepArrTools.setValueUsingCell(self.plainDataOutputArr, cellToSet)
 
 
   def getOutput(self):
@@ -651,6 +635,8 @@ class CellElimRunCodecState:
         self.cellCatalogue.imposeMaximum(bounds["upper"]-1)
 
     if "bound_touches" in self.headerDict["space_definition"].keys():
+      if len(size) != 2:
+        raise NotImplementedError("bound touches are not available of data with more than 2 dimensions.")
       boundTouches = self.headerDict["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
         self.setPlaindataItem([boundTouches["north"], self.headerDict["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
@@ -762,7 +748,7 @@ class CellElimRunCodecState:
     
     targetSeq = cellTargeter.genCellCheckOrder()
     for cellToCheck in targetSeq:
-      assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time."
+      assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex,self.size)
       
       if self.opMode == "encode":
         if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...

@@ -312,7 +312,10 @@ class Spline:
           clearingIndex += direction
     except IndexError:
       pass
-    
+      
+  def setValueUsingCell(self,cell):
+    assert len(cell) == 2
+    self.__setitem__(cell[0],cell[1])
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.

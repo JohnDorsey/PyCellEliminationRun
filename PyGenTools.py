@@ -161,10 +161,6 @@ def arrAddInt(inputArr,inputInt): #used in CodecTools.Codec.
   assert type(inputArr) == list
   return [item+inputInt for item in inputArr] 
 
-def genFilter(inputSeq,filterFun): #might be added to Testing.PressNumsAnalysis.
-  for item in inputSeq:
-    if filterFun(item):
-      yield item
 
 def genDeduped(inputSeq):
   if isGen(inputSeq) or type(inputSeq) == list:
@@ -186,6 +182,14 @@ def genDeduped(inputSeq):
   else:
     raise ValueError("unsupported type: " + str(type(inputSeq)) + ".")
 
+def accumulate(inputSeq, inputFun):
+  if type(inputFun) == str:
+    inputFun = eval("(lambda x,y: x{}y)".format(inputFun))
+  inputSeq = makeGen(inputSeq)
+  result = next(inputSeq)
+  for item in inputSeq:
+    result = inputFun(result, item)
+  return result
 
 
 class CC:

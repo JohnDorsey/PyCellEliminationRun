@@ -20,7 +20,6 @@ def arrEndsWith(inputArr,testArr):
   
   
   
-  
 
 def linearInsort(sortedList, newItem, keyFun=(lambda x: x)): #insert sorted with linear search.
   keyFunOfNewItem = keyFun(newItem) #caching this probably improves performance a lot.
