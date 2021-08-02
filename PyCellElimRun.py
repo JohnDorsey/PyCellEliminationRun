@@ -14,6 +14,7 @@ import CodecTools
 from IntArrMath import intify
 from PyArrTools import insort
 
+from Codes import ParseError
 from PyGenTools import isGen,makeArr,makeGen,arrTakeOnly,ExhaustionError
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight
 import PyDictTools
@@ -491,7 +492,8 @@ class CellElimRunCodecState:
   def initializeByDefault(self):
     """ initializeByDefault initializes things that can't be changed by class settings and don't depend on header information. """
     self.plainDataInputArr, self.pressDataInputGen = (None,None)
-    self.plainDataOutputArr, self.pressDataOutputArr = (None,None)
+    self.pressDataOutputArr = None
+    self.plainDataOutputArr = None
     self.TO_COMPLETED_HEADER_DICT_TEMPLATE = (lambda inputObject: augmentedDict(inputObject, CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE))
     
   def applyHeader(self):
@@ -604,13 +606,16 @@ class CellElimRunCodecState:
     return loadedNum
 
 
-  def setPlaindataItem(self,index,value,dbgCatalogueValue=-260):
+  def setPlaindataItem(self, index, value, eliminateColumn=None, modifyOutputArr=False, dbgCatalogueValue=-260):
     """
     This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
     """
     self.spline[index] = value
-    if CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY:
-      self.cellCatalogue.eliminateColumn(index,dbgCustomValue=dbgCatalogueValue)
+    if (eliminateColumn == None and CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY) or (eliminateColumn):
+      self.cellCatalogue.eliminateColumn(index, dbgCustomValue=dbgCatalogueValue)
+    if modifyOutputArr:
+      if self.opMode == "decode":
+        self.plainDataOutputArr[index] = value
 
 
   def getOutput(self):
@@ -629,7 +634,7 @@ class CellElimRunCodecState:
     self.cellCatalogue = ColumnCellCatalogue(size=size)
 
     endpointInitMode = self.headerDict["space_definition"]["endpoint_init_mode"]
-    self.spline = Curves.Spline(size=size,endpointInitMode=endpointInitMode)
+    self.spline = Curves.Spline(size=size, endpointInitMode=endpointInitMode)
     
     if "bounds" in self.headerDict["space_definition"].keys():
       bounds = self.headerDict["space_definition"]["bounds"]
@@ -676,7 +681,7 @@ class CellElimRunCodecState:
     else:
       assert False, "invalid opMode."
       
-
+  
 
   def interpolateMissingValues(self,targetArr):
     if None in targetArr:
@@ -688,12 +693,13 @@ class CellElimRunCodecState:
     else:
       self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
       pass
-      
 
+  
   def processBlock(self,allowMissingValues=False):
     """
     This method is the host to the encoding or decoding process of the Cell Elimination Run algorithm. This method processes all the data that is currently loaded into or available to the CellElimRunCodecState, which is supposed to be one block of data. It does not know about surrounding blocks of audio or the results of handling them. When finished, it does not clean up after itself in any way - the variables like self.runIndex and self.stepIndex are not reset, so that they can be reviewed later. For this purpose, the main transcode method (PyCellElimRun.cellElimRunBlockTranscode) has an argument to return the entire codec state instead of the output data.
     """
+    #assert allowMissingValues == True
     self.processAllRuns()
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self.plainDataOutputArr)
@@ -717,9 +723,9 @@ class CellElimRunCodecState:
           print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
         elif self.opMode == "decode":
           if self.plainDataOutputArr.count(None) == len(self.plainDataOutputArr):
-            raise ExhaustionError("CellElimRunCodecState was probably initialized with empty input data.")
+            raise ExhaustionError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs. Maybe the input data was empty to begin with. The error was {}.".format(self.runIndex, repr(ee)))
           else:
-            raise ParseError("CellElimRunCodecState.processRun through an exhaustion error, but the pressDataOutputArr is not empty, so it is unlikely that the codec state was initialized with empty input data.")
+            raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self.plainDataOutputArr is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(self.runIndex, repr(ee)))
         else:
           assert False, "invalid opMode."
 
@@ -733,13 +739,11 @@ class CellElimRunCodecState:
     self.stepIndex = 0
     runShouldContinue = True
     
-    cellTargeter = CellTargeter(self.size,self.spline,self.cellCatalogue,self.headerDict["score_mode"]) #@ this should be moved to much earlier and not occur once per processRun - instead, only a method to refresh the rankings should be called at this time.
+    cellTargeter = CellTargeter(self.size,self.spline,self.cellCatalogue,self.headerDict["score_mode"])
     cellTargeter.buildRankings()
-    #cellTargeter.refreshRankings() #enable once rankings are built in some other method.
     
-    if not cellTargeter.optionsExist():
-      #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
-      return False #indicate that processing should stop. This is just like the old strategy of returning False after skipping the loop is skipped due to the seq containing no items.
+    if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
+      return False #indicate that processing should stop.
         
     currentPressDataNum = None
     if self.opMode == "decode": #access to the currentPressDataNum is only needed while decoding. it doesn't exist while encoding.
@@ -764,24 +768,26 @@ class CellElimRunCodecState:
       
       if self.opMode == "encode":
         if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...
-          self.pressDataOutputArr.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
           runShouldContinue = False #run should not continue.
-        else:
-          self.stepIndex += 1
       elif self.opMode == "decode":
         if currentPressDataNum == self.stepIndex: #if run is ending...
-          self.plainDataOutputArr[cellToCheck[0]] = cellToCheck[1] #then a new hit is known.
           runShouldContinue = False #run should not continue.
-        else:
-          self.stepIndex += 1
       else:
-        assert False, "invalid opMode."
+        assert False, "Invalid opMode."
       
       if not runShouldContinue: #if cellToCheck is a hit:
-        self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
-        if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
-          self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
+        if self.opMode == "encode":
+          self.pressDataOutputArr.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
+        elif self.opMode == "decode":
+          pass #nothing in this branch because it is instead handled by setPlaindataItem.
+        else:
+          assert False, "Invalid opMode."
+        self.setPlaindataItem(cellToCheck[0], cellToCheck[1], eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-555)
+        #self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
+        #if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
+        #  self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
         return True #indicate that processing should continue.
+      self.stepIndex += 1
     assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
 
     

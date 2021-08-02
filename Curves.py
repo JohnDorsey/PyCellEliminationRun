@@ -189,6 +189,8 @@ class Spline:
       for i in range(len(slopes)):
         slopes[i] = min(0,slopes[i])
 
+  def __len__(self): #this is to make Spline iterable.
+    return self.size[0]
 
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
