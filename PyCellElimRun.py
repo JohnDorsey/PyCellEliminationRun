@@ -346,12 +346,17 @@ class ColumnCellCatalogue(CellCatalogue):
 
 
 class CellTargeter:
-  def __init__(self,size,spline,cellCatalogue,scoreFun):
+  def __init__(self,size,spline,cellCatalogue,scoreFun,critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
     self.size = size
     self.spline = spline
     self.cellCatalogue = cellCatalogue
     self.prepScoreMode(scoreFun)
+    if critCellCallbackMethod == None:
+      print("PyCellElimRun.CellTargeter: warning: creating a dud critCellCallbackMethod because one was not provided.")
+      def critCellCallbackMethod(critCell):
+        pass
+    self.critCellCallbackMethod = critCellCallbackMethod
     self.rankings = None
     self.rankingsInsortKeyFun = (lambda item: item[0]) #used by genCellCheckOrder.
     
@@ -426,9 +431,11 @@ class CellTargeter:
       
       if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
-        self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-777)
         #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
-        yield ("fix",replacementCell)
+        #the following are disabled because they are supposed to be handled by the critCellCallbackFun instead.
+        #self.cellCatalogue.eliminateColumn(outputCell[:-1],dbgCustomValue=-777)
+        #yield ("fix",replacementCell)
+        self.critCellCallbackMethod(replacementCell,dbgCatalogueValue=-438438)
         del self.rankings[0]
       else:
         del self.rankings[0]
@@ -486,7 +493,11 @@ class CellElimRunCodecState:
 
     self.applyHeader()
     assert self.size[0] == len(self.spline.data)
-
+    
+    #this is defined here because it must not take self as an argument, because the CellTargeter should not need a reference to this CERCS to us it.
+    def cellTargeterCritCellCallbackMethod(critCell,dbgCatalogueValue=-498498): 
+      self.setPlaindataItem(critCell,dbgCatalogueValue=dbgCatalogueValue)
+    self.cellTargeterCritCellCallbackMethod = cellTargeterCritCellCallbackMethod
 
 
   def initializeByDefault(self):
@@ -606,10 +617,11 @@ class CellElimRunCodecState:
     return loadedNum
 
 
-  def setPlaindataItem(self, index, value, eliminateColumn=None, modifyOutputArr=False, dbgCatalogueValue=-260):
+  def setPlaindataItem(self, cellToSet, eliminateColumn=None, modifyOutputArr=False, dbgCatalogueValue=-260):
     """
     This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
     """
+    index, value = cellToSet
     self.spline[index] = value
     if (eliminateColumn == None and CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY) or (eliminateColumn):
       self.cellCatalogue.eliminateColumn(index, dbgCustomValue=dbgCatalogueValue)
@@ -646,13 +658,13 @@ class CellElimRunCodecState:
     if "bound_touches" in self.headerDict["space_definition"].keys():
       boundTouches = self.headerDict["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["north"], self.headerDict["space_definition"]["bounds"]["upper"]-1, dbgCatalogueValue=-518)
+        self.setPlaindataItem([boundTouches["north"], self.headerDict["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
       if "south" in boundTouches.keys():
-        self.setPlaindataItem(boundTouches["south"], self.headerDict["space_definition"]["bounds"]["lower"], dbgCatalogueValue=-520)
+        self.setPlaindataItem([boundTouches["south"], self.headerDict["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-520)
       if "east" in boundTouches.keys():
-        self.setPlaindataItem(size[0]-1, boundTouches["east"], dbgCatalogueValue=-522)
+        self.setPlaindataItem([size[0]-1, boundTouches["east"]], dbgCatalogueValue=-522)
       if "west" in boundTouches.keys():
-        self.setPlaindataItem(0, boundTouches["west"], dbgCatalogueValue=-524)
+        self.setPlaindataItem([0, boundTouches["west"]], dbgCatalogueValue=-524)
         
 
   def prepOpMode(self): # -> None:
@@ -739,8 +751,8 @@ class CellElimRunCodecState:
     self.stepIndex = 0
     runShouldContinue = True
     
-    cellTargeter = CellTargeter(self.size,self.spline,self.cellCatalogue,self.headerDict["score_mode"])
-    cellTargeter.buildRankings()
+    cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerDict["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
+    cellTargeter.buildRankings() #this is probably slower than refreshing the rankings, but also simpler.
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
       return False #indicate that processing should stop.
@@ -782,7 +794,7 @@ class CellElimRunCodecState:
           pass #nothing in this branch because it is instead handled by setPlaindataItem.
         else:
           assert False, "Invalid opMode."
-        self.setPlaindataItem(cellToCheck[0], cellToCheck[1], eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-555)
+        self.setPlaindataItem(cellToCheck, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
         #self.spline[cellToCheck[0]] = cellToCheck[1] #is it really that easy?
         #if CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END:
         #  self.cellCatalogue.eliminateColumn(cellToCheck[0],dbgCustomValue=-5)
