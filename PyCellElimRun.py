@@ -14,7 +14,7 @@ import CodecTools
 from IntArrMath import intify
 
 from Codes import ParseError
-from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate, countIn
+from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate, countIn, allAreEqual
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
 import PyDeepArrTools
 from PyDeepArrTools import shape, enumerateDeeply, iterateDeeply
@@ -716,7 +716,7 @@ class CellElimRunCodecState:
         if self.opMode == "encode":
           print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
         elif self.opMode == "decode":
-          if allAreEqual(countIn(iterateDeeply(self.plainDataOutputArr),None,includeDenominator==True)):
+          if allAreEqual(countIn(iterateDeeply(self.plainDataOutputArr),None,includeDenominator=True)):
             raise ExhaustionError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs. Maybe the input data was empty to begin with. The error was {}.".format(self.runIndex, repr(ee)))
           else:
             raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self.plainDataOutputArr is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(self.runIndex, repr(ee)))
