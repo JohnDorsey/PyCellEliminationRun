@@ -123,6 +123,8 @@ Design notes:
     -internal features:
     
       -simplify the CellElimRunCodecState:
+      
+        -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
     
         -make a curve world class, where Spline and CellCatalogue are kept together. Move cell check order calculations there, and make cell check order not provided by a generator. Instead, make it the responsibility of one world method to get the next cell to check, and another world method to provide a response to the world.
         
@@ -131,8 +133,10 @@ Design notes:
         -move more header tools out of CellElimRunBlockState.
       
         -separate experimental features from the headerDict and header routines.
+        
+      -speed up cercs logging by splitting lines.
       
-        -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
+      -use the logging module.
       
       -make EmbedCode class to allow original values for settings to be embedded.
 

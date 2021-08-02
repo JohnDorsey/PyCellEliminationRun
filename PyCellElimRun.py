@@ -14,10 +14,10 @@ import CodecTools
 from IntArrMath import intify
 
 from Codes import ParseError
-from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate
+from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate, countIn
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
 import PyDeepArrTools
-from PyDeepArrTools import shape, enumerateDeeply
+from PyDeepArrTools import shape, enumerateDeeply, iterateDeeply
 import PyDictTools
 from PyDictTools import augmentDict, augmentedDict, makeFlatKeySeq
 
@@ -495,7 +495,9 @@ class CellElimRunCodecState:
         for keyB in makeFlatKeySeq(self.headerDict[keyA]):
           if keyB == "size":
             self.size = self.headerDict[keyA][keyB]
-            self.stepIndexTimeout = accumulate((measure+2 for measure in self.size),"*")
+            self.stepIndexTimeout = accumulate((measure+2 for measure in self.size),"*") #used in causing failure when processRun goes on for too long.
+            self.expectedLiveCellCount = accumulate((measure for measure in self.size[:-1]),"*")
+            self.dimensions = len(self.size)
             
   def log(self,text):
     if not hasattr(self,"logStr"):
@@ -676,17 +678,17 @@ class CellElimRunCodecState:
       
   
 
-  def interpolateMissingValues(self,targetArr):
-    if None in targetArr:
-      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: " + str(targetArr.count(None)) + " missing values exist and will be filled in using the interpolation settings of the spline object that was used for transcoding.")
-      self.log("The missing values are at the indices " + str([i for i in range(len(targetArr)) if targetArr[i] == None]) + ".")
-      for index in range(len(targetArr)):
-        if targetArr[index] == None:
-          targetArr[index] = self.spline[index]
-    else:
-      self.log("PyCellElimRun.CellElimRunCodecState.interpolateMissingValues: no missing values exist.")
-      pass
-
+  def interpolateMissingValues(self,data):
+    changeCounter = 0
+    for columnID,_ in enumerateDeeply(data):
+      newValue = self.spline.getValueUsingPath(columnID)
+      originalValue = PyDeepArrTools.setValueUsingPath(data, columnID, newValue)
+    if originalValue != newValue:
+      changeCounter += 1
+      assert originalValue == None, "a non-none value was changed."
+    if changeCounter > 0:
+      print("interpolateMissingValues changed {} values.".format(changeCounter))
+      
   
   def processBlock(self,allowMissingValues=False):
     """
@@ -703,7 +705,7 @@ class CellElimRunCodecState:
   def processAllRuns(self):
     self.runIndex = 0
     while True:
-      if (self.opMode == "encode" and self.runIndex >= len(self.plainDataInputArr)) or (self.opMode == "decode" and self.runIndex >= self.size[0]):
+      if self.runIndex >= self.expectedLiveCellCount:
         break
       processAllRunsShouldContinue = False
       try:
@@ -714,7 +716,7 @@ class CellElimRunCodecState:
         if self.opMode == "encode":
           print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
         elif self.opMode == "decode":
-          if self.plainDataOutputArr.count(None) == len(self.plainDataOutputArr):
+          if allAreEqual(countIn(iterateDeeply(self.plainDataOutputArr),None,includeDenominator==True)):
             raise ExhaustionError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs. Maybe the input data was empty to begin with. The error was {}.".format(self.runIndex, repr(ee)))
           else:
             raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self.plainDataOutputArr is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(self.runIndex, repr(ee)))
@@ -725,41 +727,45 @@ class CellElimRunCodecState:
         break
 
 
-      
 
   def processRun(self): #do one run, either encoding or decoding.
     self.stepIndex = 0
-    runShouldContinue = True
     
     cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerDict["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
     cellTargeter.buildRankings() #this is probably slower than refreshing the rankings, but also simpler.
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self.pressDataInputGen.
       return False #indicate that processing should stop.
-        
-    currentPressDataNum = None
+    
+    currentPressdataNum = None
     if self.opMode == "decode": #access to the currentPressDataNum is only needed while decoding. it doesn't exist while encoding.
       try:
-        currentPressDataNum = next(self.pressDataInputGen)
+        currentPressdataNum = next(self.pressDataInputGen)
       except StopIteration:
         self.log("PyCellElimRun.CellElimRunCodecState.processRun has run out of pressData input items. This is uncommon.")
         raise ExhaustionError("ran out of pressDataInputGen items while decoding. This is ONLY supposed to happen when the input data is too short to represent a valid CER block.")
         return False #indicate that processing should stop. This shouldn't be reached anyway, due to the exhaustion error.
     
+    hitTest = None
+    if self.opMode == "encode":
+      if self.dimensions < 2:
+        raise ValueError("Invalid self.dimensions")
+      if self.dimensions == 2:#this version is only different from the higher-dimensional version for performance reasons.
+        hitTest = (lambda: self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]) 
+      else:
+        hitTest = (lambda: PyDeepArrTools.getValueUsingPath(cellToCheck[:-1]) == cellToCheck[-1])
+    elif self.opMode == "decode":
+      hitTest = (lambda: currentPressdataNum == self.stepIndex)
+    else:
+      assert False, "Invalid opMode"
+    
     targetSeq = cellTargeter.genCellCheckOrder()
     for cellToCheck in targetSeq:
       assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex,self.size)
       
-      if self.opMode == "encode":
-        if self.plainDataInputArr[cellToCheck[0]] == cellToCheck[1]: #if hit...
-          runShouldContinue = False #run should not continue.
-      elif self.opMode == "decode":
-        if currentPressDataNum == self.stepIndex: #if run is ending...
-          runShouldContinue = False #run should not continue.
+      if not hitTest():
+        self.stepIndex += 1
       else:
-        assert False, "Invalid opMode."
-      
-      if not runShouldContinue: #if cellToCheck is a hit:
         if self.opMode == "encode":
           self.pressDataOutputArr.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
         elif self.opMode == "decode":
@@ -768,7 +774,6 @@ class CellElimRunCodecState:
           assert False, "Invalid opMode."
         self.setPlaindataItem(cellToCheck, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
         return True #indicate that processing should continue.
-      self.stepIndex += 1
     assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
 
     
@@ -811,12 +816,12 @@ def getOrFallback(inputDict,inputKey,fallbackValue):
     
     
 
-def cellElimRunBlockTranscode(inputData,opMode,*args,**kwargs):
+def cellElimRunBlockTranscode(inputData, opMode, *args, **kwargs):
   assert opMode in ["encode","decode"]
   inputHeaderDict = expandArgsToCERCSHeaderDict(args)
-  dbgReturnCERCS = getOrFallback(kwargs,"dbgReturnCERCS",False)
+  dbgReturnCERCS = getOrFallback(kwargs, "dbgReturnCERCS", False)
 
-  tempCERCS = CellElimRunCodecState(inputData,opMode,inputHeaderDict)
+  tempCERCS = CellElimRunCodecState(inputData, opMode, inputHeaderDict)
   tempCERCS.processBlock()
   if dbgReturnCERCS:
     return tempCERCS
@@ -825,7 +830,7 @@ def cellElimRunBlockTranscode(inputData,opMode,*args,**kwargs):
   
 
 
-def genCellElimRunBlockSeqTranscode(inputData,opMode,*args,**kwargs):
+def genCellElimRunBlockSeqTranscode(inputData, opMode, *args, **kwargs):
   segmentInput = getOrFallback(kwargs,"segmentInput",False)
   segmentOutput = getOrFallback(kwargs,"segmentOutput",False)
   inputHeaderDict = expandArgsToCERCSHeaderDict(args)
@@ -838,7 +843,7 @@ def genCellElimRunBlockSeqTranscode(inputData,opMode,*args,**kwargs):
       currentInputData = inputData
     currentResult = None
     try:
-      currentResult = cellElimRunBlockTranscode(currentInputData,opMode,inputHeaderDict)
+      currentResult = cellElimRunBlockTranscode(currentInputData, opMode, inputHeaderDict)
     except ExhaustionError:
       break
     assert currentResult != None
@@ -851,9 +856,9 @@ def genCellElimRunBlockSeqTranscode(inputData,opMode,*args,**kwargs):
 
 
 
-cellElimRunBlockCodec = CodecTools.Codec(None,None,transcodeFun=cellElimRunBlockTranscode,domain="UNSIGNED")
+cellElimRunBlockCodec = CodecTools.Codec(None, None, transcodeFun=cellElimRunBlockTranscode, domain="UNSIGNED")
 
-cellElimRunBlockSeqCodec = CodecTools.Codec(None,None,transcodeFun=genCellElimRunBlockSeqTranscode,domain="UNSIGNED")
+cellElimRunBlockSeqCodec = CodecTools.Codec(None, None, transcodeFun=genCellElimRunBlockSeqTranscode, domain="UNSIGNED")
 
 
 

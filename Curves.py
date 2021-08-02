@@ -313,6 +313,16 @@ class Spline:
     except IndexError:
       pass
       
+  def getValueUsingPath(self,path):
+    if type(path) == list:
+      assert len(path)==1
+      path = path[0]
+    elif type(path) == int:
+      pass #no change needed
+    else:
+      raise TypeError("path")
+    return self.__getitem__(path)
+      
   def setValueUsingCell(self,cell):
     assert len(cell) == 2
     self.__setitem__(cell[0],cell[1])

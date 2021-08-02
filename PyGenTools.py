@@ -190,6 +190,23 @@ def accumulate(inputSeq, inputFun):
   for item in inputSeq:
     result = inputFun(result, item)
   return result
+  
+def allAreEqual(inputSeq):
+  inputSeq = makeGen(inputSeq)
+  sharedValue = next(inputSeq)
+  for item in inputSeq:
+    if item != sharedValue:
+      return False
+  return True
+  
+def countIn(inputSeq, testValue, includeDenominator=False):
+  return countTriggers(inputSeq,(lambda x: x==testValue),includeDenominator=includeDenominator)
+  
+def countTriggers(inputSeq, triggerFun, includeDenominator=False):
+  count, denominator = 0, 0
+  for item in inputSeq:
+    count, denominator = count+triggerFun(item), denominator+1
+  return (count,denominator) if includeDenominator else count
 
 
 class CC:
