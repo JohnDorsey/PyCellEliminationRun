@@ -483,13 +483,18 @@ class CellElimRunCodecState:
 
 
   def initializeByDefault(self):
-    """ initializeByDefault initializes things that can't be changed by class settings and don't depend on header information. """
+    """
+    initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
+    """
     self._input_plaindata_matrix, self._input_pressdata_gen = None, None
     self._output_pressdata_list = None
     self._output_plaindata_matrix = None
     self.TO_COMPLETED_HEADER_DICT_TEMPLATE = (lambda inputObject: augmentedDict(inputObject, CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE))
     
   def applyHeader(self):
+    """
+    After loading the header, extract some information that is accessed in loops while encoding or decoding. No method that runs during initialization needs these to be initialized.
+    """
     for keyA in makeFlatKeySeq(self.headerDict):
       if keyA == "space_definition":
         for keyB in makeFlatKeySeq(self.headerDict[keyA]):
@@ -508,7 +513,9 @@ class CellElimRunCodecState:
     
     
   def headerRoutinePathwiseOracleFun(self, inputPath, inputValue):
-    #print("headerRoutineGeneralPathwiseOracleFun called with args " + str([inputPath,inputValue]) + ".")
+    """
+    This method is provided as an argument to methods in PyDictTools, and is used to initialize header values based on their location in the header (as a list of dict keys and list indices to be applied in order to reach that location in the header) and the original placeholder value inputValue. This method should not be responsible for knowing when it should run - it should be used only at the proper time, which is identified by a separate trigger function.
+    """
     result = inputValue
     if inputPath[-3:-1] == ["space_definition","bound_touches"]:
       assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bound_touches is only available for 2D data."
@@ -564,7 +571,10 @@ class CellElimRunCodecState:
     return self.saveHeaderValue(result) #assume it should be saved, and save it.
 
 
-  def headerPhaseRoutine(self,phaseName):
+  def headerPhaseRoutine(self, phaseName):
+    """
+    This method is called at different stages of initialization, to fill in some new header data (whichever data is clearly marked by string placeholders matching \"EMBED:<the name of the phase>\"). While initializing for encode mode, header values are calculated based on the plaindata, which is known, and recorded in two places: replacing the placeholder in the headerDict, and appended to the end of the pressHeaderValues. While initializing for decode mode, the plaindata is unknown, and that's why header placeholder values of "EMBED:..." are immediately loaded from the front of the pressdata nums instead, where they were stored... as long as the inputHeaderTemplateDict telling which values are to be embedded is exactly the same as the one that was provided for the original encoding. It is also necessary that the order of processing for pressHeaderNums is constant. The standard is to visit dictionary keys and list indices in ascending order (which only impacts the output when different placeholders have the same phase name), evaluate the placeholders, and obey the placeholder phase names strictly. There is no proper time to resolve header placeholders with no phase name - they are just ignored.
+    """
     self.log("header phase " + phaseName +" started with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
     #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
     phaseEmbedCode = "EMBED:"+phaseName
@@ -583,12 +593,18 @@ class CellElimRunCodecState:
 
 
   def saveHeaderValue(self,value):
+    """
+    Append a value to the pressHeaderValues and return it.
+    """
     if type(value) != int:
       print(self.log("PyCellElimRun.CellElimRunCodecState.saveHeaderNum: Warning: the value being saved is of type " + str(type(value)) + ", not int! Codecs processing the output of this codec may not expect this!"))
     self.pressHeaderValues.append(value)
     return value
 
   def loadHeaderValue(self):
+    """
+    Remove a value from the front of self.inputDataGen and return it. Do this only when it is known that a header value is at the front of self.inputDataGen.
+    """
     loadedNum = None
     try:
       loadedNum = next(self.inputDataGen)
@@ -601,7 +617,7 @@ class CellElimRunCodecState:
 
   def setPlaindataItem(self, cellToSet, eliminateColumn=None, modifyOutputArr=False, dbgCatalogueValue=-260):
     """
-    This method offers a simple way to adjust the spline and cellCatalogue simultaneously when new information is learned (such as when it is provided by the block header).
+    This method is used to update the common view of the data represented by the spline or interpolator, cell catalogue, and output plaindata matrix. This is the _only_ legal way to update this information, and this rule makes it easy to trust different parts of the program with updating this data at the earliest possible opportunity, which directly increases compression ratio.
     """
     self.spline.setValueUsingCell(cellToSet)
     if (eliminateColumn == None and CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY) or (eliminateColumn):
@@ -612,6 +628,9 @@ class CellElimRunCodecState:
 
 
   def getOutput(self):
+    """
+    This method exists because the property that stores the output varies with the opMode, and because the press header nums are a separate list for easier debugging, but should still be included in the same output whenever encoding has already completed without issue.
+    """
     if self.opMode == "encode":
       return self.pressHeaderValues + self._output_pressdata_list
     elif self.opMode == "decode":
