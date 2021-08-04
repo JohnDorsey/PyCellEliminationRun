@@ -25,6 +25,41 @@ def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
 
 
 
+def forceMonotonicSlopes(sur,slopes): #completely untested.
+  #sur stands for surroundings.
+  surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)] #changes in y between each pair of points.
+  surMonotonicSlope = -1 if all(((item <= 0) for item in surRises)) else 1 if all(((item >= 0) for item in surRises)) else 0 #the sign of every surRise if those are all the same sign, else 0.
+  if surMonotonicSlope == 1:
+    for i in range(len(slopes)):
+      slopes[i] = max(0,slopes[i])
+  elif surMonotonicSlope == -1:
+    for i in range(len(slopes)):
+      slopes[i] = min(0,slopes[i])
+#these functions are used in constructing cubic hermite splines.
+def hermite_h00(t):
+  return 2*t**3 - 3*t**2 + 1
+def hermite_h10(t):
+  return t**3 - 2*t**2 + t
+def hermite_h01(t):
+  return -2*t**3 + 3*t**2
+def hermite_h11(t):
+  return t**3-t**2
+
+
+
+"""
+class InterpolationDefinition:
+  def __init__(self,interpolationFun, surroundingsRequirements):
+    self.interpolationFun = interpolationFun
+    self.surroundingsRequirements = surroundingsRequirements
+    
+#def holdInterpolationFun(sur):
+#  return sur[1][1]
+#def nearestNeighborInterpolationFun  
+INTERPOLATION_DEFINITIONS = dict()
+"""
+
+
 
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
@@ -37,9 +72,31 @@ class Spline:
   CACHE_BONE_DISTANCE_ABS = True #only applies when valueCache misses.
   
   #in the following dictionary, integers represent points relative to the new point 0. 1 is the next anchor point to the right of the new point, 2 is the point to the right of that one, and the points -1 and -2 are similar. a tuple of two ints represents the span between those two points. Future interpolation methods might require more than this notation can offer, such as trig (fourier) requiring a keyword like "ENTIRE".
-  VALUE_CACHE_UPDATE_TYPES = {"hold":[(0,1)],"nearest_neighbor":[(-1,0),(0,1)],"linear":[(-1,0),(0,1)],"sinusoidal":[(-1,0),(0,1)],"finite_difference_cubic_hermite":[(-2,-1),(-1,0),(0,1),(1,2)]}
+  VALUE_CACHE_UPDATE_TYPES = {
+    "hold":[(0,1)],
+    "nearest_neighbor":[(-1,0),(0,1)],
+    "linear":[(-1,0),(0,1)],
+    "sinusoidal":[(-1,0),(0,1)],
+    "finite_difference_cubic_hermite":[(-2,-1),(-1,0),(0,1),(1,2)]
+  }
+  
+  SURROUNDINGS_REQUIREMENTS = {
+    "hold":[0,1,0,0],
+    "nearest_neighbor":[0,1,1,0],
+    "linear":[0,1,1,0],
+    "sinusoidal":[0,1,1,0],
+    "finite_difference_cubic_hermite":[1,1,1,1]
+  }
+  
+  OUTPUT_FILTER_TEMPLATES = {
+    "span_clip":"max(min({},max(sur_for_filter[1][1],sur_for_filter[2][1])),min(sur_for_filter[1][1],sur_for_filter[2][1]))",
+    "global_clip":"max(min({},self.size[1]),0)",
+    "round":"int(round({}))"
+  }
 
   def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpointInitMode=None):
+    
+    self.initializeByDefault()
     
     self.setInterpolationMode(interpolationMode)
     self.setSizeAndEndpoints(size,endpointInitMode)
@@ -54,6 +111,14 @@ class Spline:
     self.__setitem__(0,self.endpoints[0][1])
     self.__setitem__(-1,self.endpoints[1][1])
     assert len(self.data) == self.size[0]
+
+
+  def initializeByDefault(self):
+    self.forceMonotonicSlopes = forceMonotonicSlopes
+    self.hermite_h00 = hermite_h00
+    self.hermite_h10 = hermite_h10
+    self.hermite_h01 = hermite_h01
+    self.hermite_h11 = hermite_h11
 
 
   def setSizeAndEndpoints(self,size,endpointInitMode):
@@ -88,6 +153,7 @@ class Spline:
 
 
   def setInterpolationMode(self,interpolationMode):
+    assert type(interpolationMode) == str
     self.interpolationMode = interpolationMode.split("&")[0]
     self.outputFilters = []
     if "&" in interpolationMode:
@@ -97,9 +163,10 @@ class Spline:
     for outputFilter in self.outputFilters:
       if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
         raise ValueError("The outputFilter " + outputFilter + " is not supported.")
+    #print("setInterpolationMode set outputFilters to {}.".format(self.outputFilters))
     self.findPerformanceWarnings()
-
-
+    self.initializeOutputFilter()
+    
   def findPerformanceWarnings(self):
     def warn(filterName,modeName):
       print("Curves.Spline.findPerformanceWarnings: outputFilter \"" + filterName + "\" and interpolationMode \"" + modeName + "\" are both enabled, but that filter doesn't affect the results of that method of interpolation.")
@@ -114,16 +181,22 @@ class Spline:
     if "span_clip" in self.outputFilters and "global_clip" in self.outputFilters:
       print("Curves.Spline.findPerformanceWarnings: global_clip and span_clip are both enabled, but span_clip always does the job of global_clip, assuming no Spline bones are outside of the size of the spline.")
 
+  def initializeOutputFilter(self):
+    if "global_clip" in self.outputFilters:
+      print("Curves.Spline: warning: global clip incorrectly uses size. boundaries should be added to spline to properly support global clipping.")
+    ORIGINAL_OUTPUT_FILTER_TEMPLATE = "lambda value_to_filter, sur_for_filter: {}"
+    outputFilterTemplate = ORIGINAL_OUTPUT_FILTER_TEMPLATE
+    
+    #print("Curves.Spline.initializeOutputFilter: self.outputFilters is now {}.".format(self.outputFilters))
+    for outputFilterName in self.outputFilters:
+      if outputFilterName in Spline.OUTPUT_FILTER_TEMPLATES.keys():
+        outputFilterTemplate = outputFilterTemplate.format(Spline.OUTPUT_FILTER_TEMPLATES[outputFilterName])
+      else:
+        print("output filter {} is not in OUTPUT_FILTER_TEMPLATES, but that's probably fine.".format(outputFilterName))
+    outputFilterTemplate = outputFilterTemplate.format("value_to_filter")
+    self._output_filter_fun = eval(outputFilterTemplate)
+    #print("initializeOutputFilter finally evaluated {}.".format(repr(outputFilterTemplate)))
 
-  #these functions are used in constructing cubic hermite splines.
-  def hermite_h00(self,t):
-    return 2*t**3 - 3*t**2 + 1
-  def hermite_h10(self,t):
-    return t**3 - 2*t**2 + t
-  def hermite_h01(self,t):
-    return -2*t**3 + 3*t**2
-  def hermite_h11(self,t):
-    return t**3-t**2
 
 
   def toPrettyStr(self):
@@ -177,20 +250,26 @@ class Spline:
           return None
     assert False
 
+  def getNecessarySurroundings(self,index):
+    """
+    creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values needed by the current interpolation mode. Values not needed will be None.
+    """
+    surroundings = [None,None,None,None]
+    surroundingsRequirements = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolationMode]
+    if surroundingsRequirements[1]:
+      surroundings[1] = self.getPointInDirection(index,-1)
+      if surroundingsRequirements[0]:
+        surroundings[0] = self.getPointInDirection(surroundings[1][0],-1)
+    if surroundingsRequirements[2]:
+      surroundings[2] = self.getPointInDirection(index,1)
+      if surroundingsRequirements[3]:
+        surroundings[3] = self.getPointInDirection(surroundings[2][0],1)
+    return surroundings
 
-  def forceMonotonicSlopes(self,sur,slopes): #completely untested.
-    #sur stands for surroundings.
-    surRises = [sur[i+1][1] - sur[i][1] for i in range(len(sur)-1)] #changes in y between each pair of points.
-    surMonotonicSlope = -1 if all(((item <= 0) for item in surRises)) else 1 if all(((item >= 0) for item in surRises)) else 0 #the sign of every surRise if those are all the same sign, else 0.
-    if surMonotonicSlope == 1:
-      for i in range(len(slopes)):
-        slopes[i] = max(0,slopes[i])
-    elif surMonotonicSlope == -1:
-      for i in range(len(slopes)):
-        slopes[i] = min(0,slopes[i])
 
   def __len__(self): #this is to make Spline iterable.
     return self.size[0]
+
 
   def __getitem__(self,index):
     #not integer-based yet. Also, some methods can't easily be integer-based.
@@ -209,94 +288,42 @@ class Spline:
       
         
   def solveItem(self,index):
+    sur = self.getNecessarySurroundings(index)
+    t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
+    result = None
+  
     if self.interpolationMode == "hold":
-      result = self.getPointInDirection(index,-1)
-      if result != None:
-        return result[1]
-      result = self.getPointInDirection(index,1)
-      assert result != None, "Curves.Spline.__getitem__: zero known points is not enough to work with."
-      return result[1]
+      resultPoint = sur[1]
+      result = resultPoint[1]
     elif self.interpolationMode == "nearest_neighbor":
       #when two neighbors are equal distances away, the one on the left will be chosen.
-      leftItemIndex,rightItemIndex = (index, index) #@ these don't really need to be separate variables.
-      while True:
-        leftItemIndex -= 1
-        rightItemIndex += 1
-        if leftItemIndex < 0:
-          break
-        if rightItemIndex >= len(self.data):
-          break
-        if self.data[leftItemIndex] != None:
-          return self.data[leftItemIndex]
-        if self.data[rightItemIndex] != None:
-          return self.data[rightItemIndex]
-      assert False, "this interpolation mode can't run with missing endpoints or a bad location." #saved some time by not handling this, even though it would be simple to handle.
-
-    #interpolationModes after this point generally end without using return so that the end of the function with outputFilter code may apply.
-    result = None
-
-    if self.interpolationMode in ["linear","sinusoidal"]:
-      #turning on this commented-out code slowed a round-trip test from 5.45 seconds to 7.77 seconds. BoneDistanceAbs Caching was disabled.
-      """
-      leftBone,rightBone = (self.getPointInDirection(index,-1), self.getPointInDirection(index,1)) 
-      progression = float(index-leftBone[0])/float(rightBone[0]-leftBone[0])
+      resultPoint = sur[1] if (t <= 0.5) else sur[2]
+      result = resultPoint[1]
+    elif self.interpolationMode in ["linear","sinusoidal"]:
+      leftBone,rightBone = sur[1], sur[2]
       if self.interpolationMode == "linear":
-        return leftBone[1]+((rightBone[1]-leftBone[1])*progression)
+        result = leftBone[1]+((rightBone[1]-leftBone[1])*t)
       elif self.interpolationMode == "sinusoidal":
-        return leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*progression)))
-      """
-      leftItemIndex,rightItemIndex = (index-1,index+1) #@ the following search procedure could be moved to another method.
-      if Spline.CACHE_BONE_DISTANCE_ABS: #this cache and this search method dropped linear mode compression time from 5.3 to 4.9 seconds for 1024 samples, and from 28.8 to 26 seconds for 2048 samples.
-        while self.data[leftItemIndex] == None:
-          leftItemIndex -= self.boneDistanceAbs[leftItemIndex]
-        while self.data[rightItemIndex] == None:
-          rightItemIndex += self.boneDistanceAbs[rightItemIndex]
+        result = leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*t)))
+    
+    elif self.interpolationMode == "finite_difference_cubic_hermite":
+      if None in sur[1:3]:
+        assert False, "an important (inner) item is missing from the surroundings."
+      slopes = [None,None]
+      if sur[0] == None:
+        slopes[0] = float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])
       else:
-        while self.data[leftItemIndex] == None:
-          leftItemIndex -= 1
-        while self.data[rightItemIndex] == None:
-          rightItemIndex += 1
-      progression = float(index-leftItemIndex)/float(rightItemIndex-leftItemIndex)
-      if self.interpolationMode == "linear":
-        result = self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*progression)
-      elif self.interpolationMode == "sinusoidal":
-        result = self.data[leftItemIndex]+((self.data[rightItemIndex]-self.data[leftItemIndex])*0.5*(1-math.cos(math.pi*progression)))
+        slopes[0] = 0.5*(float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])+float(sur[1][1]-sur[0][1])/float(sur[1][0]-sur[0][0]))
+      if sur[3] == None:
+        slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
+      else:
+        slopes[1] = 0.5*(float(sur[3][1]-sur[2][1])/float(sur[3][0]-sur[2][0])+float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0]))
+      if "monotonic" in self.outputFilters:
+        self.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
+      result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
+    raise KeyError("The interpolationMode {} isn't supported.".format(self.interpolationMode))
     
-    elif self.interpolationMode in ["finite_difference_cubic_hermite","fourier"]:
-      sur = [None,self.getPointInDirection(index,-1),self.getPointInDirection(index,1),None] #sur is defined out here so that the "clip" outputFilter can access it. Sur could be moved to the top of this method and its values used by all interpolation modes for simplicity, but that could be around 40% slower based on testing with the linear mode.
-      if self.interpolationMode == "finite_difference_cubic_hermite":
-        sur[0],sur[3] = (self.getPointInDirection(sur[1][0],-1),self.getPointInDirection(sur[2][0],1))
-        if None in sur[1:3]:
-          assert False, "an important (inner) item is missing from the surroundings."
-        slopes = [None,None]
-        if sur[0] == None:
-          slopes[0] = float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])
-        else:
-          slopes[0] = 0.5*(float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])+float(sur[1][1]-sur[0][1])/float(sur[1][0]-sur[0][0]))
-        if sur[3] == None:
-          slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
-        else:
-          slopes[1] = 0.5*(float(sur[3][1]-sur[2][1])/float(sur[3][0]-sur[2][0])+float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0]))
-        if "monotonic" in self.outputFilters:
-          Spline.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
-        t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
-        result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
-      elif self.interpolationMode == "fourier":
-        assert False, "fourier interpolationMode isn't fully supported."
-
-      #apply some outputFilters:
-      if "span_clip" in self.outputFilters:
-        result = max(min(result,max(sur[1][1],sur[2][1])),min(sur[1][1],sur[2][1])) #@ not tested.
-
-    else:
-      assert False, "The current interpolationMode of {} isn't fully supported.".format(self.interpolationMode)
-    
-    #apply some outputFilters:
-    if "global_clip" in self.outputFilters:
-      result = max(min(result,self.size[1]),0)
-    if "round" in self.outputFilters:
-      result = int(round(result))
-
+    result = self._output_filter_fun(result,sur)
     return result
     
 

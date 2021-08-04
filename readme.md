@@ -110,6 +110,8 @@ Design notes:
   
     -external features:
     
+      -add image compression with a 3d spline.
+    
       -add a full-length sample song.
     
       -add more output file formats, including plaintext python integer lists.
@@ -125,24 +127,28 @@ Design notes:
       -simplify the CellElimRunCodecState:
       
         -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
-    
-        -make a curve world class, where Spline and CellCatalogue are kept together. Move cell check order calculations there, and make cell check order not provided by a generator. Instead, make it the responsibility of one world method to get the next cell to check, and another world method to provide a response to the world.
         
-        -consider moving the entry point for execution into the world, making it like the player of a one-player game.
+        -consider moving the entry point for execution into the world, making it more like the player of a one-player game.
       
         -move more header tools out of CellElimRunBlockState.
       
         -separate experimental features from the headerDict and header routines.
         
-      -speed up cercs logging by splitting lines.
+      -add bound corner touch header features to make the CER codec easily able to compress its own output.
+        
+      -add automatic catalogue edits / editing functions for different situations like monotonic data.
       
-      -use the logging module.
+      -add spline header hints that prepare for compressing data where the bound touches are bound box corner touches (as would be needed for compressing audio as a list of pairs of extrema heights and intervals, with the lines connecting them compressed using the CER block codec.
+        
+      -speed up CERCS logging by splitting lines.
       
       -make EmbedCode class to allow original values for settings to be embedded.
 
       -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
       
       -make genCellCheckOrder more customizable.
+      
+      -use the logging module.
     
       -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
       
@@ -169,12 +175,6 @@ Design notes:
       -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
       -make a better way to make numberSeqCodecs from numberCodecs.
-    
-      -make CER easier to understand and modify.
-
-    -proper use of builtins:
-      -transition from custom-built histograms to collections.Counter where possible.
-      -use set() for deduping.
       
     -time complexity:
       -self-sorting lists.
