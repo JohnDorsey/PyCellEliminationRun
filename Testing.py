@@ -38,7 +38,7 @@ sampleCerPressNums = {
 
 
 
-def test(interpolationModesToTest=["linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite"], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
+def test(interpolationModesToTest=["linear", "linear&round", "sinusoidal", "finite_difference_cubic_hermite", "inverse_distance_weighted"], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
   #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
   #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")

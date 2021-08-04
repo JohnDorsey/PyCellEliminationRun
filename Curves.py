@@ -47,26 +47,13 @@ def hermite_h11(t):
 
 
 
-"""
-class InterpolationDefinition:
-  def __init__(self,interpolationFun, surroundingsRequirements):
-    self.interpolationFun = interpolationFun
-    self.surroundingsRequirements = surroundingsRequirements
-    
-#def holdInterpolationFun(sur):
-#  return sur[1][1]
-#def nearestNeighborInterpolationFun  
-INTERPOLATION_DEFINITIONS = dict()
-"""
-
-
 
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite"]
-  SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
+  SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite","inverse_distance_weighted"]
+  SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round"]
   
   CACHE_VALUES = True #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
   CACHE_BONE_DISTANCE_ABS = False #only applies when valueCache misses.
@@ -78,7 +65,8 @@ class Spline:
     "nearest_neighbor":[(-1,0),(0,1)],
     "linear":[(-1,0),(0,1)],
     "sinusoidal":[(-1,0),(0,1)],
-    "finite_difference_cubic_hermite":[(-2,-1),(-1,0),(0,1),(1,2)]
+    "finite_difference_cubic_hermite":[(-2,-1),(-1,0),(0,1),(1,2)],
+    "inverse_distance_weighted":[(-2,-1),(-1,0),(0,1),(1,2)]
   }
   
   SURROUNDINGS_REQUIREMENTS = {
@@ -86,7 +74,8 @@ class Spline:
     "nearest_neighbor":[0,1,1,0],
     "linear":[0,1,1,0],
     "sinusoidal":[0,1,1,0],
-    "finite_difference_cubic_hermite":[1,1,1,1]
+    "finite_difference_cubic_hermite":[1,1,1,1],
+    "inverse_distance_weighted":[1,1,1,1]
   }
   
   OUTPUT_FILTER_TEMPLATES = {
@@ -95,7 +84,7 @@ class Spline:
     "round":"int(round({}))"
   }
 
-  def __init__(self, interpolationMode="finite_difference_cubic_hermite", size=None, endpointInitMode=None):
+  def __init__(self, interpolationMode="unspecified", size=None, endpointInitMode=None):
     
     self.initializeByDefault()
     
@@ -123,6 +112,7 @@ class Spline:
     self.hermite_h10 = hermite_h10
     self.hermite_h01 = hermite_h01
     self.hermite_h11 = hermite_h11
+    self.power = 2.0 #used by inverse_distance_weighted interpolation.
 
 
   def setSizeAndEndpoints(self,size,endpointInitMode):
@@ -163,7 +153,8 @@ class Spline:
     if "&" in interpolationMode:
       self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
     if not self.interpolationMode in Spline.SUPPORTED_INTERPOLATION_MODES:
-      raise ValueError("The interpolationMode " + interpolationMode + " is not supported.")
+      if self.interpolationMode != "unspecified":
+        raise ValueError("The interpolationMode " + interpolationMode + " is not supported.")
     for outputFilter in self.outputFilters:
       if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
         raise ValueError("The outputFilter " + outputFilter + " is not supported.")
@@ -336,6 +327,19 @@ class Spline:
       if "monotonic" in self.outputFilters:
         self.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
       result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
+    elif self.interpolationMode == "inverse_distance_weighted":
+      weightSum = 0.0
+      workingResult = 0.0
+      for surPoint in sur:
+        if surPoint == None:
+          continue
+        surPointValue = surPoint[1]
+        surPointWeight = float(abs(index - surPoint[0]))**(-self.power)
+        workingResult += surPointValue*surPointWeight
+        weightSum += surPointWeight
+      if weightSum > 0: #avoid zero division error.
+        workingResult /= weightSum
+      result = workingResult
     else:
       raise KeyError("The interpolationMode {} isn't supported.".format(self.interpolationMode))
     
@@ -409,6 +413,8 @@ class Spline:
 
     if Spline.CACHE_VALUES:
       #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
+      if self.interpolationMode == "unspecified":
+        return
       updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolationMode]
       if type(updateType) != list:
         raise ValueError("updateType definitions of types other than list are not supported yet.")
