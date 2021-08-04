@@ -69,7 +69,8 @@ class Spline:
   SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
   
   CACHE_VALUES = True #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
-  CACHE_BONE_DISTANCE_ABS = True #only applies when valueCache misses.
+  CACHE_BONE_DISTANCE_ABS = False #only applies when valueCache misses.
+  CACHE_NEARBY_BONE_LOCATION = True #an alternative to caching bone distance abs.
   
   #in the following dictionary, integers represent points relative to the new point 0. 1 is the next anchor point to the right of the new point, 2 is the point to the right of that one, and the points -1 and -2 are similar. a tuple of two ints represents the span between those two points. Future interpolation methods might require more than this notation can offer, such as trig (fourier) requiring a keyword like "ENTIRE".
   VALUE_CACHE_UPDATE_TYPES = {
@@ -105,6 +106,9 @@ class Spline:
     self.boneDistanceAbs = None
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs = [None for i in range(len(self.data))]
+    if Spline.CACHE_NEARBY_BONE_LOCATION:
+      assert not Spline.CACHE_BONE_DISTANCE_ABS, "both of these caching modes can't be used simultaneously!"
+      self.nearbyBoneLocation = [None for i in range(len(self.data))]
     self.valueCache = None
     if Spline.CACHE_VALUES:
       self.valueCache = [None for i in range(len(self.data))]
@@ -231,7 +235,18 @@ class Spline:
     #assert direction in [-1,1]
     #assert 0 <= location < len(self.data)
     #print(direction)
-    if Spline.CACHE_BONE_DISTANCE_ABS:
+    if Spline.CACHE_NEARBY_BONE_LOCATION:
+      location += skipStart*direction
+      while 0 <= location < len(self.data):
+        nearbyBoneLocation = self.nearbyBoneLocation[location]
+        if nearbyBoneLocation == location:
+          return (location,self.data[location])
+        nearbyBoneDisplacement = nearbyBoneLocation - location
+        if nearbyBoneDisplacement*direction > 0: #if they have the same sign:
+          return (nearbyBoneLocation,self.data[nearbyBoneLocation])
+        location -= nearbyBoneDisplacement
+      return None
+    elif Spline.CACHE_BONE_DISTANCE_ABS:
       location += skipStart*direction
       while 0 <= location < len(self.data):
         if self.data[location] != None:
@@ -321,15 +336,18 @@ class Spline:
       if "monotonic" in self.outputFilters:
         self.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
       result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
-    raise KeyError("The interpolationMode {} isn't supported.".format(self.interpolationMode))
+    else:
+      raise KeyError("The interpolationMode {} isn't supported.".format(self.interpolationMode))
     
     result = self._output_filter_fun(result,sur)
     return result
     
 
   def clearCacheInDirection(self,index,direction,times=1):
-    #skips clearing the value at index.
-    #times indicates the number of times to skip over a value of None and continue.
+    """
+    skips clearing the value at index. The arg _times_ indicates the number of times to skip over a value of None and continue.
+    If interpolation with endpoint wrapping is added, this method will need to be changed to wrap as well.
+    """
     clearingIndex = index
     try:
       for i in range(times):
@@ -357,12 +375,26 @@ class Spline:
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
-    assert not (value == None and Spline.CACHE_BONE_DISTANCE_ABS), "None values can't be set while bone distance abs caching is enabled."
-    #if self.data[index] != None:
-    #  dbgPrint("Curves.Spline.__setitem__: overwriting an item at index " + str(index) + ".")
+    if value == None:
+      assert not Spline.CACHE_BONE_DISTANCE_ABS, "None values can't be set while bone distance abs caching is enabled."
+      assert not Spline.CACHE_NEARBY_BONE_LOCATION, "None values can't be set while nearby bone location caching is enabled."
+      
     self.data[index] = value
     
-    if Spline.CACHE_BONE_DISTANCE_ABS:
+    if Spline.CACHE_NEARBY_BONE_LOCATION:
+      self.nearbyBoneLocation[index] = index
+      for direction in [-1,1]:
+        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
+          oldNearestBoneLocation = self.nearbyBoneLocation[x]
+          if oldNearestBoneLocation == None:
+            self.nearbyBoneLocation[x] = index
+          else:
+            oldDist = abs(x-oldNearestBoneLocation)
+            newDist = abs(x - index)
+            if newDist >= oldDist:
+              break
+            self.nearbyBoneLocation[x] = index
+    elif Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs[index] = 0
       for direction in [-1,1]:
         #x = index + direction
@@ -374,7 +406,6 @@ class Spline:
             if newDist >= oldDist:
               break
           self.boneDistanceAbs[x] = newDist
-          x += direction
 
     if Spline.CACHE_VALUES:
       #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
