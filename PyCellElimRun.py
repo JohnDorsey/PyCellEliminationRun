@@ -508,10 +508,22 @@ class CellElimRunCodecState:
             self.dimensions = len(self.size)
             
   def log(self,text):
-    if not hasattr(self,"logStr"):
-      self.logStr = ""
-    self.logStr += str(text) + "\n"
+    if not hasattr(self,"logList"):
+      self.logList = ["log initialized."]
+    self.logList.append(str(text))
     return text
+    
+  def logToPrettyStr(self,lineStart="",lineEnd="",includeLineNumber=False,lineFormatFun=None):
+    maxLineNumberLength = len(str(len(self.logList)))
+    if lineFormatFun == None:
+      if includeLineNumber:
+        lineFormatFun = (lambda lineNumber, inputText: lineStart+str(lineNumber).rjust(maxLineNumberLength,fillchar="_")+". "+inputText+lineEnd)
+      else:
+        lineFormatFun = (lambda lineNumber, inputText: lineStart+inputText+lineEnd)
+    return "\n".join(lineFormatFun(logLineIndex,logLine) for logLineIndex,logLine in enumerate(self.logList))
+    
+  def printLog(self):
+    print("PyCellElimRun.CellElimRunCodecState.printLog: \n"+self.logToPrettyStr(includeLineNumber=True))
     
     
     

@@ -140,6 +140,8 @@ Design notes:
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
         
+      -allow Spline cache settings to be chosen automatically.
+        
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
         
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
@@ -153,8 +155,6 @@ Design notes:
       -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
       
       -make genCellCheckOrder more customizable.
-      
-      -use the logging module.
     
       -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
       
@@ -166,7 +166,7 @@ Design notes:
     
       -complete and test grid mode for CellCatalogue.
       
-      -accelerate Spline value cache rebuilding by caching bone locations.
+      -use the logging module.
     
     -maintenance:
   
@@ -177,8 +177,6 @@ Design notes:
       -rename QuickTimers to QuickClocks.
       
     -structure:
-    
-      -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
       -make a better way to make numberSeqCodecs from numberCodecs.
       
@@ -214,6 +212,10 @@ Design notes:
     -make a dynamically learning markov-model-like cell scoring tool.
       -this might score cells based on their paired (x, y) displacement from each endpoint individually, as well as their absolute height, and an additional chart for approximate location scaled to the rectangle formed by the start and end points.
       (complexity: medium, maintenance: high, CR impact: positive, performance impact: very negative).
+      
+  will not do:
+    
+    -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
 
   done:
 
@@ -239,3 +241,5 @@ Design notes:
     -implement efficient spline value caching based on the knowledge of how much of a spline can be affected by a modification for each interpolationMode.
 
     -add bound-touch header features.
+      
+    -accelerate Spline value cache rebuilding by caching bone locations.

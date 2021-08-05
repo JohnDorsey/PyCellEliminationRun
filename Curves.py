@@ -236,7 +236,7 @@ class Spline:
         return self.size[1]>>1
       elif keyword == "zero":
         return 0
-      elif endpointInitMode[i] == "maximum":
+      elif keyword == "maximum":
         return self.size[1]-1
       else:
         raise KeyError("The init value keyword is invalid!")
@@ -479,7 +479,7 @@ class Spline:
       
         
   def solve_location(self,location,sur):
-    print("solve_location: location is {}. sur is {}.".format(location,sur))
+    #print("solve_location: location is {}. sur is {}.".format(location,sur))
     assert isinstance(location,list) or isinstance(location,tuple)
     result = None
     interpolation_method_name = self.interpolation_method_name
@@ -611,7 +611,7 @@ class Spline:
 
 
   def clear_cache_entry_for_surroundings(self,sur):
-    assert all(len(item) == len(self.size) for item in sur)
+    assert all(len(item) == len(self.size) for item in sur if item != None)
     surHash = hash_point_list(sur,self.size)
     if surHash in self.value_cache_by_surroundings_hash:
       del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
