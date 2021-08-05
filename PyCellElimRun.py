@@ -354,15 +354,7 @@ class CellTargeter:
         def scoreFun(cell):
           return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
       elif scoreFun in ["absolute_distance", "bilog_distance","manhattan_distance"]:
-        distanceFun = None
-        if scoreFun == "absolute_distance":
-          distanceFun = (lambda x, y: (x**2 + y**2)**0.5)
-        elif scoreFun == "bilog_distance":
-          distanceFun = (lambda x, y: (math.log(x+1)**2 + math.log(y+1)**2)**0.5)
-        elif scoreFun == "manhattan_distance":
-          distanceFun = (lambda x, y: x + y)
-        else:
-          assert False
+        distanceFun = Curves.distanceFuns[scoreFun]
         def scoreFun(cell):
           minKnownDist, curRiseLeft, curRiseRight, offset = distanceFun(0,abs(self.spline[cell[0]]-cell[1])), self.size[1], self.size[1], 1
           while distanceFun(offset,0) < minKnownDist:

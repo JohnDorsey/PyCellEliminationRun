@@ -47,6 +47,28 @@ def hermite_h11(t):
   return t**3-t**2
 
 
+distance_2d_funs = {
+  "absolute_distance":(lambda x, y: (x**2 + y**2)**0.5),
+  "bilog_distance":(lambda x, y: (math.log(x+1)**2 + math.log(y+1)**2)**0.5), #don't use this name anymore.
+  "axial_log_distance":(lambda x, y: (math.log(x+1)**2 + math.log(y+1)**2)**0.5),
+  "manhattan_distance":(lambda x, y: x + y)
+}
+
+point_distance_2d_funs = {
+  "absolute_distance":(lambda p0, p1: ((p0[0]-p1[0])**2 + (p0[1]-p1[1])**2)**0.5),
+  "bilog_distance":(lambda p0, p1: (math.log(abs(p0[0]-p1[0])+1)**2 + math.log(abs(p0[1]-p1[1])+1)**2)**0.5), #don't use this name anymore.
+  "axial_log_distance":(lambda p0, p1: (math.log(abs(p0[0]-p1[0])+1)**2 + math.log(abs(p0[1]-p1[1])+1)**2)**0.5),
+  "manhattan_distance":(lambda p0, p1: abs(p0[0]-p1[0]) + abs(p0[1]-p1[1]))
+}
+
+point_distance_nd_funs = {
+  "absolute_distance":(lambda p0, p1: sum((p0[dimi]-p1[dimi])**2 for dimi in range(len(p0)))**0.5),
+  "axial_log_distance":(lambda p0, p1: sum(math.log(abs(p0[dimi]-p1[dimi])+1)**2 for dimi in range(len(p0)))**0.5),
+  "manhattan_distance":(lambda p0, p1: sum(abs(p0[dimi]-p1[dimi]) for dimi in range(len(p0))))
+}
+
+
+
 def flatten_point(point_to_flatten, world_size):
   result = 0
   for point,measure in itertools.izip_longest(point_to_flatten,world_size):
@@ -61,6 +83,15 @@ def hash_point_list(point_list_to_hash, world_size):
   for flattened_point in flattened_points:
     result = result * uniform_base + flattened_point
   return result
+
+def lookup_if_str(lookup_dict, potential_key, default=None):
+  if type(potential_key) == str:
+    if default != None:
+      return lookup_dict.get(potential_key,default=defalut)
+    else:
+      return lookup_dict[potential_key]
+  else:
+    return potential_key
 
 
 class Spline:
@@ -136,7 +167,7 @@ class Spline:
 
   def setSizeAndEndpoints(self,size,endpointInitMode):
     self.size = size
-    assert self.size != None
+    self.dimensions = len(self.size)
     assert type(endpointInitMode) in [list,str]
     if type(endpointInitMode) == str:
       endpointInitMode = [str(endpointInitMode) for i in range(2)]
@@ -179,8 +210,10 @@ class Spline:
           raise ValueError("The outputFilter " + outputFilter + " is not supported.")
     elif isinstance(interpolationMode,dict):
       self.interpolation_method_name = interpolationMode.get("method_name","unspecified163")
-      self.power = interpolationMode.get("power",2)
+      self.interpolation_power = interpolationMode.get("power",2)
       self.output_filters = interpolationMode.get("output_filters",[])
+      #self.interpolation_distance_2d_fun = lookup_if_str(distance_2d_funs,interpolationMode.get("distance_fun","absolute_distance"))
+      self.interpolation_point_distance_nd_fun = lookup_if_str(point_distance_nd_funs,interpolationMode.get("distance_fun","absolute_distance"))
     #print("setInterpolationMode set outputFilters to {}.".format(self.outputFilters))
     self.findPerformanceWarnings()
     self.initializeOutputFilter()
@@ -244,6 +277,7 @@ class Spline:
 
 
   def getPointInDirection(self,location,direction,skipStart=True):
+    assert len(self.size) == 2, "this is a 2d only method."
     #dbgPrint("Curves.Spline.getPointInDirection: "+str((location,direction,skipStart)))
     #assert type(direction) == int
     #assert direction in [-1,1]
@@ -278,24 +312,32 @@ class Spline:
         if location < 0 or location >= len(self.data):
           return None
     assert False
-
-
+    
+    
+  
   def get_necessary_surroundings_2d(self,index):
     """
     creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values needed by the current interpolation mode. Values not needed will be None.
     """
+    surroundings_request = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolation_method_name]
+    return self.get_surroundings_2d(index,surroundings_request)
+    
+
+  def get_surroundings_2d(self,index,surroundings_request):
+    """
+    creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values requested. Values not requested will be None.
+    """
     surroundings = [None,None,None,None]
-    surroundingsRequirements = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolation_method_name]
-    if surroundingsRequirements[1]:
+    if surroundings_request[1]:
       surroundings[1] = self.getPointInDirection(index,-1)
-      if surroundingsRequirements[0]:
+      if surroundings_request[0]:
         if surroundings[1] == None:
           print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[1] was empty, and surroundings[0] won't be filled in.".format(index))
         else:
           surroundings[0] = self.getPointInDirection(surroundings[1][0],-1)
-    if surroundingsRequirements[2]:
+    if surroundings_request[2]:
       surroundings[2] = self.getPointInDirection(index,1)
-      if surroundingsRequirements[3]:
+      if surroundings_request[3]:
         if surroundings[2] == None:
           print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[2] was empty, and surroundings[3] won't be filled in.".format(index))
         else:
@@ -304,12 +346,27 @@ class Spline:
 
 
   def __len__(self): #this is to make Spline iterable.
+    assert self.dimensions == 2, "this is a 2d only method."
     return self.size[0]
 
+      
+  def getValueUsingPath(self,path):
+    if self.dimensions == 2:
+      if type(path) == list:
+        assert len(path) == 1
+        path = path[0]
+      return self.__getitem__(path)
+    else:
+      raise NotImplementedError("above 2d")
+      
+  def setValueUsingCell(self,cell):
+    if self.dimensions == 2:
+      assert len(cell) == 2
+      self.__setitem__(cell[0],cell[1])
+    else:
+      raise NotImplementedError("above 2d")
 
   def __getitem__(self,index):
-    #not integer-based yet. Also, some methods can't easily be integer-based.
-    #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow searches of a mostly empty array are used. Caching the value of the spline at every position would probably be faster in almost all situations.
     if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
     elif Spline.CACHE_VALUES_BY_SUR_HASH:
@@ -320,13 +377,13 @@ class Spline:
       else: #if no point with these surroundings has ever been calculated and cached before:
         surHashEntryDict = dict() #make a new entry.
         self.value_cache_by_surroundings_hash[surHash] = surHashEntryDict #register the new entry.
-      path = (index,) #@ temp for 2d only.
-      pathHash = flatten_point(path,self.size[:-1])
-      if pathHash in surHashEntryDict:
-        return surHashEntryDict[pathHash]
+      location = (index,) #@ temp for 2d only.
+      locationHash = flatten_point(location,self.size[:-1])
+      if locationHash in surHashEntryDict:
+        return surHashEntryDict[locationHash]
       else:
-        result = self.solve_item(index,sur) #@ temp for until solveItem supports paths.
-        surHashEntryDict[pathHash] = result
+        result = self.solve_location(location,sur)
+        surHashEntryDict[locationHash] = result
         return result
     elif Spline.CACHE_VALUES_2D:
       if self.valueCache[index] != None:
@@ -340,11 +397,12 @@ class Spline:
       return self.solveItem(index)
       
         
-  def solve_item(self,index,sur):
-    t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
+  def solve_location(self,location,sur):
+    assert isinstance(location,list) or isinstance(location,tuple)
+    t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
     result = None
     interpolation_method_name = self.interpolation_method_name
-  
+    
     if interpolation_method_name == "hold":
       resultPoint = sur[1]
       result = resultPoint[1]
@@ -358,7 +416,6 @@ class Spline:
         result = leftBone[1]+((rightBone[1]-leftBone[1])*t)
       elif interpolation_method_name == "sinusoidal":
         result = leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*t)))
-    
     elif interpolation_method_name == "finite_difference_cubic_hermite":
       if None in sur[1:3]:
         assert False, "an important (inner) item is missing from the surroundings."
@@ -381,7 +438,9 @@ class Spline:
         if surPoint == None:
           continue
         surPointValue = surPoint[1]
-        surPointWeight = float(abs(index - surPoint[0]))**(-self.power)
+        #surPointWeight = float(abs(location - surPoint[0]))**(-self.interpolation_power)
+        surPointDistance = self.interpolation_point_distance_nd_fun(location, surPoint[:-1])
+        surPointWeight = surPointDistance**(-self.interpolation_power)
         workingResult += surPointValue*surPointWeight
         weightSum += surPointWeight
       if weightSum > 0: #avoid zero division error.
@@ -408,23 +467,7 @@ class Spline:
           clearingIndex += direction
     except IndexError:
       pass
-      
-  def getValueUsingPath(self,path):
-    if type(path) == list:
-      assert len(path)==1
-      path = path[0]
-    elif type(path) == int:
-      pass #no change needed
-    else:
-      raise TypeError("path")
-    return self.__getitem__(path)
-      
-  def setValueUsingCell(self,cell):
-    if len(self.size) == 2:
-      assert len(cell) == 2
-      self.__setitem__(cell[0],cell[1])
-    else:
-      raise NotImplementedError("above 2d")
+
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
