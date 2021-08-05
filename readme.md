@@ -126,11 +126,13 @@ Design notes:
     
       -simplify the CellElimRunCodecState:
       
+        -move more header tools out of CellElimRunCodecState.
+        
+        -move logging tools out of CellElimRunCodecState.
+      
         -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
         
-        -consider moving the entry point for execution into the world, making it more like the player of a one-player game.
-      
-        -move more header tools out of CellElimRunBlockState.
+        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
       
         -separate experimental features from the headerDict and header routines.
         
@@ -140,6 +142,8 @@ Design notes:
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
         
+      -fix unecessary calls to dict.keys().
+        
       -allow Spline cache settings to be chosen automatically.
         
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
@@ -147,8 +151,6 @@ Design notes:
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
       
       -add spline header hints that prepare for compressing data where the bound touches are bound box corner touches (as would be needed for compressing audio as a list of pairs of extrema heights and intervals, with the lines connecting them compressed using the CER block codec.
-        
-      -speed up CERCS logging by splitting lines.
       
       -make EmbedCode class to allow original values for settings to be embedded.
 
@@ -243,3 +245,5 @@ Design notes:
     -add bound-touch header features.
       
     -accelerate Spline value cache rebuilding by caching bone locations.
+        
+    -speed up CERCS logging by splitting lines.

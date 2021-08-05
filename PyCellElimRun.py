@@ -427,9 +427,114 @@ class CellTargeter:
     assert False, "genCellCheckOrder has ended. This has never happened before."
 
 
+class Log:
+  def __init__(self):
+    pass
+  def __call__(self,*args,**kwargs):
+    self.doLog(*args,**kwargs)
+
+    
+def implementLogging(otherSelf,existingLogList=None,loggingLinePrefix="",passthroughPrefix=True):
+  if existingLogList == None:
+    existingLogList = ["log list initialized."]
+  
+  assert not hasattr(otherSelf,"log"), "logging already implemented!"
+  otherSelf.log = Log()
+  if not hasattr(otherSelf.log,"logList"):
+    otherSelf.log.logList = existingLogList
+    
+  def doLog(text):
+    otherSelf.log.logList.append(otherSelf.log.loggingLinePrefix+str(text))
+    if otherSelf.log.passthroughPrefix:
+      if type(otherSelf.log.passthroughPrefix) == str:
+        return otherSelf.log.passthroughPrefix + text
+      else:
+        return otherSelf.log.loggingLinePrefix + text
+    else:
+      return text
+    
+  def logToPrettyStr(lineStart="",lineEnd="",includeLineNumber=False,lineFormatFun=None):
+    maxLineNumberLength = len(str(len(otherSelf.log.logList)))
+    if lineFormatFun == None:
+      if includeLineNumber:
+        lineFormatFun = (lambda lineNumber, inputText: lineStart+str(lineNumber).rjust(maxLineNumberLength,fillchar="_")+". "+inputText+lineEnd)
+      else:
+        lineFormatFun = (lambda lineNumber, inputText: lineStart+inputText+lineEnd)
+    return "\n".join(lineFormatFun(logLineIndex,logLine) for logLineIndex,logLine in enumerate(otherSelf.log.logList))
+
+  def printLog():
+    print("PyCellElimRun.CellElimRunCodecState.printLog: \n"+otherSelf.log.logToPrettyStr(includeLineNumber=True))
+  
+  otherSelf.log.loggingLinePrefix = loggingLinePrefix
+  otherSelf.log.passthroughPrefix = passthroughPrefix
+  otherSelf.log.doLog = doLog
+  otherSelf.log.logToPrettyStr = logToPrettyStr
+  otherSelf.log.printLog = printLog
+  otherSelf.log("log implemented for object of type {}.".format(repr(type(otherSelf))))
 
 
 
+
+
+class HeaderManager:
+  def __init__(self, inputDataGen, opMode, inputHeaderDictTemplate, headerPathwiseOracleFun, logList=None):
+    implementLogging(self, existingLogList=logList, loggingLinePrefix="HeaderManager: ")
+    self.inputDataGen = inputDataGen
+    self.opMode = opMode
+    self.headerDictTemplate = inputHeaderDictTemplate
+    self.headerPathwiseOracleFun = headerPathwiseOracleFun
+    self.headerDict = {}
+    self.pressHeaderValues = [] #this is to remain empty until populated by the header loader. it _may_ be populated if the headerDictTemplate tells it to embed or access header info from the regular inputData.
+    augmentDict(self.headerDict, self.headerDictTemplate, recursive=True, recursiveTypes=[list,dict]) #this shouldn't be long-term. Once header tool design is finished, items will be absent from the header until they are resolved.
+    
+  def __getitem__(self, key):
+    return self.headerDict[key]
+    
+  def __contains__(self, testValue):
+    return self.headerDict.__contains__(testValue)
+
+  def doPhase(self, phaseName):
+    """
+    This method is called at different stages of initialization, to fill in some new header data (whichever data is clearly marked by string placeholders matching \"EMBED:<the name of the phase>\"). While initializing for encode mode, header values are calculated based on the plaindata, which is known, and recorded in two places: replacing the placeholder in the headerDict, and appended to the end of the pressHeaderValues. While initializing for decode mode, the plaindata is unknown, and that's why header placeholder values of "EMBED:..." are immediately loaded from the front of the pressdata nums instead, where they were stored... as long as the inputHeaderTemplateDict telling which values are to be embedded is exactly the same as the one that was provided for the original encoding. It is also necessary that the order of processing for pressHeaderNums is constant. The standard is to visit dictionary keys and list indices in ascending order (which only impacts the output when different placeholders have the same phase name), evaluate the placeholders, and obey the placeholder phase names strictly. There is no proper time to resolve header placeholders with no phase name - they are just ignored.
+    """
+    #self.log("header phase " + phaseName +" started with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
+    #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
+    phaseEmbedCode = "EMBED:"+phaseName
+    #PyDictTools.replace(self.headerDict,"EMBED",phaseEmbedCode)
+    
+    if self.opMode == "encode":
+      pathwiseOracleFun = self.headerPathwiseOracleFun
+      valueTriggerFun = (lambda x: x==phaseEmbedCode)
+      PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, valueTriggerFun)
+    elif self.opMode == "decode":
+      valueTriggerFun = (lambda x: x==phaseEmbedCode)
+      PyDictTools.writeFromTemplateAndNextFun(self.headerDict, self.headerDictTemplate, self.loadHeaderValue, valueTriggerFun) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
+    else:
+      assert False, "invalid opMode."
+    #self.log("header phase " + phaseName +" ended with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
+
+  def saveHeaderValue(self,value):
+    """
+    Append a value to the pressHeaderValues and return it.
+    """
+    if type(value) != int:
+      print("PyCellElimRun.HeaderManager.saveHeaderNum: Warning: the value being saved is of type " + str(type(value)) + ", not int! Codecs processing the output of this codec may not expect this!")
+    self.pressHeaderValues.append(value)
+    return value
+
+  def loadHeaderValue(self):
+    """
+    Remove a value from the front of self.inputDataGen and return it. Do this only when it is known that a header value is at the front of self.inputDataGen.
+    """
+    loadedNum = None
+    try:
+      loadedNum = next(self.inputDataGen)
+    except StopIteration:
+      raise ExhaustionError("Ran out of inputData while trying to read the header info.")
+    assert loadedNum != None
+    self.pressHeaderValues.append(loadedNum)
+    return loadedNum
+    
 
 
 
@@ -449,7 +554,7 @@ class CellElimRunCodecState:
 
   def __init__(self, inputData, opMode, inputHeaderDictTemplate):
     """
-    The initialization method takes arguments that resemble a structured header as much as possible. In the decode phase, it fills in missing data in headerDict by decoding a few pressdata items as parameters. In the encode phase, it fills in missing data in headerDict by analyzing the provided plaindata, encodes these parameters, and prepends them to the pressdata it will output.
+    The initialization method takes arguments that resemble a structured header as much as possible. In the decode phase, it fills in missing data in headerManager.headerDict by decoding a few pressdata items as parameters. In the encode phase, it fills in missing data in headerManager.headerDict by analyzing the provided plaindata, encodes these parameters, and prepends them to the pressdata it will output.
     The initialization method also creates all of the attributes that processBlock needs to start running right away. By the time processBlock is called, there is no more initialization to do.
     """
     self.initializeByDefault()
@@ -457,21 +562,18 @@ class CellElimRunCodecState:
     self.inputDataGen = makeGen(inputData) #this is necessary to make it so that prepSpaceDefinition can take some items from the front, before prepOpMode does anything.
     self.opMode = opMode #initialized here instead of in prepOpMode because it is needed by prepSpaceDefinition.
 
-    self.headerDictTemplate = self.TO_COMPLETED_HEADER_DICT_TEMPLATE(inputHeaderDictTemplate)
-    self.headerDict = {}
-    self.pressHeaderValues = [] #this is to remain empty until populated by the header loader. it _may_ be populated if the headerDictTemplate tells it to embed or access header info from the regular inputData.
-    augmentDict(self.headerDict, self.headerDictTemplate, recursive=True, recursiveTypes=[list,dict]) #this shouldn't be long-term. Once header tool design is finished, items will be absent from the header until they are resolved.
-    
-    self.headerPhaseRoutine("BEFORE_PREP_GROUP")
+    self.headerManager = HeaderManager(self.inputDataGen, opMode, self.TO_COMPLETED_HEADER_DICT_TEMPLATE(inputHeaderDictTemplate), self.headerPathwiseOracleFun, logList=self.log.logList)
+
+    self.headerManager.doPhase("BEFORE_PREP_GROUP")
 
     self.prepOpMode()
-    self.headerPhaseRoutine("AFTER_PREP_OP_MODE")
-    self.headerPhaseRoutine("AFTER_PREP_OP_MODE:1")
+    self.headerManager.doPhase("AFTER_PREP_OP_MODE")
+    self.headerManager.doPhase("AFTER_PREP_OP_MODE:1")
     self.prepSpaceDefinition()
-    self.headerPhaseRoutine("AFTER_PREP_SPACE_DEFINITION")
-    self.spline.set_interpolation_mode(self.headerDict["interpolation_mode"])
+    self.headerManager.doPhase("AFTER_PREP_SPACE_DEFINITION")
+    self.spline.set_interpolation_mode(self.headerManager["interpolation_mode"])
       
-    self.headerPhaseRoutine("AFTER_PREP_GROUP")
+    self.headerManager.doPhase("AFTER_PREP_GROUP")
 
     self.runIndex = None #the run index determines which integer run length from the pressdata run length list is being read and counted towards with the stepIndex variable as a counter while decoding, or, it is the length of the current list of such integer run lengths that is being built by encoding.
     self.stepIndex = None #the step index counts towards the value of the current elimination run length - either it is compared to a known elimination run length in order to know when to terminate and record a cell as filled while decoding, or it counts and holds the new elimination run length value to be stored while encoding.
@@ -483,12 +585,15 @@ class CellElimRunCodecState:
     def cellTargeterCritCellCallbackMethod(critCell,dbgCatalogueValue=-498498): 
       self.setPlaindataItem(critCell,dbgCatalogueValue=dbgCatalogueValue)
     self.cellTargeterCritCellCallbackMethod = cellTargeterCritCellCallbackMethod
+    
+    self.log("finished __init__.")
 
 
   def initializeByDefault(self):
     """
     initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
     """
+    implementLogging(self, loggingLinePrefix="CERCS: ", passthroughPrefix=True)
     self._input_plaindata_matrix, self._input_pressdata_gen = None, None
     self._output_pressdata_list = None
     self._output_plaindata_matrix = None
@@ -498,56 +603,37 @@ class CellElimRunCodecState:
     """
     After loading the header, extract some information that is accessed in loops while encoding or decoding. No method that runs during initialization needs these to be initialized.
     """
-    for keyA in makeFlatKeySeq(self.headerDict):
+    for keyA in makeFlatKeySeq(self.headerManager.headerDict):
       if keyA == "space_definition":
-        for keyB in makeFlatKeySeq(self.headerDict[keyA]):
+        for keyB in makeFlatKeySeq(self.headerManager.headerDict[keyA]):
           if keyB == "size":
-            self.size = self.headerDict[keyA][keyB]
+            self.size = self.headerManager.headerDict[keyA][keyB]
             self.stepIndexTimeout = accumulate((measure+2 for measure in self.size),"*") #used in causing failure when processRun goes on for too long.
             self.expectedLiveCellCount = accumulate((measure for measure in self.size[:-1]),"*")
             self.dimensions = len(self.size)
             
-  def log(self,text):
-    if not hasattr(self,"logList"):
-      self.logList = ["log initialized."]
-    self.logList.append(str(text))
-    return text
-    
-  def logToPrettyStr(self,lineStart="",lineEnd="",includeLineNumber=False,lineFormatFun=None):
-    maxLineNumberLength = len(str(len(self.logList)))
-    if lineFormatFun == None:
-      if includeLineNumber:
-        lineFormatFun = (lambda lineNumber, inputText: lineStart+str(lineNumber).rjust(maxLineNumberLength,fillchar="_")+". "+inputText+lineEnd)
-      else:
-        lineFormatFun = (lambda lineNumber, inputText: lineStart+inputText+lineEnd)
-    return "\n".join(lineFormatFun(logLineIndex,logLine) for logLineIndex,logLine in enumerate(self.logList))
-    
-  def printLog(self):
-    print("PyCellElimRun.CellElimRunCodecState.printLog: \n"+self.logToPrettyStr(includeLineNumber=True))
+
     
     
-    
-  def headerRoutinePathwiseOracleFun(self, inputPath, inputValue):
+  def headerPathwiseOracleFun(self, inputPath, inputValue):
     """
     This method is provided as an argument to methods in PyDictTools, and is used to initialize header values based on their location in the header (as a list of dict keys and list indices to be applied in order to reach that location in the header) and the original placeholder value inputValue. This method should not be responsible for knowing when it should run - it should be used only at the proper time, which is identified by a separate trigger function.
     """
     result = inputValue
     if inputPath[-3:-1] == ["space_definition","bound_touches"]:
-      assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bound_touches is only available for 2D data."
+      assert len(self.headerManager["space_definition"]["size"]) == 2, "space_definition.bound_touches is only available for 2D data."
       try:
         try:
-          bounds = self.headerDict["space_definition"]["bounds"]
+          bounds = self.headerManager["space_definition"]["bounds"]
         except KeyError as ke:
-          print(self.headerDictTemplate)
-          print(self.headerDict)
           raise ke
         if inputPath[-1] == "north":
           if "upper" not in bounds.keys():
             warningText = "north bound touch should only be embedded if the upper bound is also embedded."
             if CellElimRunCodecState.ALLOW_BOUND_ASSUMPTIONS:
-              print("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: " + warningText)
+              print("PyCellElimRun.CellElimRunCodecState.headerPathwiseOracleFun: warning: " + warningText)
               print("Assuming upper bound is size[-1]...")
-              bounds["upper"] = self.headerDict["space_definition"]["size"][-1]
+              bounds["upper"] = self.headerManager["space_definition"]["size"][-1]
             else:
               raise ValueError(warningText)
           result = self._input_plaindata_matrix.index(bounds["upper"]-1)
@@ -555,7 +641,7 @@ class CellElimRunCodecState:
           if "lower" not in bounds.keys():
             warningText = "south bound touch should only be embedded if the upper bound is also embedded."
             if CellElimRunCodecState.ALLOW_BOUND_ASSUMPTIONS:
-              print("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: " + warningText)
+              print("PyCellElimRun.CellElimRunCodecState.headerPathwiseOracleFun: warning: " + warningText)
               print("Assuming lower bound is 0...")
               bounds["lower"] = 0
             else:
@@ -570,7 +656,7 @@ class CellElimRunCodecState:
       except IndexError:
         raise IndexError("There is no such boundary touch as {}.".format(repr(inputPath[-1])))
     elif inputPath[-3:-1] == ["space_definition","bounds"]:
-      assert len(self.headerDict["space_definition"]["size"]) == 2, "space_definition.bounds is currently only available for 2D data."
+      assert len(self.headerManager["space_definition"]["size"]) == 2, "space_definition.bounds is currently only available for 2D data."
       if inputPath[-1] == "lower":
         result = min(self._input_plaindata_matrix)
       elif inputPath[-1] == "upper":
@@ -582,52 +668,10 @@ class CellElimRunCodecState:
     elif inputPath[-1] == "dbg_resolve_to_[123,456]":
       result = [123,456]
     else:
-      print(self.log("PyCellElimRun.CellElimRunCodecState.headerRoutinePathwiseOracleFun: warning: no substitute was found for (inputPath,inputValue)="+str((inputPath,inputValue))+"."))
-    return self.saveHeaderValue(result) #assume it should be saved, and save it.
+      print(self.log("PyCellElimRun.CellElimRunCodecState.headerPathwiseOracleFun: warning: no substitute was found for (inputPath,inputValue)="+str((inputPath, inputValue)) + "."))
+    return self.headerManager.saveHeaderValue(result) #assume it should be saved, and save it.
 
 
-  def headerPhaseRoutine(self, phaseName):
-    """
-    This method is called at different stages of initialization, to fill in some new header data (whichever data is clearly marked by string placeholders matching \"EMBED:<the name of the phase>\"). While initializing for encode mode, header values are calculated based on the plaindata, which is known, and recorded in two places: replacing the placeholder in the headerDict, and appended to the end of the pressHeaderValues. While initializing for decode mode, the plaindata is unknown, and that's why header placeholder values of "EMBED:..." are immediately loaded from the front of the pressdata nums instead, where they were stored... as long as the inputHeaderTemplateDict telling which values are to be embedded is exactly the same as the one that was provided for the original encoding. It is also necessary that the order of processing for pressHeaderNums is constant. The standard is to visit dictionary keys and list indices in ascending order (which only impacts the output when different placeholders have the same phase name), evaluate the placeholders, and obey the placeholder phase names strictly. There is no proper time to resolve header placeholders with no phase name - they are just ignored.
-    """
-    self.log("header phase " + phaseName +" started with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
-    #create self.headerDict based on self.inputHeaderDictTemplate. In decode mode, this may involve loading embedded values from self.inputDataGen when seeing the template value "EMBED".
-    phaseEmbedCode = "EMBED:"+phaseName
-    #PyDictTools.replace(self.headerDict,"EMBED",phaseEmbedCode)
-    
-    if self.opMode == "encode":
-      pathwiseOracleFun = self.headerRoutinePathwiseOracleFun
-      valueTriggerFun = (lambda x: x==phaseEmbedCode)
-      PyDictTools.writeFromTemplateAndPathwiseOracle(self.headerDict, self.headerDictTemplate, pathwiseOracleFun, valueTriggerFun)
-    elif self.opMode == "decode":
-      valueTriggerFun = (lambda x: x==phaseEmbedCode)
-      PyDictTools.writeFromTemplateAndNextFun(self.headerDict, self.headerDictTemplate, self.loadHeaderValue, valueTriggerFun) #@ the problem with this is that it doesn't populate the press header nums list, which would be helpful for knowing whether a parse error has occurred when processBlock is ending.
-    else:
-      assert False, "invalid opMode."
-    self.log("header phase " + phaseName +" ended with opMode=" + str(self.opMode) + " and headerDict=" + str(self.headerDict)+".")
-
-
-  def saveHeaderValue(self,value):
-    """
-    Append a value to the pressHeaderValues and return it.
-    """
-    if type(value) != int:
-      print(self.log("PyCellElimRun.CellElimRunCodecState.saveHeaderNum: Warning: the value being saved is of type " + str(type(value)) + ", not int! Codecs processing the output of this codec may not expect this!"))
-    self.pressHeaderValues.append(value)
-    return value
-
-  def loadHeaderValue(self):
-    """
-    Remove a value from the front of self.inputDataGen and return it. Do this only when it is known that a header value is at the front of self.inputDataGen.
-    """
-    loadedNum = None
-    try:
-      loadedNum = next(self.inputDataGen)
-    except StopIteration:
-      raise ExhaustionError("Ran out of inputData while trying to read the header info.")
-    assert loadedNum != None
-    self.pressHeaderValues.append(loadedNum)
-    return loadedNum
 
 
   def setPlaindataItem(self, cellToSet, eliminateColumn=None, modifyOutputArr=False, dbgCatalogueValue=-260):
@@ -647,7 +691,7 @@ class CellElimRunCodecState:
     This method exists because the property that stores the output varies with the opMode, and because the press header nums are a separate list for easier debugging, but should still be included in the same output whenever encoding has already completed without issue.
     """
     if self.opMode == "encode":
-      return self.pressHeaderValues + self._output_pressdata_list
+      return self.headerManager.pressHeaderValues + self._output_pressdata_list
     elif self.opMode == "decode":
       return self._output_plaindata_matrix
     else:
@@ -656,28 +700,28 @@ class CellElimRunCodecState:
 
 
   def prepSpaceDefinition(self): # -> None:
-    size = self.headerDict["space_definition"]["size"]
+    size = self.headerManager["space_definition"]["size"]
     
     self.cellCatalogue = ColumnCellCatalogue(size=size)
 
-    endpointInitMode = self.headerDict["space_definition"]["endpoint_init_mode"]
+    endpointInitMode = self.headerManager["space_definition"]["endpoint_init_mode"]
     self.spline = Curves.Spline(size=size, endpointInitMode=endpointInitMode)
     
-    if "bounds" in self.headerDict["space_definition"].keys():
-      bounds = self.headerDict["space_definition"]["bounds"]
+    if "bounds" in self.headerManager["space_definition"].keys():
+      bounds = self.headerManager["space_definition"]["bounds"]
       if "lower" in bounds.keys():
         self.cellCatalogue.imposeMinimum(bounds["lower"])
       if "upper" in bounds.keys():
         self.cellCatalogue.imposeMaximum(bounds["upper"]-1)
 
-    if "bound_touches" in self.headerDict["space_definition"].keys():
+    if "bound_touches" in self.headerManager["space_definition"].keys():
       if len(size) != 2:
         raise NotImplementedError("bound touches are not available of data with more than 2 dimensions.")
-      boundTouches = self.headerDict["space_definition"]["bound_touches"]
+      boundTouches = self.headerManager["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
-        self.setPlaindataItem([boundTouches["north"], self.headerDict["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
+        self.setPlaindataItem([boundTouches["north"], self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
       if "south" in boundTouches.keys():
-        self.setPlaindataItem([boundTouches["south"], self.headerDict["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-520)
+        self.setPlaindataItem([boundTouches["south"], self.headerManager["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-520)
       if "east" in boundTouches.keys():
         self.setPlaindataItem([size[0]-1, boundTouches["east"]], dbgCatalogueValue=-522)
       if "west" in boundTouches.keys():
@@ -691,7 +735,7 @@ class CellElimRunCodecState:
     if not self.opMode in ["encode","decode"]:
       raise ValueError("That opMode is nonexistent or not allowed.")
       
-    size = self.headerDict["space_definition"]["size"]
+    size = self.headerManager["space_definition"]["size"]
 
     if self.opMode == "encode":
       self._input_plaindata_matrix = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="partial")
@@ -732,7 +776,7 @@ class CellElimRunCodecState:
     if self.opMode == "decode" and not allowMissingValues:
       self.interpolateMissingValues(self._output_plaindata_matrix)
     
-    self.headerPhaseRoutine("AFTER_PROCESS_BLOCK")
+    self.headerManager.doPhase("AFTER_PROCESS_BLOCK")
     return
 
 
@@ -765,7 +809,7 @@ class CellElimRunCodecState:
   def processRun(self): #do one run, either encoding or decoding.
     self.stepIndex = 0
     
-    cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerDict["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
+    cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerManager["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
     cellTargeter.buildRankings() #this is probably slower than refreshing the rankings, but also simpler.
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self._input_pressdata_gen.
