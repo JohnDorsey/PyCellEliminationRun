@@ -1,3 +1,4 @@
+import itertools
 
 def shape(data):
   result = [len(data)]
@@ -5,6 +6,9 @@ def shape(data):
     data = data[0]
     result.append(len(data))
   return tuple(result)
+  
+def isInShape(testPoint,testShape):
+  return all(0<=pair[0]<pair[1] for pair in itertools.izip_longest(testPoint,testShape))
   
   
 def iterateDeeply(*args,**kwargs):
@@ -28,16 +32,32 @@ def enumerateDeeply(data,uniformDepth=True):
       raise ValueError("enumerateDeeply called on invalid type.")
       
       
+
+def dataInitializer(initSize,initFun): #broken?
+  if len(initSize) == 1:
+    return initFun(initSize[-1])
+  return [dataInitializer(initSize[1:],initFun) for i in range(initSize[0])]
+  
+def noneInitializer(initSize):
+  #return dataInitializer(initSize,(lambda length: [None for nonei in range(length)]))
+  if len(initSize) == 1:
+    return [None for nonei in range(initSize[0])]
+  return [noneInitializer(initSize[1:]) for subi in range(initSize[0])]
+      
 def setValueUsingPath(data,path,value,requireSameType=True,allowOverwriteNone=True): # returns original value
   assert type(data) == list
-  for pathElement in path[:-1]:
-    data = data[pathElement]
-  assert type(data) == list, "path is too long for the data!"
-  assert type(data[path[-1]]) != list, "path is too short for the data!"
+  workingData = data
+  try:
+    for pathElementIndex,pathElement in enumerate(path[:-1]):
+      workingData = workingData[pathElement]
+  except IndexError:
+    raise IndexError("pathElement with value {} at index {} in path {} out of range in data of shape {}; couldn't set value {}.".format(pathElement, pathElementIndex, path, shape(data), value)) 
+  assert type(workingData) == list, "path is too long for the data!"
+  assert type(workingData[path[-1]]) != list, "path is too short for the data!"
   if requireSameType:
-    assert type(data[path[-1]]) == type(value) or (allowOverwriteNone and data[path[-1]] == None)
-  oldValue = data[path[-1]]
-  data[path[-1]] = value
+    assert type(workingData[path[-1]]) == type(value) or (allowOverwriteNone and workingData[path[-1]] == None)
+  oldValue = workingData[path[-1]]
+  workingData[path[-1]] = value
   return oldValue
   
 def getValueUsingPath(data,path,allowShortPath=False):
@@ -51,3 +71,7 @@ def getValueUsingPath(data,path,allowShortPath=False):
   
 def setValueUsingCell(data,cell,**kwargs):
   setValueUsingPath(data,cell[:-1],cell[-1],**kwargs)
+  
+  
+  
+

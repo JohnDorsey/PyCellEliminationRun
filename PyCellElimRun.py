@@ -244,6 +244,7 @@ class ColumnCellCatalogue(CellCatalogue):
   def __init__(self, storageMode="limits", size=[0,0]): #size might be off by one.
     self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
     self.storageMode = storageMode
+    """
     def dataInitializer(initSize):
       if len(initSize) == 1:
         if storageMode == "limits":
@@ -253,7 +254,16 @@ class ColumnCellCatalogue(CellCatalogue):
         else:
           raise KeyError("storageMode key {} is invalid.".format(repr(storageMode)))
       return [dataInitializer(initSize[1:]) for i in range(initSize[0])]
-    self.data = dataInitializer(self.size)
+    """
+    if self.storageMode == "limits":
+      def finalInitFun(finalInitSize):
+        return LimitsCellCatalogueColumn(size=finalInitSize)
+    elif self.storageMode == "grid":
+      def finalInitFun(finalInitSize):
+        return GridCellCatalogueColumn(size=finalInitSize)
+    else:
+      raise KeyError("storageMode key {} is invalid.".format(repr(self.storageMode)))
+    self.data = PyDeepArrTools.dataInitializer(self.size,finalInitFun)
     
   def imposeMinimum(self,newMinimum):
     for columnID,column in self.iterColumnsAndIDs():
@@ -314,6 +324,7 @@ class ColumnCellCatalogue(CellCatalogue):
     #result = []
     for columnID, column in self.iterColumnsAndIDs():
       for extremeUnknownCell in column.genExtremeUnknownCells(sides=sides):
+        assert extremeUnknownCell != None
         yield columnID + [extremeUnknownCell]
 
   def clampCell(self,cell): #move a cell's value to make it comply with the catalogue of eliminated cells.
@@ -354,7 +365,7 @@ class CellTargeter:
         def scoreFun(cell):
           return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
       elif scoreFun in ["absolute_distance", "bilog_distance","manhattan_distance"]:
-        distanceFun = Curves.distanceFuns[scoreFun]
+        distanceFun = Curves.distance_2d_funs[scoreFun]
         def scoreFun(cell):
           minKnownDist, curRiseLeft, curRiseRight, offset = distanceFun(0,abs(self.spline[cell[0]]-cell[1])), self.size[1], self.size[1], 1
           while distanceFun(offset,0) < minKnownDist:
@@ -458,7 +469,7 @@ class CellElimRunCodecState:
     self.headerPhaseRoutine("AFTER_PREP_OP_MODE:1")
     self.prepSpaceDefinition()
     self.headerPhaseRoutine("AFTER_PREP_SPACE_DEFINITION")
-    self.spline.setInterpolationMode(self.headerDict["interpolation_mode"])
+    self.spline.set_interpolation_mode(self.headerDict["interpolation_mode"])
       
     self.headerPhaseRoutine("AFTER_PREP_GROUP")
 
@@ -611,7 +622,7 @@ class CellElimRunCodecState:
     """
     This method is used to update the common view of the data represented by the spline or interpolator, cell catalogue, and output plaindata matrix. This is the _only_ legal way to update this information, and this rule makes it easy to trust different parts of the program with updating this data at the earliest possible opportunity, which directly increases compression ratio.
     """
-    self.spline.setValueUsingCell(cellToSet)
+    self.spline.set_value_using_cell(cellToSet)
     if (eliminateColumn == None and CellElimRunCodecState.DO_COLUMN_ELIMINATION_OFFICIALLY) or (eliminateColumn):
       self.cellCatalogue.eliminateColumn(cellToSet[:-1], dbgCustomValue=dbgCatalogueValue)
     if modifyOutputArr:
@@ -692,7 +703,7 @@ class CellElimRunCodecState:
   def interpolateMissingValues(self,data):
     changeCounter = 0
     for columnID,_ in enumerateDeeply(data):
-      newValue = self.spline.getValueUsingPath(columnID)
+      newValue = self.spline.get_value_using_path(columnID)
       originalValue = PyDeepArrTools.setValueUsingPath(data, columnID, newValue)
     if originalValue != newValue:
       changeCounter += 1

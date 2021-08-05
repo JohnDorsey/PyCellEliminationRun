@@ -7,6 +7,7 @@ PyGenTools.py contains tools that work on python generators without handling the
 """
 
 import traceback
+import itertools
 
 
 class ExhaustionError(Exception):
@@ -198,6 +199,9 @@ def allAreEqual(inputSeq):
     if item != sharedValue:
       return False
   return True
+  
+def seqsAreEqual(*args):
+  return all(allAreEqual(item) for item in itertools.izip_longest(*args))
   
 def countIn(inputSeq, testValue, includeDenominator=False):
   return countTriggers(inputSeq,(lambda x: x==testValue),includeDenominator=includeDenominator)

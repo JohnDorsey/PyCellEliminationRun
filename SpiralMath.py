@@ -162,5 +162,5 @@ def spiralRingSideMatchableCoords(ringIndex):
 for rotationDirection in [-1,1]:
   for startDirection in [0,1,2,3]:
     for startPosition in [(0,0),(20,100)]:
-      assert [sm.spiralCoordEncode(sm.spiralCoordDecode(i,startPosition,startDirection,rotationDirection),startPosition,startDirection,rotationDirection) for i in range(50)] == [i for i in range(50)]
+      assert [spiralCoordEncode(spiralCoordDecode(i,startPosition,startDirection,rotationDirection),startPosition,startDirection,rotationDirection) for i in range(50)] == [i for i in range(50)]
 

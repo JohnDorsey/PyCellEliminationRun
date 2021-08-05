@@ -8,6 +8,10 @@ Curves.py contains tools like the Spline class for creating curves and doing cal
 
 import math
 import itertools
+import PyDeepArrTools
+import SpiralMath
+import PyGenTools
+from PyGenTools import arrTakeOnly, seqsAreEqual
 
 try:
   range = xrange
@@ -70,14 +74,21 @@ point_distance_nd_funs = {
 
 
 def flatten_point(point_to_flatten, world_size):
+  #assert point_to_flatten != None
+  #assert None not in point_to_flatten
+  assert len(point_to_flatten) == len(world_size)
   result = 0
-  for point,measure in itertools.izip_longest(point_to_flatten,world_size):
-    result = result * measure + point
+  for pointElement,measure in itertools.izip_longest(point_to_flatten,world_size):
+    result = result * measure + pointElement
   return result
 
 def hash_point_list(point_list_to_hash, world_size):
+  if len(point_list_to_hash) == 0: #avoid index error.
+    return 0
   uniform_base = flatten_point([element-1 for element in world_size], world_size) + 2 #the +2 accomodates Nones.
   flattened_points = sorted(((0 if point==None else flatten_point(point,world_size)+1) for point in point_list_to_hash)) #sorting is performed after hashing because sorting integers is much faster than sorting tuples or lists.
+  if sum(flattened_points) == 0: #avoid possible index error.
+    return 0
   assert flattened_points[-1] < uniform_base
   result = 0
   for flattened_point in flattened_points:
@@ -92,6 +103,15 @@ def lookup_if_str(lookup_dict, potential_key, default=None):
       return lookup_dict[potential_key]
   else:
     return potential_key
+    
+    
+def genFindNearest2d(startPoint,triggerFun,timeout=None):
+  for i in (range(0,timeout) if timeout != None else itertools.count(0)):
+    currentCoord = SpiralMath.spiralCoordDecode(i,startPoint,0,1)
+    if triggerFun(currentCoord):
+      yield currentCoord
+    
+    
 
 
 class Spline:
@@ -133,41 +153,51 @@ class Spline:
     "round":"int(round({}))"
   }
 
-  def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None):
+  def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None, default_value=None):
     
-    self.initializeByDefault()
+    self.initialize_by_default()
     
-    self.setInterpolationMode(interpolation_mode)
-    self.setSizeAndEndpoints(size,endpointInitMode)
+    self.set_interpolation_mode(interpolation_mode)
+    self.set_size_and_endpoints(size,endpointInitMode)
+    self.set_default_value(default_value)
 
-    self.data = [None for i in range(self.endpoints[1][0]+1)]
-    self.boneDistanceAbs = None
+    self.data = PyDeepArrTools.noneInitializer(self.size[:-1])
+
+    self.initialize_caches()
+      
+    self.finalize_endpoints()
+    
+    assert seqsAreEqual(PyDeepArrTools.shape(self.data), self.size[:-1])
+
+
+  def initialize_caches(self):
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs = [None for i in range(len(self.data))]
     if Spline.CACHE_NEARBY_BONE_LOCATION:
       assert not Spline.CACHE_BONE_DISTANCE_ABS, "these caching modes can't be used simultaneously!"
       self.nearbyBoneLocation = [None for i in range(len(self.data))]
-    self.valueCache = None
     if Spline.CACHE_VALUES_BY_SUR_HASH:
       self.value_cache_by_surroundings_hash = dict()
     if Spline.CACHE_VALUES_2D:
       assert not Spline.CACHE_VALUES_BY_SUR_HASH, "these caching modes can't be used simultaneously!"
       self.valueCache = [None for i in range(len(self.data))]
-    self.__setitem__(0,self.endpoints[0][1])
-    self.__setitem__(-1,self.endpoints[1][1])
-    assert len(self.data) == self.size[0]
 
-
-  def initializeByDefault(self):
+  def initialize_by_default(self):
     self.forceMonotonicSlopes = forceMonotonicSlopes
     self.hermite_h00 = hermite_h00
     self.hermite_h10 = hermite_h10
     self.hermite_h01 = hermite_h01
     self.hermite_h11 = hermite_h11
+    
+  def finalize_endpoints(self):
+    if self.dimensions == 2:
+      self.__setitem__(0,self.endpoints[0][1])
+      self.__setitem__(-1,self.endpoints[1][1])
 
-  def setSizeAndEndpoints(self,size,endpointInitMode):
+  def set_size_and_endpoints(self,size,endpointInitMode):
     self.size = size
     self.dimensions = len(self.size)
+    self.volume = PyGenTools.accumulate(self.size,"*")
     assert type(endpointInitMode) in [list,str]
     if type(endpointInitMode) == str:
       endpointInitMode = [str(endpointInitMode) for i in range(2)]
@@ -178,14 +208,12 @@ class Spline:
         tempEndpoints[i][1] = 0
         print("Curves.Spline.setSizeAndEndpoints: size[1]==None sets endpoint height to zero.")
         continue
-      if endpointInitMode[i] == "middle":
-        tempEndpoints[i][1] = self.size[1]>>1
-      elif endpointInitMode[i] == "zero":
-        tempEndpoints[i][1] = 0
-      elif endpointInitMode[i] == "maximum":
-        tempEndpoints[i][1] = self.size[1]-1
-      else:
-        raise ValueError("The endpointInitMode is invalid!")
+        
+      try:
+        tempEndpoints[i][1] = self.resolve_init_value_keyword(endpointInitMode[i])
+      except KeyError:
+        raise KeyError("The endpointInitMode value {} at i={} is invalid!".format(repr(endpointInitMode[i]),i))
+
     self.endpoints = ((tempEndpoints[0][0],tempEndpoints[0][1]),(tempEndpoints[1][0],tempEndpoints[1][1]))
     if self.size == None:
       print("Curves.Spline.setSizeAndEndpoints: Size should not be empty, and this branch should not be running!")
@@ -194,9 +222,27 @@ class Spline:
     assert len(self.endpoints) == 2
     assert self.endpoints[0][0] == 0, "sample ranges not starting at zero are not yet supported."
     assert self.endpoints[1][0] == size[0]-1, "sample ranges not ending at their second endpoint are not supported."
+    
+    
+  def set_default_value(self,default_value):
+    if type(default_value) == str:
+      self.default_value = self.resolve_init_value_keyword(default_value)
+    else:
+      self.default_value = default_value
+      
+    
+  def resolve_init_value_keyword(self, keyword):
+      if keyword == "middle":
+        return self.size[1]>>1
+      elif keyword == "zero":
+        return 0
+      elif endpointInitMode[i] == "maximum":
+        return self.size[1]-1
+      else:
+        raise KeyError("The init value keyword is invalid!")
 
 
-  def setInterpolationMode(self,interpolationMode):
+  def set_interpolation_mode(self,interpolationMode):
     if type(interpolationMode) == str:
       self.interpolation_method_name = interpolationMode.split("&")[0]
       self.output_filters = []
@@ -215,10 +261,11 @@ class Spline:
       #self.interpolation_distance_2d_fun = lookup_if_str(distance_2d_funs,interpolationMode.get("distance_fun","absolute_distance"))
       self.interpolation_point_distance_nd_fun = lookup_if_str(point_distance_nd_funs,interpolationMode.get("distance_fun","absolute_distance"))
     #print("setInterpolationMode set outputFilters to {}.".format(self.outputFilters))
-    self.findPerformanceWarnings()
-    self.initializeOutputFilter()
+    self.find_performance_warnings()
+    self.initialize_output_filter()
     
-  def findPerformanceWarnings(self):
+    
+  def find_performance_warnings(self):
     def warn(filterName,modeName):
       print("Curves.Spline.findPerformanceWarnings: outputFilter \"" + filterName + "\" and interpolationMode \"" + modeName + "\" are both enabled, but that filter doesn't affect the results of that method of interpolation.")
     for outputFilter in ["span_clip","global_clip","monotonic"]:
@@ -232,7 +279,8 @@ class Spline:
     if "span_clip" in self.output_filters and "global_clip" in self.output_filters:
       print("Curves.Spline.findPerformanceWarnings: global_clip and span_clip are both enabled, but span_clip always does the job of global_clip, assuming no Spline bones are outside of the size of the spline.")
 
-  def initializeOutputFilter(self):
+
+  def initialize_output_filter(self):
     if "global_clip" in self.output_filters:
       print("Curves.Spline: warning: global clip incorrectly uses size. boundaries should be added to spline to properly support global clipping.")
     ORIGINAL_OUTPUT_FILTER_TEMPLATE = "lambda value_to_filter, sur_for_filter: {}"
@@ -313,7 +361,18 @@ class Spline:
           return None
     assert False
     
-    
+  def get_enclosing_surroundings(self,location):
+    assert isinstance(location,list) or isinstance(location,tuple)
+    assert len(location) + 1 == self.dimensions
+    if self.dimensions == 2:
+      return self.get_surroundings_2d(location[0],[0,1,1,0])
+    elif self.dimensions == 3:
+      triggerFun = (lambda testLocation: PyDeepArrTools.isInShape(testLocation,self.size[:-1]) and PyDeepArrTools.getValueUsingPath(self.data, testLocation) != None)
+      return arrTakeOnly(genFindNearest2d(location,triggerFun,timeout=self.volume),4)
+    elif self.dimensions > 3:
+      raise NotImplementedError("above 3d")
+    else:
+      assert False, "Invalid dimensions."
   
   def get_necessary_surroundings_2d(self,index):
     """
@@ -343,6 +402,7 @@ class Spline:
         else:
           surroundings[3] = self.getPointInDirection(surroundings[2][0],1)
     return surroundings
+    
 
 
   def __len__(self): #this is to make Spline iterable.
@@ -350,34 +410,53 @@ class Spline:
     return self.size[0]
 
       
-  def getValueUsingPath(self,path):
+  def get_value_using_path(self,path):
     if self.dimensions == 2:
       if type(path) == list:
         assert len(path) == 1
         path = path[0]
       return self.__getitem__(path)
     else:
-      raise NotImplementedError("above 2d")
+      return self.get_at_location(path)
       
-  def setValueUsingCell(self,cell):
+      
+  def set_value_using_cell(self,cell):
+    assert len(cell) == self.dimensions
     if self.dimensions == 2:
-      assert len(cell) == 2
       self.__setitem__(cell[0],cell[1])
     else:
-      raise NotImplementedError("above 2d")
+      PyDeepArrTools.setValueUsingCell(self.data, cell)
+      sur = self.get_enclosing_surroundings(cell[:-1])
+      self.clear_cache_entry_for_surroundings(sur)
+      
 
   def __getitem__(self,index):
+    assert self.dimensions == 2, "this is a 2d only method."
     if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
-    elif Spline.CACHE_VALUES_BY_SUR_HASH:
-      sur = self.get_necessary_surroundings_2d(index) #@ incorrect.
-      surHash = hash_point_list(sur, self.size)
+    location = (index,) #@ temp for 2d only.
+    return self.get_at_location(location)
+    
+      
+  def get_at_location(self,location):
+    assert len(location) + 1 == self.dimensions
+    directAccessResult = PyDeepArrTools.getValueUsingPath(self.data,location)
+    if directAccessResult != None:
+      return directAccessResult
+    if Spline.CACHE_VALUES_BY_SUR_HASH:
+      sur = None
+      if self.dimensions == 2:
+        sur = self.get_necessary_surroundings_2d(location[0])
+      elif self.dimensions > 2:
+        sur = self.get_enclosing_surroundings(location)
+      else:
+        assert False, "Invalid dimensions."
+      surHash = hash_point_list(sur, self.size[:-1])
       if surHash in self.value_cache_by_surroundings_hash:
         surHashEntryDict = self.value_cache_by_surroundings_hash[surHash]
       else: #if no point with these surroundings has ever been calculated and cached before:
         surHashEntryDict = dict() #make a new entry.
         self.value_cache_by_surroundings_hash[surHash] = surHashEntryDict #register the new entry.
-      location = (index,) #@ temp for 2d only.
       locationHash = flatten_point(location,self.size[:-1])
       if locationHash in surHashEntryDict:
         return surHashEntryDict[locationHash]
@@ -394,12 +473,12 @@ class Spline:
         self.valueCache[index] = result
         return result
     else:
-      return self.solveItem(index)
+      location = (index,)
+      return self.solve_location(location)
       
         
   def solve_location(self,location,sur):
     assert isinstance(location,list) or isinstance(location,tuple)
-    t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
     result = None
     interpolation_method_name = self.interpolation_method_name
     
@@ -408,15 +487,18 @@ class Spline:
       result = resultPoint[1]
     elif interpolation_method_name == "nearest_neighbor":
       #when two neighbors are equal distances away, the one on the left will be chosen.
+      t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
       resultPoint = sur[1] if (t <= 0.5) else sur[2]
       result = resultPoint[1]
     elif interpolation_method_name in ["linear","sinusoidal"]:
+      t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
       leftBone,rightBone = sur[1], sur[2]
       if interpolation_method_name == "linear":
         result = leftBone[1]+((rightBone[1]-leftBone[1])*t)
       elif interpolation_method_name == "sinusoidal":
         result = leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*t)))
     elif interpolation_method_name == "finite_difference_cubic_hermite":
+      t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
       if None in sur[1:3]:
         assert False, "an important (inner) item is missing from the surroundings."
       slopes = [None,None]
@@ -439,13 +521,16 @@ class Spline:
           continue
         surPointValue = surPoint[1]
         #surPointWeight = float(abs(location - surPoint[0]))**(-self.interpolation_power)
-        surPointDistance = self.interpolation_point_distance_nd_fun(location, surPoint[:-1])
+        surPointDistance = self.interpolation_point_distance_nd_fun(location, surPoint)
+        assert surPointDistance > 0, "this should have been detected earlier!"
         surPointWeight = surPointDistance**(-self.interpolation_power)
         workingResult += surPointValue*surPointWeight
         weightSum += surPointWeight
       if weightSum > 0: #avoid zero division error.
         workingResult /= weightSum
-      result = workingResult
+        result = workingResult
+      else:
+        result = self.default_value
     else:
       raise KeyError("The interpolation_method_name {} isn't supported.".format(interpolation_method_name))
     
@@ -470,18 +555,16 @@ class Spline:
 
 
   def __setitem__(self,index,value):
-    #this method might someday adjust cached values if a cache is created.
+    assert self.dimensions == 2
     index = index%len(self.data) #this prevents problems with simple versions of caching code.
     if value == None:
       assert not Spline.CACHE_BONE_DISTANCE_ABS, "None values can't be set while bone distance abs caching is enabled."
       assert not Spline.CACHE_NEARBY_BONE_LOCATION, "None values can't be set while nearby bone location caching is enabled."
       
     if Spline.CACHE_VALUES_BY_SUR_HASH:
-      assert len(self.size) == 2, "setitem cache handling isn't ready for this number of dimensions."
+      assert self.dimensions == 2, "setitem cache handling isn't ready for this number of dimensions."
       sur = self.get_necessary_surroundings_2d(index)
-      surHash = hash_point_list(sur,self.size)
-      if surHash in self.value_cache_by_surroundings_hash:
-        del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
+      self.clear_cache_entry_for_surroundings(sur)
       
     self.data[index] = value
     
@@ -523,3 +606,14 @@ class Spline:
         self.clearCacheInDirection(index, 1, times=(2 if (1,2) in updateType else 1))
       if (-1,0) in updateType:
         self.clearCacheInDirection(index, -1, times=(2 if (-2,-1) in updateType else 1))
+
+
+  def clear_cache_entry_for_surroundings(self,sur):
+    surHash = hash_point_list(sur,self.size[:-1])
+    if surHash in self.value_cache_by_surroundings_hash:
+      del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
+
+
+
+
+
