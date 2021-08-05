@@ -46,14 +46,21 @@ def hermite_h11(t):
   return t**3-t**2
 
 
+def flatten_point(point_to_flatten, world_size):
+  result = 0
+  for point,base in itertools.izip_longest(point_to_flatten,world_size)
+    result = result * base + point
+  return result
+
+
 
 
 class Spline:
   #the Spline is what holds sparse or complete records of all the samples of a wave, and uses whichever interpolation mode was chosen upon its creation to provide guesses about the values of missing samples. It is what will inform decisions about how likely a cell (combination of a sample location and sample value) is to be filled/true. 
 
 
-  SUPPORTED_INTERPOLATION_MODES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite","inverse_distance_weighted"]
-  SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round"]
+  SUPPORTED_INTERPOLATION_METHOD_NAMES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite","inverse_distance_weighted"]
+  SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
   
   CACHE_VALUES = True #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
   CACHE_BONE_DISTANCE_ABS = False #only applies when valueCache misses.
@@ -84,11 +91,11 @@ class Spline:
     "round":"int(round({}))"
   }
 
-  def __init__(self, interpolationMode="unspecified", size=None, endpointInitMode=None):
+  def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None):
     
     self.initializeByDefault()
     
-    self.setInterpolationMode(interpolationMode)
+    self.setInterpolationMode(interpolation_mode)
     self.setSizeAndEndpoints(size,endpointInitMode)
 
     self.data = [None for i in range(self.endpoints[1][0]+1)]
@@ -112,8 +119,6 @@ class Spline:
     self.hermite_h10 = hermite_h10
     self.hermite_h01 = hermite_h01
     self.hermite_h11 = hermite_h11
-    self.power = 2.0 #used by inverse_distance_weighted interpolation.
-
 
   def setSizeAndEndpoints(self,size,endpointInitMode):
     self.size = size
@@ -147,17 +152,21 @@ class Spline:
 
 
   def setInterpolationMode(self,interpolationMode):
-    assert type(interpolationMode) == str
-    self.interpolationMode = interpolationMode.split("&")[0]
-    self.outputFilters = []
-    if "&" in interpolationMode:
-      self.outputFilters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
-    if not self.interpolationMode in Spline.SUPPORTED_INTERPOLATION_MODES:
-      if self.interpolationMode != "unspecified":
-        raise ValueError("The interpolationMode " + interpolationMode + " is not supported.")
-    for outputFilter in self.outputFilters:
-      if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
-        raise ValueError("The outputFilter " + outputFilter + " is not supported.")
+    if type(interpolationMode) == str:
+      self.interpolation_method_name = interpolationMode.split("&")[0]
+      self.output_filters = []
+      if "&" in interpolationMode:
+        self.output_filters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
+      if not self.interpolation_method_name in Spline.SUPPORTED_INTERPOLATION_METHOD_NAMES:
+        if self.interpolation_method_name != "unspecified":
+          raise ValueError("The interpolation_method_name " + self.interpolation_method_name + " is not supported.")
+      for outputFilter in self.output_filters:
+        if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
+          raise ValueError("The outputFilter " + outputFilter + " is not supported.")
+    elif isinstance(interpolationMode,dict):
+      self.interpolation_method_name = interpolationMode.get("method_name","unspecified163")
+      self.power = interpolationMode.get("power",2)
+      self.output_filters = interpolationMode.get("output_filters",[])
     #print("setInterpolationMode set outputFilters to {}.".format(self.outputFilters))
     self.findPerformanceWarnings()
     self.initializeOutputFilter()
@@ -166,24 +175,24 @@ class Spline:
     def warn(filterName,modeName):
       print("Curves.Spline.findPerformanceWarnings: outputFilter \"" + filterName + "\" and interpolationMode \"" + modeName + "\" are both enabled, but that filter doesn't affect the results of that method of interpolation.")
     for outputFilter in ["span_clip","global_clip","monotonic"]:
-      if outputFilter in self.outputFilters:
-        if self.interpolationMode in ["hold","nearest_neighbor","linear","sinusoidal"]:
-          warn(outputFilter,self.interpolationMode)
+      if outputFilter in self.output_filters:
+        if self.interpolation_method_name in ["hold","nearest_neighbor","linear","sinusoidal"]:
+          warn(outputFilter,self.interpolation_method_name)
     for outputFilter in ["round"]:
-      if outputFilter in self.outputFilters:
-        if self.interpolationMode in ["hold","nearest_neighbor"]:
-          warn(outputFilter,self.interpolationMode)
-    if "span_clip" in self.outputFilters and "global_clip" in self.outputFilters:
+      if outputFilter in self.output_filters:
+        if self.interpolation_method_name in ["hold","nearest_neighbor"]:
+          warn(outputFilter,self.interpolation_method_name)
+    if "span_clip" in self.output_filters and "global_clip" in self.output_filters:
       print("Curves.Spline.findPerformanceWarnings: global_clip and span_clip are both enabled, but span_clip always does the job of global_clip, assuming no Spline bones are outside of the size of the spline.")
 
   def initializeOutputFilter(self):
-    if "global_clip" in self.outputFilters:
+    if "global_clip" in self.output_filters:
       print("Curves.Spline: warning: global clip incorrectly uses size. boundaries should be added to spline to properly support global clipping.")
     ORIGINAL_OUTPUT_FILTER_TEMPLATE = "lambda value_to_filter, sur_for_filter: {}"
     outputFilterTemplate = ORIGINAL_OUTPUT_FILTER_TEMPLATE
     
     #print("Curves.Spline.initializeOutputFilter: self.outputFilters is now {}.".format(self.outputFilters))
-    for outputFilterName in self.outputFilters:
+    for outputFilterName in self.output_filters:
       if outputFilterName in Spline.OUTPUT_FILTER_TEMPLATES.keys():
         outputFilterTemplate = outputFilterTemplate.format(Spline.OUTPUT_FILTER_TEMPLATES[outputFilterName])
       else:
@@ -256,12 +265,13 @@ class Spline:
           return None
     assert False
 
+
   def getNecessarySurroundings(self,index):
     """
     creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values needed by the current interpolation mode. Values not needed will be None.
     """
     surroundings = [None,None,None,None]
-    surroundingsRequirements = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolationMode]
+    surroundingsRequirements = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolation_method_name]
     if surroundingsRequirements[1]:
       surroundings[1] = self.getPointInDirection(index,-1)
       if surroundingsRequirements[0]:
@@ -297,22 +307,23 @@ class Spline:
     sur = self.getNecessarySurroundings(index)
     t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
     result = None
+    interpolation_method_name = self.interpolation_method_name
   
-    if self.interpolationMode == "hold":
+    if interpolation_method_name == "hold":
       resultPoint = sur[1]
       result = resultPoint[1]
-    elif self.interpolationMode == "nearest_neighbor":
+    elif interpolation_method_name == "nearest_neighbor":
       #when two neighbors are equal distances away, the one on the left will be chosen.
       resultPoint = sur[1] if (t <= 0.5) else sur[2]
       result = resultPoint[1]
-    elif self.interpolationMode in ["linear","sinusoidal"]:
+    elif interpolation_method_name in ["linear","sinusoidal"]:
       leftBone,rightBone = sur[1], sur[2]
-      if self.interpolationMode == "linear":
+      if interpolation_method_name == "linear":
         result = leftBone[1]+((rightBone[1]-leftBone[1])*t)
-      elif self.interpolationMode == "sinusoidal":
+      elif interpolation_method_name == "sinusoidal":
         result = leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*t)))
     
-    elif self.interpolationMode == "finite_difference_cubic_hermite":
+    elif interpolation_method_name == "finite_difference_cubic_hermite":
       if None in sur[1:3]:
         assert False, "an important (inner) item is missing from the surroundings."
       slopes = [None,None]
@@ -324,10 +335,10 @@ class Spline:
         slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
       else:
         slopes[1] = 0.5*(float(sur[3][1]-sur[2][1])/float(sur[3][0]-sur[2][0])+float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0]))
-      if "monotonic" in self.outputFilters:
+      if "monotonic" in self.output_filters:
         self.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
       result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
-    elif self.interpolationMode == "inverse_distance_weighted":
+    elif interpolation_method_name == "inverse_distance_weighted":
       weightSum = 0.0
       workingResult = 0.0
       for surPoint in sur:
@@ -341,7 +352,7 @@ class Spline:
         workingResult /= weightSum
       result = workingResult
     else:
-      raise KeyError("The interpolationMode {} isn't supported.".format(self.interpolationMode))
+      raise KeyError("The interpolation_method_name {} isn't supported.".format(interpolation_method_name))
     
     result = self._output_filter_fun(result,sur)
     return result
@@ -413,9 +424,9 @@ class Spline:
 
     if Spline.CACHE_VALUES:
       #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
-      if self.interpolationMode == "unspecified":
+      if self.interpolation_method_name == "unspecified":
         return
-      updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolationMode]
+      updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolation_method_name]
       if type(updateType) != list:
         raise ValueError("updateType definitions of types other than list are not supported yet.")
       self.valueCache[index] = None
