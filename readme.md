@@ -134,6 +134,12 @@ Design notes:
       
         -separate experimental features from the headerDict and header routines.
         
+      -simplify Spline:
+      
+        -separate into 2d and nd.
+        
+        -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
+        
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
         
       -add automatic catalogue edits / editing functions for different situations like monotonic data.

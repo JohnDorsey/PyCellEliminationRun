@@ -368,7 +368,8 @@ class Spline:
       return self.get_surroundings_2d(location[0],[0,1,1,0])
     elif self.dimensions == 3:
       triggerFun = (lambda testLocation: PyDeepArrTools.isInShape(testLocation,self.size[:-1]) and PyDeepArrTools.getValueUsingPath(self.data, testLocation) != None)
-      return arrTakeOnly(genFindNearest2d(location,triggerFun,timeout=self.volume),4)
+      surLocations = arrTakeOnly(genFindNearest2d(location,triggerFun,timeout=self.volume),4)
+      return [list(surLocation) + [PyDeepArrTools.getValueUsingPath(self.data,surLocation)] for surLocation in surLocations]
     elif self.dimensions > 3:
       raise NotImplementedError("above 3d")
     else:
@@ -451,7 +452,7 @@ class Spline:
         sur = self.get_enclosing_surroundings(location)
       else:
         assert False, "Invalid dimensions."
-      surHash = hash_point_list(sur, self.size[:-1])
+      surHash = hash_point_list(sur, self.size) #include cell heights.
       if surHash in self.value_cache_by_surroundings_hash:
         surHashEntryDict = self.value_cache_by_surroundings_hash[surHash]
       else: #if no point with these surroundings has ever been calculated and cached before:
@@ -478,6 +479,7 @@ class Spline:
       
         
   def solve_location(self,location,sur):
+    print("solve_location: location is {}. sur is {}.".format(location,sur))
     assert isinstance(location,list) or isinstance(location,tuple)
     result = None
     interpolation_method_name = self.interpolation_method_name
@@ -519,7 +521,7 @@ class Spline:
       for surPoint in sur:
         if surPoint == None:
           continue
-        surPointValue = surPoint[1]
+        surPointValue = surPoint[-1]
         #surPointWeight = float(abs(location - surPoint[0]))**(-self.interpolation_power)
         surPointDistance = self.interpolation_point_distance_nd_fun(location, surPoint)
         assert surPointDistance > 0, "this should have been detected earlier!"
@@ -609,7 +611,8 @@ class Spline:
 
 
   def clear_cache_entry_for_surroundings(self,sur):
-    surHash = hash_point_list(sur,self.size[:-1])
+    assert all(len(item) == len(self.size) for item in sur)
+    surHash = hash_point_list(sur,self.size)
     if surHash in self.value_cache_by_surroundings_hash:
       del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
 
