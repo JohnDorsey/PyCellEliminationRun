@@ -7,6 +7,7 @@ Curves.py contains tools like the Spline class for creating curves and doing cal
 """
 
 import math
+import itertools
 
 try:
   range = xrange
@@ -48,11 +49,18 @@ def hermite_h11(t):
 
 def flatten_point(point_to_flatten, world_size):
   result = 0
-  for point,base in itertools.izip_longest(point_to_flatten,world_size)
-    result = result * base + point
+  for point,measure in itertools.izip_longest(point_to_flatten,world_size):
+    result = result * measure + point
   return result
 
-
+def hash_point_list(point_list_to_hash, world_size):
+  uniform_base = flatten_point([element-1 for element in world_size], world_size) + 2 #the +2 accomodates Nones.
+  flattened_points = sorted(((0 if point==None else flatten_point(point,world_size)+1) for point in point_list_to_hash)) #sorting is performed after hashing because sorting integers is much faster than sorting tuples or lists.
+  assert flattened_points[-1] < uniform_base
+  result = 0
+  for flattened_point in flattened_points:
+    result = result * uniform_base + flattened_point
+  return result
 
 
 class Spline:
@@ -62,7 +70,9 @@ class Spline:
   SUPPORTED_INTERPOLATION_METHOD_NAMES = ["hold","nearest_neighbor","linear","sinusoidal","finite_difference_cubic_hermite","inverse_distance_weighted"]
   SUPPORTED_OUTPUT_FILTERS = ["span_clip","global_clip","round","monotonic"]
   
-  CACHE_VALUES = True #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
+  CACHE_VALUES_2D = False #enabling offers a Testing.test() speedup from 16.8 to 14.0 seconds, not considering time spent on numberCodecs and other tasks.
+  CACHE_VALUES_BY_SUR_HASH = True
+  
   CACHE_BONE_DISTANCE_ABS = False #only applies when valueCache misses.
   CACHE_NEARBY_BONE_LOCATION = True #an alternative to caching bone distance abs.
   
@@ -82,7 +92,8 @@ class Spline:
     "linear":[0,1,1,0],
     "sinusoidal":[0,1,1,0],
     "finite_difference_cubic_hermite":[1,1,1,1],
-    "inverse_distance_weighted":[1,1,1,1]
+    "inverse_distance_weighted":[1,1,1,1],
+    "unspecified":[0,0,0,0] #this exists to make it easier to set endpoints.
   }
   
   OUTPUT_FILTER_TEMPLATES = {
@@ -103,10 +114,13 @@ class Spline:
     if Spline.CACHE_BONE_DISTANCE_ABS:
       self.boneDistanceAbs = [None for i in range(len(self.data))]
     if Spline.CACHE_NEARBY_BONE_LOCATION:
-      assert not Spline.CACHE_BONE_DISTANCE_ABS, "both of these caching modes can't be used simultaneously!"
+      assert not Spline.CACHE_BONE_DISTANCE_ABS, "these caching modes can't be used simultaneously!"
       self.nearbyBoneLocation = [None for i in range(len(self.data))]
     self.valueCache = None
-    if Spline.CACHE_VALUES:
+    if Spline.CACHE_VALUES_BY_SUR_HASH:
+      self.value_cache_by_surroundings_hash = dict()
+    if Spline.CACHE_VALUES_2D:
+      assert not Spline.CACHE_VALUES_BY_SUR_HASH, "these caching modes can't be used simultaneously!"
       self.valueCache = [None for i in range(len(self.data))]
     self.__setitem__(0,self.endpoints[0][1])
     self.__setitem__(-1,self.endpoints[1][1])
@@ -266,7 +280,7 @@ class Spline:
     assert False
 
 
-  def getNecessarySurroundings(self,index):
+  def get_necessary_surroundings_2d(self,index):
     """
     creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values needed by the current interpolation mode. Values not needed will be None.
     """
@@ -275,11 +289,17 @@ class Spline:
     if surroundingsRequirements[1]:
       surroundings[1] = self.getPointInDirection(index,-1)
       if surroundingsRequirements[0]:
-        surroundings[0] = self.getPointInDirection(surroundings[1][0],-1)
+        if surroundings[1] == None:
+          print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[1] was empty, and surroundings[0] won't be filled in.".format(index))
+        else:
+          surroundings[0] = self.getPointInDirection(surroundings[1][0],-1)
     if surroundingsRequirements[2]:
       surroundings[2] = self.getPointInDirection(index,1)
       if surroundingsRequirements[3]:
-        surroundings[3] = self.getPointInDirection(surroundings[2][0],1)
+        if surroundings[2] == None:
+          print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[2] was empty, and surroundings[3] won't be filled in.".format(index))
+        else:
+          surroundings[3] = self.getPointInDirection(surroundings[2][0],1)
     return surroundings
 
 
@@ -292,19 +312,35 @@ class Spline:
     #Also, this is one of the biggest wastes of time, particularly because nothing is cached and slow searches of a mostly empty array are used. Caching the value of the spline at every position would probably be faster in almost all situations.
     if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
       return self.data[index]
-    elif Spline.CACHE_VALUES:
+    elif Spline.CACHE_VALUES_BY_SUR_HASH:
+      sur = self.get_necessary_surroundings_2d(index) #@ incorrect.
+      surHash = hash_point_list(sur, self.size)
+      if surHash in self.value_cache_by_surroundings_hash:
+        surHashEntryDict = self.value_cache_by_surroundings_hash[surHash]
+      else: #if no point with these surroundings has ever been calculated and cached before:
+        surHashEntryDict = dict() #make a new entry.
+        self.value_cache_by_surroundings_hash[surHash] = surHashEntryDict #register the new entry.
+      path = (index,) #@ temp for 2d only.
+      pathHash = flatten_point(path,self.size[:-1])
+      if pathHash in surHashEntryDict:
+        return surHashEntryDict[pathHash]
+      else:
+        result = self.solve_item(index,sur) #@ temp for until solveItem supports paths.
+        surHashEntryDict[pathHash] = result
+        return result
+    elif Spline.CACHE_VALUES_2D:
       if self.valueCache[index] != None:
         return self.valueCache[index]
       else:
-        result = self.solveItem(index)
+        sur = self.get_necessary_surroundings_2d(index)
+        result = self.solve_item(index,sur)
         self.valueCache[index] = result
         return result
     else:
       return self.solveItem(index)
       
         
-  def solveItem(self,index):
-    sur = self.getNecessarySurroundings(index)
+  def solve_item(self,index,sur):
     t = float(index-sur[1][0])/float(sur[2][0]-sur[1][0])
     result = None
     interpolation_method_name = self.interpolation_method_name
@@ -384,8 +420,11 @@ class Spline:
     return self.__getitem__(path)
       
   def setValueUsingCell(self,cell):
-    assert len(cell) == 2
-    self.__setitem__(cell[0],cell[1])
+    if len(self.size) == 2:
+      assert len(cell) == 2
+      self.__setitem__(cell[0],cell[1])
+    else:
+      raise NotImplementedError("above 2d")
 
   def __setitem__(self,index,value):
     #this method might someday adjust cached values if a cache is created.
@@ -393,6 +432,13 @@ class Spline:
     if value == None:
       assert not Spline.CACHE_BONE_DISTANCE_ABS, "None values can't be set while bone distance abs caching is enabled."
       assert not Spline.CACHE_NEARBY_BONE_LOCATION, "None values can't be set while nearby bone location caching is enabled."
+      
+    if Spline.CACHE_VALUES_BY_SUR_HASH:
+      assert len(self.size) == 2, "setitem cache handling isn't ready for this number of dimensions."
+      sur = self.get_necessary_surroundings_2d(index)
+      surHash = hash_point_list(sur,self.size)
+      if surHash in self.value_cache_by_surroundings_hash:
+        del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
       
     self.data[index] = value
     
@@ -422,7 +468,7 @@ class Spline:
               break
           self.boneDistanceAbs[x] = newDist
 
-    if Spline.CACHE_VALUES:
+    if Spline.CACHE_VALUES_2D:
       #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
       if self.interpolation_method_name == "unspecified":
         return
