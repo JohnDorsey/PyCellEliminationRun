@@ -126,10 +126,6 @@ Design notes:
     
       -simplify the CellElimRunCodecState:
       
-        -move more header tools out of CellElimRunCodecState.
-        
-        -move logging tools out of CellElimRunCodecState.
-      
         -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
         
         -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
@@ -137,6 +133,12 @@ Design notes:
         -separate experimental features from the headerDict and header routines.
         
       -simplify Spline:
+      
+        -ensure that self.data isn't accessed multiple times.
+      
+        -give __getitem__ and __setitem__ no responsibilities to other methods in Spline.
+        
+        -rename most Spline methods to reflect whether or not they deal with a cache.
       
         -separate into 2d and nd.
         
@@ -246,4 +248,8 @@ Design notes:
       
     -accelerate Spline value cache rebuilding by caching bone locations.
         
-    -speed up CERCS logging by splitting lines.
+    -speed up CERCS logging by splitting lines.  
+  
+    -move more header tools out of CellElimRunCodecState.
+    
+    -move logging tools out of CellElimRunCodecState.

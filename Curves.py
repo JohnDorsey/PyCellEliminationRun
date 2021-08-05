@@ -410,40 +410,57 @@ class Spline:
     assert self.dimensions == 2, "this is a 2d only method."
     return self.size[0]
 
+  
+  def __getitem__(self,index):
+    assert self.dimensions == 2, "this is a 2d only method."
+    index = index%len(self.data)
+    location = (index,)
+    return self.get_at_location_cached(location)
+      
+  
+  def __setitem__(self,index,value):
+    assert self.dimensions == 2, "this is a 2d only method."
+    index = index%len(self.data)
+    location = (index,)
+    self.set_at_location_cached(location,value)
+    
       
   def get_value_using_path(self,path):
-    if self.dimensions == 2:
-      if type(path) == list:
-        assert len(path) == 1
-        path = path[0]
-      return self.__getitem__(path)
-    else:
-      return self.get_at_location(path)
+    assert len(path) + 1 == self.dimensions
+    return self.get_at_location_cached(path)
       
       
   def set_value_using_cell(self,cell):
     assert len(cell) == self.dimensions
-    if self.dimensions == 2:
-      self.__setitem__(cell[0],cell[1])
-    else:
-      PyDeepArrTools.setValueUsingCell(self.data, cell)
-      sur = self.get_enclosing_surroundings(cell[:-1])
-      self.clear_cache_entry_for_surroundings(sur)
+    self.set_at_location_cached(cell[:-1],cell[-1])
       
 
-  def __getitem__(self,index):
-    assert self.dimensions == 2, "this is a 2d only method."
-    if self.data[index] != None: #no interpolation is ever done when the index in question has a known value.
-      return self.data[index]
-    location = (index,) #@ temp for 2d only.
-    return self.get_at_location(location)
     
       
-  def get_at_location(self,location):
+  def get_at_location_cached(self,location):
     assert len(location) + 1 == self.dimensions
-    directAccessResult = PyDeepArrTools.getValueUsingPath(self.data,location)
-    if directAccessResult != None:
-      return directAccessResult
+    
+    if self.dimensions == 2:
+      index = location[0]
+      directAccessResult = self.data[index]
+      if directAccessResult != None: #no interpolation is ever done when the index in question has a known value.
+        return directAccessResult
+        
+      if Spline.CACHE_VALUES_2D:
+        if self.valueCache[index] != None:
+          return self.valueCache[index]
+        else:
+          sur = self.get_necessary_surroundings_2d(index)
+          result = self.solve_location(location,sur)
+          self.valueCache[index] = result
+          return result
+    elif self.dimensions > 2:
+      directAccessResult = PyDeepArrTools.getValueUsingPath(self.data,location)
+      if directAccessResult != None:
+        return directAccessResult
+    else:
+      assert False, "invalid dimension count."
+      
     if Spline.CACHE_VALUES_BY_SUR_HASH:
       sur = None
       if self.dimensions == 2:
@@ -451,7 +468,7 @@ class Spline:
       elif self.dimensions > 2:
         sur = self.get_enclosing_surroundings(location)
       else:
-        assert False, "Invalid dimensions."
+        assert False, "Invalid dimension count."
       surHash = hash_point_list(sur, self.size) #include cell heights.
       if surHash in self.value_cache_by_surroundings_hash:
         surHashEntryDict = self.value_cache_by_surroundings_hash[surHash]
@@ -465,17 +482,8 @@ class Spline:
         result = self.solve_location(location,sur)
         surHashEntryDict[locationHash] = result
         return result
-    elif Spline.CACHE_VALUES_2D:
-      if self.valueCache[index] != None:
-        return self.valueCache[index]
-      else:
-        sur = self.get_necessary_surroundings_2d(index)
-        result = self.solve_item(index,sur)
-        self.valueCache[index] = result
-        return result
-    else:
-      location = (index,)
-      return self.solve_location(location)
+
+    return self.solve_location(location)
       
         
   def solve_location(self,location,sur):
@@ -539,6 +547,76 @@ class Spline:
     result = self._output_filter_fun(result,sur)
     return result
     
+    
+  def set_at_location_cached(self,location,value):
+    assert len(location) + 1 == self.dimensions
+      
+    if Spline.CACHE_VALUES_BY_SUR_HASH:
+      sur = None
+      if self.dimensions == 2:
+        sur = self.get_necessary_surroundings_2d(location[0])
+      elif self.dimensions > 2:
+        raise NotImplementedError("some cache handling isn't ready for this number of dimensions.")
+      else:
+        assert False, "invalid dimension count."
+      self.clear_cache_entry_for_surroundings(sur)
+      
+    if self.dimensions == 2:
+      index = location[0]
+      
+      self.data[index] = value
+      
+      if Spline.CACHE_NEARBY_BONE_LOCATION:
+        assert value != None, "None values can't be set while bone location caching is enabled."
+        self.nearbyBoneLocation[index] = index
+        for direction in [-1,1]:
+          for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
+            oldNearestBoneLocation = self.nearbyBoneLocation[x]
+            if oldNearestBoneLocation == None:
+              self.nearbyBoneLocation[x] = index
+            else:
+              oldDist = abs(x-oldNearestBoneLocation)
+              newDist = abs(x - index)
+              if newDist >= oldDist:
+                break
+              self.nearbyBoneLocation[x] = index
+      elif Spline.CACHE_BONE_DISTANCE_ABS:
+        assert value != None, "None values can't be set while bone distance abs caching is enabled."
+        self.boneDistanceAbs[index] = 0
+        for direction in [-1,1]:
+          #x = index + direction
+          #while x < len(self.data):
+          for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
+            oldDist = self.boneDistanceAbs[x]
+            newDist = abs(x - index)
+            if oldDist != None:
+              if newDist >= oldDist:
+                break
+            self.boneDistanceAbs[x] = newDist
+
+      if Spline.CACHE_VALUES_2D:
+        #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
+        if self.interpolation_method_name == "unspecified":
+          return
+        updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolation_method_name]
+        if type(updateType) != list:
+          raise ValueError("updateType definitions of types other than list are not supported yet.")
+        self.valueCache[index] = None
+        if (0,1) in updateType:
+          self.clearCacheInDirection(index, 1, times=(2 if (1,2) in updateType else 1))
+        if (-1,0) in updateType:
+          self.clearCacheInDirection(index, -1, times=(2 if (-2,-1) in updateType else 1))
+    elif self.dimensions > 2:
+      
+      PyDeepArrTools.setValueUsingPath(self.data, location, value)
+    
+      if Spline.CACHE_NEARBY_BONE_LOCATION:
+        print("Spline.set_at_location_cached: warning: can't cache nearby bone location when dimensions > 2.")
+      if Spline.CACHE_BONE_DISTANCE_ABS:
+        print("Spline.set_at_location_cached: warning: can't cache bone distance abs when dimensions > 2.")
+    else:
+      assert False, "invalid dimension count."
+
 
   def clearCacheInDirection(self,index,direction,times=1):
     """
@@ -554,61 +632,7 @@ class Spline:
           clearingIndex += direction
     except IndexError:
       pass
-
-
-  def __setitem__(self,index,value):
-    assert self.dimensions == 2
-    index = index%len(self.data) #this prevents problems with simple versions of caching code.
-    if value == None:
-      assert not Spline.CACHE_BONE_DISTANCE_ABS, "None values can't be set while bone distance abs caching is enabled."
-      assert not Spline.CACHE_NEARBY_BONE_LOCATION, "None values can't be set while nearby bone location caching is enabled."
       
-    if Spline.CACHE_VALUES_BY_SUR_HASH:
-      assert self.dimensions == 2, "setitem cache handling isn't ready for this number of dimensions."
-      sur = self.get_necessary_surroundings_2d(index)
-      self.clear_cache_entry_for_surroundings(sur)
-      
-    self.data[index] = value
-    
-    if Spline.CACHE_NEARBY_BONE_LOCATION:
-      self.nearbyBoneLocation[index] = index
-      for direction in [-1,1]:
-        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
-          oldNearestBoneLocation = self.nearbyBoneLocation[x]
-          if oldNearestBoneLocation == None:
-            self.nearbyBoneLocation[x] = index
-          else:
-            oldDist = abs(x-oldNearestBoneLocation)
-            newDist = abs(x - index)
-            if newDist >= oldDist:
-              break
-            self.nearbyBoneLocation[x] = index
-    elif Spline.CACHE_BONE_DISTANCE_ABS:
-      self.boneDistanceAbs[index] = 0
-      for direction in [-1,1]:
-        #x = index + direction
-        #while x < len(self.data):
-        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
-          oldDist = self.boneDistanceAbs[x]
-          newDist = abs(x - index)
-          if oldDist != None:
-            if newDist >= oldDist:
-              break
-          self.boneDistanceAbs[x] = newDist
-
-    if Spline.CACHE_VALUES_2D:
-      #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
-      if self.interpolation_method_name == "unspecified":
-        return
-      updateType = Spline.VALUE_CACHE_UPDATE_TYPES[self.interpolation_method_name]
-      if type(updateType) != list:
-        raise ValueError("updateType definitions of types other than list are not supported yet.")
-      self.valueCache[index] = None
-      if (0,1) in updateType:
-        self.clearCacheInDirection(index, 1, times=(2 if (1,2) in updateType else 1))
-      if (-1,0) in updateType:
-        self.clearCacheInDirection(index, -1, times=(2 if (-2,-1) in updateType else 1))
-
 
   def clear_cache_entry_for_surroundings(self,sur):
     assert all(len(item) == len(self.size) for item in sur if item != None)
