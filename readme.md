@@ -110,23 +110,17 @@ Design notes:
   
     -external features:
     
-      -add image compression with a 3d spline.
-    
       -add a full-length sample song.
+      
+      -add a sample image.
     
       -add more output file formats, including plaintext python integer lists.
 
-      -inclusion of GZIP and/or LZMA.
-
-      -finish higher-order fibonacci coding.
-      
-      -arithmetic coding.
+      -inclusion of LZMA and/or GZIP.
       
     -internal features:
     
       -simplify the CellElimRunCodecState:
-      
-        -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
         
         -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
       
@@ -138,31 +132,47 @@ Design notes:
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
         
-      -fix unecessary calls to dict.keys().
+      -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
         
-      -allow Spline cache settings to be chosen automatically.
+      -make circular spiral for searches.
+        
+      -convolution-based weighted spline interpolation.
+    
+      -complete and test grid mode for CellCatalogue.
         
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
         
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
       
-      -add spline header hints that prepare for compressing data where the bound touches are bound box corner touches (as would be needed for compressing audio as a list of pairs of extrema heights and intervals, with the lines connecting them compressed using the CER block codec.
+      -add optional filters to genCellCheckOrder and/or scoreFun.
+
+      -finish higher-order fibonacci coding.
+        
+      -add Shannon-Fano coding as a faster alternative to huffman coding.
+        
+      -store CellTargeter rankings as a heap for performance reasons.
+        
+      -improve structure of Spline init args.
+        
+      -make CERCS test for more incompatible settings.
+      
+      -combine lewis truncation with haven bucket fibonacci coding.
+        
+      -fix unnecessary calls to dict.keys().
+        
+      -allow Spline cache settings to be chosen automatically.
       
       -make EmbedCode class to allow original values for settings to be embedded.
-
-      -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
-      
-      -make genCellCheckOrder more customizable.
     
       -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
       
       -make it possible to define a structure for the storage of header pressNums.
       
+      -arithmetic coding.
+      
       -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
       
       -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
-    
-      -complete and test grid mode for CellCatalogue.
       
       -use the logging module.
     
@@ -195,14 +205,8 @@ Design notes:
     -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
       (complexity: medium, maintenance: medium, CR impact: negative, performance impact: very positive - dissociates time complexity from audio bit depth, maybe avoiding a 256x slowdown when jumping from 8bit to 16bit samples.).
 
-    -make a fourier interpolation mode for the Spline.
-      (complexity: medium, maintenance: zero, CR impact: positive, performance impact: very negative).
-
     -make an integer-only or fraction-based linear interpolation mode for the Spline, to prove it can be done easily for better compatibility between different implementations of the codec.
       (complexity: low, maintenance: low, CR impact: slightly negative, performance impact: none).
-
-    -make a static AI interpolation mode for the spline.
-      (complexity: high, maintenance: low, CR impact: positive, performance impact: very negative).
 
     -make a parallel-grid variant Cell Elimination Run, where cell elimination runs are split between two or more grids representing a wave and its derivitive(s).
       (complexity: nightmare, maintenance: high, CR impact: positive, performance impact: none).
@@ -210,6 +214,12 @@ Design notes:
     -make a dynamically learning markov-model-like cell scoring tool.
       -this might score cells based on their paired (x, y) displacement from each endpoint individually, as well as their absolute height, and an additional chart for approximate location scaled to the rectangle formed by the start and end points.
       (complexity: medium, maintenance: high, CR impact: positive, performance impact: very negative).
+
+    -make a static AI interpolation mode for the spline.
+      (complexity: high, maintenance: low, CR impact: positive, performance impact: very negative).
+
+    -make a fourier interpolation mode for the Spline.
+      (complexity: medium, maintenance: zero, CR impact: positive, performance impact: very negative).
       
   will not do:
     
@@ -255,3 +265,9 @@ Design notes:
       -give __getitem__ and __setitem__ no responsibilities to other methods in Spline.
       
       -rename most Spline methods to reflect whether or not they deal with a cache.
+    
+    -add more customizable endpoint handling to Curves.Spline to prepare the CellElimRun block Codec for more use cases other than raw audio waves, especially compressing sorted data such as palettes, or reducing waste when compressing nearly-sorted data such as very small segments of audio.
+      
+    -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
+    
+    -add image compression with a 3d spline.

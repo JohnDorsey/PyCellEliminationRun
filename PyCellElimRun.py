@@ -245,17 +245,6 @@ class ColumnCellCatalogue(CellCatalogue):
   def __init__(self, storageMode="limits", size=[0,0]): #size might be off by one.
     self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
     self.storageMode = storageMode
-    """
-    def dataInitializer(initSize):
-      if len(initSize) == 1:
-        if storageMode == "limits":
-          return LimitsCellCatalogueColumn(size=initSize[-1])
-        elif storageMode == "grid":
-          return GridCellCatalogueColumn(size=initSize[-1])
-        else:
-          raise KeyError("storageMode key {} is invalid.".format(repr(storageMode)))
-      return [dataInitializer(initSize[1:]) for i in range(initSize[0])]
-    """
     if self.storageMode == "limits":
       def finalInitFun(finalInitSize):
         return LimitsCellCatalogueColumn(size=finalInitSize)
@@ -726,14 +715,24 @@ class CellElimRunCodecState:
         #raise NotImplementedError("bound touches are not available of data with more than 2 dimensions.")
         print(self.log("prepSpaceDefinition: warning: bound touches are not available of data with more than 2 dimensions. any included will be ignored."))
       boundTouches = self.headerManager["space_definition"]["bound_touches"]
+      
       if "north" in boundTouches.keys():
-        self.setPlaindataItem([boundTouches["north"], self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
+        self.setPlaindataItem([boundTouches["north"], self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-720720)
       if "south" in boundTouches.keys():
-        self.setPlaindataItem([boundTouches["south"], self.headerManager["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-520)
+        self.setPlaindataItem([boundTouches["south"], self.headerManager["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-722722)
       if "east" in boundTouches.keys():
-        self.setPlaindataItem([size[0]-1, boundTouches["east"]], dbgCatalogueValue=-522)
+        self.setPlaindataItem([size[0]-1, boundTouches["east"]], dbgCatalogueValue=-724724)
       if "west" in boundTouches.keys():
-        self.setPlaindataItem([0, boundTouches["west"]], dbgCatalogueValue=-524)
+        self.setPlaindataItem([0, boundTouches["west"]], dbgCatalogueValue=-726726)
+        
+      if "northeast" in boundTouches.keys():
+        self.setPlaindataItem([size[0]-1, self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-729729)
+      if "northwest" in boundTouches.keys():
+        self.setPlaindataItem([0, self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-731731)
+      if "southeast" in boundTouches.keys():
+        self.setPlaindataItem([size[0]-1, self.headerManager["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-733733)
+      if "southwest" in boundTouches.keys():
+        self.setPlaindataItem([0, self.headerManager["space_definition"]["bounds"]["lower"]], dbgCatalogueValue=-735735)
         
 
   def prepOpMode(self): # -> None:

@@ -134,7 +134,13 @@ havenBucketCodecs["HLL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[
 havenBucketCodecs["HLL_eliasGamma"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["eliasGamma"],(lambda x: len(bin(x)[2:])>>1)])
 havenBucketCodecs["HLL_eliasDelta"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["eliasDelta"],(lambda x: len(bin(x)[2:])>>1)])
 
+
+havenBucketCodecs["0.125LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.125))])
+havenBucketCodecs["0.25LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.25))])
+havenBucketCodecs["0.375LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.375))])
+havenBucketCodecs["0.625LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.625))])
 havenBucketCodecs["0.75LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.75))])
+havenBucketCodecs["0.875LL_fibonacci"] = havenBucketCodecs["base"].clone(extraArgs=[Codes.codecs["fibonacci"],(lambda x: int(len(bin(x)[2:])*0.875))])
 
 
 class StatefulFunctionHost:

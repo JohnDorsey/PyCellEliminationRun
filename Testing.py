@@ -61,27 +61,46 @@ def test(interpolationModesToTest=["linear", "linear&round", "sinusoidal", {"met
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
-def testCellElimRunCodec(testCERCodec,testSound):
+def testCellElimRunCodec(testCERCodec,testSound,compressAgain=False):
 
   pressDataNums = testCERCodec.encode(testSound)
-  print("Testing.test: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
-  if VERBOSE:
-    print("Testing.test: The pressDataNums are " + str(pressDataNums))
+  printSimpleAnalysis(pressDataNums)
 
-  for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["HLL_fibonacci","HLL_eliasGamma","HLL_eliasDelta"]]:
+  testVariousUniversalCodings(testSound,pressDataNums)
+
+  reconstPlainDataNums = testCERCodec.decode(pressDataNums)
+  if reconstPlainDataNums == testSound:
+    print("Testing.testCellElimRunCodec: test passed.\n")
+    for i in range(len(testSound)):
+      assert testSound[i] == reconstPlainDataNums[i]
+  else:
+    print("Testing.testCellElimRunCodec: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.")
+  if compressAgain:
+    testCellElimRunCodecAgain(testSound,pressDataNums)
+  print("\n")
+    
+    
+def testCellElimRunCodecAgain(testSound,testData): #compresses testData again.
+  inputHeaderDict2 = {"interpolation_mode":{"method_name":"linear"},"space_definition":{"size":[len(testData),sum(testData)],"bounds":{"upper":"EMBED:AFTER_PREP_OP_MODE"}}}
+  print("\nTesting.testCellElimRunCodecAgain: settings: " + str(inputHeaderDict2)+".")
+  testCERCodec2 = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict2])
+  pressNums2 = testCERCodec2.encode(testData)
+  printSimpleAnalysis(pressNums2)
+  testVariousUniversalCodings(testSound,pressNums2)
+      
+      
+def testVariousUniversalCodings(testSound,pressDataNums):
+  for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["0.125LL_fibonacci","0.25LL_fibonacci","0.375LL_fibonacci","HLL_fibonacci","0.625LL_fibonacci","0.75LL_fibonacci","0.875LL_fibonacci"]]:
     print("testing with "+numberSeqCodecSrcStr+":")
     numberSeqCodec = eval(numberSeqCodecSrcStr)
     CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
     assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
-
-  reconstPlainDataNums = testCERCodec.decode(pressDataNums)
-  if reconstPlainDataNums == testSound:
-    print("Testing.test: test passed.\n")
-    for i in range(len(testSound)):
-      assert testSound[i] == reconstPlainDataNums[i]
-  else:
-    print("Testing.test: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.\n")
       
+      
+def printSimpleAnalysis(pressDataNums):
+  print("Testing.printSimpleAnalysis: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
+  if VERBOSE:
+    print("Testing.printSimpleAnalysis: The pressDataNums are " + str(pressDataNums))
       
       
       
