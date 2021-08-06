@@ -64,13 +64,17 @@ def directBisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=
   else:
     sortedList.insert(testPoint,newItem)
     
-def iterativeBisectionSearch(sortedList, searchItem, keyFun=(lambda x: x)):
-  if len(sortedList) == 0:
+def iterativeBisectionSearch(sortedList, searchItem, stable=False, keyFun=(lambda x: x)):
+  """
+  when stable=True, any item which would normally land in a random place in a run of items with the same key will instead be given an index 1 greater than the rightmost item in that run.
+  """
+  sortedListLength = len(sortedList)
+  if sortedListLength == 0:
     return 0
   searchItemKey = keyFun(searchItem)
   startPoint = 0
   startItemKey = keyFun(sortedList[startPoint])
-  endPoint = len(sortedList)-1
+  endPoint = sortedListLength-1
   endItemKey = keyFun(sortedList[endPoint])
   while True:
     if endPoint - startPoint < 2:
@@ -95,11 +99,18 @@ def iterativeBisectionSearch(sortedList, searchItem, keyFun=(lambda x: x)):
       elif testItemKey < searchItemKey: #if we should search higher...
         startPoint, startItemKey = (testPoint, testItemKey)
       else:
-        return testPoint
+        if stable:
+          for stabilityTestPoint in range(testPoint+1,sortedListLength):
+            if keyFun(sortedList[stabilityTestPoint]) != testItemKey:
+              return stabilityTestPoint
+          return sortedListLength
+        else:
+          return testPoint
     
-def bisectInsort(sortedList, newItem, keyFun=(lambda x: x)):
-  insertLocation = iterativeBisectionSearch(sortedList, newItem, keyFun=keyFun)
+def bisectInsort(sortedList, newItem, stable=False, keyFun=(lambda x: x)):
+  insertLocation = iterativeBisectionSearch(sortedList, newItem, stable=stable, keyFun=keyFun)
   sortedList.insert(insertLocation, newItem)
+    
     
 #insert sorted:
 insort = bisectInsort

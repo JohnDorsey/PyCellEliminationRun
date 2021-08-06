@@ -213,6 +213,25 @@ def countTriggers(inputSeq, triggerFun, includeDenominator=False):
   return (count,denominator) if includeDenominator else count
 
 
+
+
+
+
+def genMonitored(inputSeq,text=""):
+  inputGen = makeGen(inputSeq)
+  i = 0
+  while True:
+    try:
+      item = next(inputGen)
+      print("PyGenTools.genMonitored: " + text + " i={}, item={}.".format(i, item))
+      yield item
+      i += 1
+    except StopIteration as se:
+      print("PyGenTools.genMonitored: " + text + " i={}, {}".format(i, repr(se)))
+      raise se
+  assert False, "Unreachable statement."
+  
+
 class CC:
   """
   CC stands for ConverterClass.

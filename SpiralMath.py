@@ -1,4 +1,8 @@
 
+from PyGenTools import makeGen, arrTakeOnly
+from PyArrTools import insort
+import collections
+
 
 
 def coordRotatedCCW(coord):
@@ -155,8 +159,81 @@ def spiralRingSideMatchableCoords(ringIndex):
 
 
 
-
-
+def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecrease=True,keyFun=None):
+  if keyFun == None:
+    keyFun = (lambda x: x)
+  inputGen = makeGen(inputSeq)
+  
+  rememberedLocalMinima = collections.deque()
+  rememberedLocalMaxima = collections.deque()
+  history = []
+  
+  sortKeyFun = (lambda itemA: itemA[0])
+  
+  if forbidLocalMinimaDecrease and forbidLocalMaximaDecrease:
+    def localExtremaAllowOutputNow():
+      testResult = sortKeyFun(rememberedLocalMinima[-1]) > sortKeyFun(rememberedLocalMaxima[0])
+      #maybe they could be popped now?
+      return testResult
+  else:
+    def localExtremaAllowOutputNow():
+      return sortKeyFun(max(rememberedLocalMinima, key=sortKeyFun)) > sortKeyFun(min(rememberedLocalMaxima, key=sortKeyFun))
+  
+  def canOutputNow():
+    if len(history) == 0:
+      return False
+    if len(rememberedLocalMinima) == 0 or len(rememberedLocalMaxima) == 0:
+      return False
+    return localExtremaAllowOutputNow()
+    
+  currentTriplet = collections.deque()
+    
+  while True:
+    while not canOutputNow():
+      try:
+        nextValue = next(inputGen)
+        nextKey = keyFun(nextValue)
+        currentTriplet.append((nextKey, nextValue))
+        if len(currentTriplet) > 3:
+          insort(history, currentTriplet.popleft(), stable=True, keyFun=sortKeyFun)
+      except StopIteration:
+        for itemB in sorted(history, key=sortKeyFun):
+          yield itemB[1]
+        for itemC in sorted(currentTriplet, key=sortKeyFun):
+          yield itemC[1]
+        return
+      if len(currentTriplet) < 3:
+        continue #impossible to detect local extrema yet.
+      
+      if sortKeyFun(min(currentTriplet ,key=sortKeyFun)) == sortKeyFun(currentTriplet[-2]):
+        if forbidLocalMinimaDecrease:
+          if len(rememberedLocalMinima) > 0:
+            if not sortKeyFun(rememberedLocalMinima[-1]) <= sortKeyFun(currentTriplet[-2]):
+              raise ValueError("forbidLocalMinimaDecrease violated by inputSeq!")
+        rememberedLocalMinima.append(currentTriplet[-2])
+      
+      if sortKeyFun(max(currentTriplet, key=sortKeyFun)) == sortKeyFun(currentTriplet[-2]):
+        if forbidLocalMaximaDecrease:
+          if len(rememberedLocalMinima) > 0:
+            if not sortKeyFun(rememberedLocalMaxima[-1]) <= sortKeyFun(currentTriplet[-2]):
+              raise ValueError("forbidLocalMaximaDecrease violated by inputSeq!")
+        rememberedLocalMaxima.append(currentTriplet[-2])
+    
+    #print("SpiralMath.genDezigged: yielding {}.".format(history[0][1]))
+    yield history[0][1]
+    if forbidLocalMinimaDecrease:
+      if history[0] == rememberedLocalMinima[0]:
+        rememberedLocalMinima.popleft()
+    else:
+      raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
+    if forbidLocalMaximaDecrease:
+      if history[0] == rememberedLocalMaxima[0]:
+        rememberedLocalMaxima.popleft()
+    else:
+      raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
+    del history[0] #@ slow!
+  assert False, "unreachable statement."
+          
 
 
 for rotationDirection in [-1,1]:
