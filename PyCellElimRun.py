@@ -14,6 +14,7 @@ import CodecTools
 from IntArrMath import intify
 
 from Codes import ParseError
+import PyGenTools
 from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate, countIn, allAreEqual
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
 import PyDeepArrTools
@@ -363,10 +364,11 @@ class CellTargeter:
     if type(scoreFun)==str:
       if scoreFun=="vertical_distance":
         def scoreFun(cell):
-          return self.size[1]-abs(self.spline[cell[0]]-cell[1]) #bad offset? probably not.
+          return self.size[1]-abs(self.spline.get_value_using_path(cell[:-1])-cell[-1]) #bad offset? probably not.
       elif scoreFun in ["absolute_distance", "bilog_distance","manhattan_distance"]:
         distanceFun = Curves.distance_2d_funs[scoreFun]
         def scoreFun(cell):
+          assert len(cell) == 2, "this scoreFun can't handle more than 2 dimensions."
           minKnownDist, curRiseLeft, curRiseRight, offset = distanceFun(0,abs(self.spline[cell[0]]-cell[1])), self.size[1], self.size[1], 1
           while distanceFun(offset,0) < minKnownDist:
             if cell[0]-offset >= 0:
@@ -552,6 +554,7 @@ class CellElimRunCodecState:
   ALLOW_BOUND_ASSUMPTIONS = False #allow bound touch locations to be specified in the header without also providing the locations of bounaries in the header info - in this case, the bounaries are assumed based on "size". In case bounds were excluded from the header on accident, this assumption is incorrect, the plaindata values that are set based on the bound touch parameters will be set incorrectly, and the transcoding process will either crash or produce garbage.
 
 
+
   def __init__(self, inputData, opMode, inputHeaderDictTemplate):
     """
     The initialization method takes arguments that resemble a structured header as much as possible. In the decode phase, it fills in missing data in headerManager.headerDict by decoding a few pressdata items as parameters. In the encode phase, it fills in missing data in headerManager.headerDict by analyzing the provided plaindata, encodes these parameters, and prepends them to the pressdata it will output.
@@ -589,6 +592,7 @@ class CellElimRunCodecState:
     self.log("finished __init__.")
 
 
+
   def initializeByDefault(self):
     """
     initializeByDefault initializes things that can't be changed by class settings and don't depend on header information.
@@ -598,6 +602,8 @@ class CellElimRunCodecState:
     self._output_pressdata_list = None
     self._output_plaindata_matrix = None
     self.TO_COMPLETED_HEADER_DICT_TEMPLATE = (lambda inputObject: augmentedDict(inputObject, CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE))
+    
+    
     
   def applyHeader(self):
     """
@@ -683,6 +689,7 @@ class CellElimRunCodecState:
       self.cellCatalogue.eliminateColumn(cellToSet[:-1], dbgCustomValue=dbgCatalogueValue)
     if modifyOutputArr:
       if self.opMode == "decode":
+        assert len(cellToSet) == self.dimensions
         PyDeepArrTools.setValueUsingCell(self._output_plaindata_matrix, cellToSet)
 
 
@@ -716,7 +723,8 @@ class CellElimRunCodecState:
 
     if "bound_touches" in self.headerManager["space_definition"].keys():
       if len(size) != 2:
-        raise NotImplementedError("bound touches are not available of data with more than 2 dimensions.")
+        #raise NotImplementedError("bound touches are not available of data with more than 2 dimensions.")
+        print(self.log("prepSpaceDefinition: warning: bound touches are not available of data with more than 2 dimensions. any included will be ignored."))
       boundTouches = self.headerManager["space_definition"]["bound_touches"]
       if "north" in boundTouches.keys():
         self.setPlaindataItem([boundTouches["north"], self.headerManager["space_definition"]["bounds"]["upper"]-1], dbgCatalogueValue=-518)
@@ -738,19 +746,28 @@ class CellElimRunCodecState:
     size = self.headerManager["space_definition"]["size"]
 
     if self.opMode == "encode":
-      self._input_plaindata_matrix = arrTakeOnly(self.inputDataGen,size[0],onExhaustion="partial")
+      self._input_plaindata_matrix = arrTakeOnly(self.inputDataGen, size[0], onExhaustion="partial")
       if not len(self._input_plaindata_matrix) > 0:
         raise ExhaustionError("The CellEliminationRunCodecState received empty input data while trying to encode.")
-      if len(self._input_plaindata_matrix) < size[0]:
-        print(self.log("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: the input plainData is shorter than the (block) size, so the missing values will be replaced with zeroes."))
-      self._input_plaindata_matrix = ljustedArr(self._input_plaindata_matrix,size[0],fillItem=0)
-      assert len(self._input_plaindata_matrix) == size[0]
+      if len(size) == 2:
+        if len(self._input_plaindata_matrix) < size[0]:
+          print(self.log("PyCellElimRun.CellEliminationRunCodecState.prepOpMode: the input plainData is shorter than the (block) size, so the missing values will be replaced with zeroes."))
+        self._input_plaindata_matrix = ljustedArr(self._input_plaindata_matrix, size[0], fillItem=0)
+        assert len(self._input_plaindata_matrix) == size[0]
+      elif len(size) > 2:
+        pass #there are no validation steps that only work for higher dimensions.
+      else:
+        raise ValueError("invalid length of size.")  
+      assert PyDeepArrTools.arrIsUniformlyShape(self._input_plaindata_matrix, size[:-1]), "input data is not uniform!"
       self._output_pressdata_list = []
     elif self.opMode == "decode":
       self._input_pressdata_gen = self.inputDataGen
-      self._output_plaindata_matrix = []
-      defaultSampleValue = None
-      self._output_plaindata_matrix.extend([defaultSampleValue for i in range(size[0])])
+      #defaultSampleValue = None
+      #self._output_plaindata_matrix = []
+      #self._output_plaindata_matrix.extend([defaultSampleValue for i in range(size[0])])
+      self._output_plaindata_matrix = PyDeepArrTools.noneInitializer(size[:-1])
+      #print(("op mode debug", shape(self._output_plaindata_matrix), size[:-1]))
+      assert PyGenTools.seqsAreEqual(shape(self._output_plaindata_matrix), size[:-1])
     else:
       assert False, "invalid opMode."
       
@@ -831,7 +848,7 @@ class CellElimRunCodecState:
       if self.dimensions == 2:#this version is only different from the higher-dimensional version for performance reasons.
         hitTest = (lambda: self._input_plaindata_matrix[cellToCheck[0]] == cellToCheck[1]) 
       else:
-        hitTest = (lambda: PyDeepArrTools.getValueUsingPath(cellToCheck[:-1]) == cellToCheck[-1])
+        hitTest = (lambda: PyDeepArrTools.getValueUsingPath(self._input_plaindata_matrix, cellToCheck[:-1]) == cellToCheck[-1])
     elif self.opMode == "decode":
       hitTest = (lambda: currentPressdataNum == self.stepIndex)
     else:

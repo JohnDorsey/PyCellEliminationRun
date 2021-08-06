@@ -134,12 +134,6 @@ Design notes:
         
       -simplify Spline:
       
-        -ensure that self.data isn't accessed multiple times.
-      
-        -give __getitem__ and __setitem__ no responsibilities to other methods in Spline.
-        
-        -rename most Spline methods to reflect whether or not they deal with a cache.
-      
         -separate into 2d and nd.
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
@@ -248,8 +242,16 @@ Design notes:
       
     -accelerate Spline value cache rebuilding by caching bone locations.
         
-    -speed up CERCS logging by splitting lines.  
+    -speed up CERCS logging by splitting lines.
   
     -move more header tools out of CellElimRunCodecState.
     
     -move logging tools out of CellElimRunCodecState.
+      
+    -simplify Spline:
+    
+      -ensure that self.data isn't accessed multiple times.
+    
+      -give __getitem__ and __setitem__ no responsibilities to other methods in Spline.
+      
+      -rename most Spline methods to reflect whether or not they deal with a cache.

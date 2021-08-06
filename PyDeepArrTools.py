@@ -1,14 +1,29 @@
 import itertools
 
 def shape(data):
+  if not isinstance(data,list):
+    raise TypeError("invalid input type {}.".format(repr(type(data))))
   result = [len(data)]
-  while type(data[0]) == list:
+  while isinstance(data[0],list):
     data = data[0]
     result.append(len(data))
   return tuple(result)
   
-def isInShape(testPoint,testShape):
+def dataShape(data):
+  raise NotImplementedError()
+  
+def isInShape(testPoint, testShape):
   return all(0<=pair[0]<pair[1] for pair in itertools.izip_longest(testPoint,testShape))
+  
+def arrIsUniform(data):
+  return arrIsUniformlyShape(data,shape(data))
+  
+def arrIsUniformlyShape(data,dataShape):
+  if len(data) != dataShape[0]:
+    return False
+  if len(dataShape) == 1: #if recursion should be avoided now:
+    return True #there is no longer way to fail within this call.
+  return all(arrIsUniformlyShape(subArr,dataShape[1:]) for subArr in data)
   
   
 def iterateDeeply(*args,**kwargs):
@@ -17,7 +32,7 @@ def iterateDeeply(*args,**kwargs):
   
 def enumerateDeeply(data,uniformDepth=True):
     if uniformDepth:
-      assert all(type(subItem)==list for subItem in data) or all(type(subItem)!=list for subItem in data)
+      assert all(type(subItem)==list for subItem in data) or all(type(subItem)!=list for subItem in data) #@ replace with pyGenTools.allAreEqual?
     if type(data) == list:
       for i,subItem in enumerate(data):
         if type(subItem) != list:
@@ -25,9 +40,10 @@ def enumerateDeeply(data,uniformDepth=True):
         else:
           assert type(subItem) == list
           subItemIterator = enumerateDeeply(subItem,uniformDepth=uniformDepth)
-          for item in subItemIterator:
-            assert type(item) == list
-            yield ([i] + item[0], item[1])
+          for subSubItem in subItemIterator:
+            if not type(subSubItem) == tuple:
+              raise AssertionError("subSubItem has type {}.".format(repr(type(subSubItem))))
+            yield ([i] + subSubItem[0], subSubItem[1])
     else:
       raise ValueError("enumerateDeeply called on invalid type.")
       
@@ -52,8 +68,10 @@ def setValueUsingPath(data,path,value,requireSameType=True,allowOverwriteNone=Tr
       workingData = workingData[pathElement]
   except IndexError:
     raise IndexError("pathElement with value {} at index {} in path {} out of range in data of shape {}; couldn't set value {}.".format(pathElement, pathElementIndex, path, shape(data), value)) 
-  assert type(workingData) == list, "path is too long for the data!"
-  assert type(workingData[path[-1]]) != list, "path is too short for the data!"
+  if type(workingData) != list:
+    raise ValueError("path is too long for the data! path={}, shape(data)={}, shape(workingData)={}.".format(path,shape(data),shape(workingData)))
+  if type(workingData[path[-1]]) == list:
+    raise ValueError("path is too short for the data! path={}, shape(data)={}, type(workingData[path[-1]])={}, shape(workingData)={}.".format(path,shape(data),type(workingData[path[-1]]),shape(workingData)))
   if requireSameType:
     assert type(workingData[path[-1]]) == type(value) or (allowOverwriteNone and workingData[path[-1]] == None)
   oldValue = workingData[path[-1]]

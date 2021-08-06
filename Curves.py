@@ -153,7 +153,7 @@ class Spline:
     "round":"int(round({}))"
   }
 
-  def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None, default_value=None):
+  def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None, default_value="zero"):
     
     self.initialize_by_default()
     
@@ -168,19 +168,29 @@ class Spline:
     self.finalize_endpoints()
     
     assert seqsAreEqual(PyDeepArrTools.shape(self.data), self.size[:-1])
+    #print("spline init finished")
 
 
   def initialize_caches(self):
     if Spline.CACHE_BONE_DISTANCE_ABS:
-      self.boneDistanceAbs = [None for i in range(len(self.data))]
+      if self.dimensions != 2:
+        print("caching bone distance abs is disabled because self.dimensions != 2.")
+      else:
+        self.boneDistanceAbs = [None for i in range(len(self.data))]
     if Spline.CACHE_NEARBY_BONE_LOCATION:
       assert not Spline.CACHE_BONE_DISTANCE_ABS, "these caching modes can't be used simultaneously!"
-      self.nearbyBoneLocation = [None for i in range(len(self.data))]
+      if self.dimensions != 2:
+        print("caching nearby bone location is disabled because self.dimensions != 2.")
+      else:
+        self.nearbyBoneLocation = [None for i in range(len(self.data))]
     if Spline.CACHE_VALUES_BY_SUR_HASH:
       self.value_cache_by_surroundings_hash = dict()
     if Spline.CACHE_VALUES_2D:
       assert not Spline.CACHE_VALUES_BY_SUR_HASH, "these caching modes can't be used simultaneously!"
-      self.valueCache = [None for i in range(len(self.data))]
+      if self.dimensions != 2:
+        print("the regular value cache is disabled because self.dimensions != 2.")
+      else:
+        self.valueCache = [None for i in range(len(self.data))]
 
   def initialize_by_default(self):
     self.forceMonotonicSlopes = forceMonotonicSlopes
@@ -229,6 +239,8 @@ class Spline:
       self.default_value = self.resolve_init_value_keyword(default_value)
     else:
       self.default_value = default_value
+    if self.default_value == None:
+      print("Curves.Spline.set_default_value: warning: default value is now None! this may cause problems!")
       
     
   def resolve_init_value_keyword(self, keyword):
@@ -361,6 +373,7 @@ class Spline:
           return None
     assert False
     
+    
   def get_enclosing_surroundings(self,location):
     assert isinstance(location,list) or isinstance(location,tuple)
     assert len(location) + 1 == self.dimensions
@@ -374,6 +387,7 @@ class Spline:
       raise NotImplementedError("above 3d")
     else:
       assert False, "Invalid dimensions."
+  
   
   def get_necessary_surroundings_2d(self,index):
     """
@@ -427,7 +441,9 @@ class Spline:
       
   def get_value_using_path(self,path):
     assert len(path) + 1 == self.dimensions
-    return self.get_at_location_cached(path)
+    result = self.get_at_location_cached(path)
+    assert result != None, "result should never be None!" #@ slow
+    return result
       
       
   def set_value_using_cell(self,cell):
@@ -466,7 +482,7 @@ class Spline:
       if self.dimensions == 2:
         sur = self.get_necessary_surroundings_2d(location[0])
       elif self.dimensions > 2:
-        sur = self.get_enclosing_surroundings(location)
+        sur = self.get_enclosing_surroundings(location) #make sure to change this at the same time when changing the way surroundings are found in set_at_location.
       else:
         assert False, "Invalid dimension count."
       surHash = hash_point_list(sur, self.size) #include cell heights.
@@ -477,13 +493,16 @@ class Spline:
         self.value_cache_by_surroundings_hash[surHash] = surHashEntryDict #register the new entry.
       locationHash = flatten_point(location,self.size[:-1])
       if locationHash in surHashEntryDict:
-        return surHashEntryDict[locationHash]
+        result = surHashEntryDict[locationHash]
+        assert result != None, "result should never be None!" #@ slow
+        return result
       else:
         result = self.solve_location(location,sur)
         surHashEntryDict[locationHash] = result
+        #assert result != None, "result should never be None!" #@ slow
         return result
 
-    return self.solve_location(location)
+    return self.solve_location(location,sur) #this will give a name error someday. When it does, sur calculation should be made more centralized.
       
         
   def solve_location(self,location,sur):
@@ -545,6 +564,7 @@ class Spline:
       raise KeyError("The interpolation_method_name {} isn't supported.".format(interpolation_method_name))
     
     result = self._output_filter_fun(result,sur)
+    assert result != None, "result should never be None!" #@ slow
     return result
     
     
@@ -556,7 +576,8 @@ class Spline:
       if self.dimensions == 2:
         sur = self.get_necessary_surroundings_2d(location[0])
       elif self.dimensions > 2:
-        raise NotImplementedError("some cache handling isn't ready for this number of dimensions.")
+        #raise NotImplementedError("some cache handling isn't ready for this number of dimensions.")
+        sur = self.get_enclosing_surroundings(location) #@ make sure to change this at the same time as elsewhere.
       else:
         assert False, "invalid dimension count."
       self.clear_cache_entry_for_surroundings(sur)
@@ -612,8 +633,10 @@ class Spline:
     
       if Spline.CACHE_NEARBY_BONE_LOCATION:
         print("Spline.set_at_location_cached: warning: can't cache nearby bone location when dimensions > 2.")
+        #pass
       if Spline.CACHE_BONE_DISTANCE_ABS:
         print("Spline.set_at_location_cached: warning: can't cache bone distance abs when dimensions > 2.")
+        #pass
     else:
       assert False, "invalid dimension count."
 
