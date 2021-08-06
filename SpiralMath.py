@@ -167,8 +167,11 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
   rememberedLocalMinima = collections.deque()
   rememberedLocalMaxima = collections.deque()
   history = []
+  currentTriplet = collections.deque()
   
   sortKeyFun = (lambda itemA: itemA[0])
+  
+  getStatus = (lambda: "status:(history={}, rlmn={}, rlmx={}, triplet={}, canOutputNow()={})".format(history, rememberedLocalMinima, rememberedLocalMaxima, currentTriplet, canOutputNow()))
   
   if forbidLocalMinimaDecrease and forbidLocalMaximaDecrease:
     def localExtremaAllowOutputNow():
@@ -186,52 +189,94 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
       return False
     return localExtremaAllowOutputNow()
     
-  currentTriplet = collections.deque()
+  def detectLocalExtrema(suspendRules=False):
+    assert len(currentTriplet) in [2,3]
+    if sortKeyFun(min(currentTriplet ,key=sortKeyFun)) == sortKeyFun(currentTriplet[1]):
+      if forbidLocalMinimaDecrease and not suspendRules:
+        if len(rememberedLocalMinima) > 0:
+          if not sortKeyFun(rememberedLocalMinima[-1]) <= sortKeyFun(currentTriplet[1]):
+            raise ValueError("forbidLocalMinimaDecrease violated by inputSeq!")
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
+      rememberedLocalMinima.append(currentTriplet[1])
+      print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+    if sortKeyFun(max(currentTriplet, key=sortKeyFun)) == sortKeyFun(currentTriplet[1]):
+      if forbidLocalMaximaDecrease and not suspendRules:
+        if len(rememberedLocalMaxima) > 0:
+          if not sortKeyFun(rememberedLocalMaxima[-1]) <= sortKeyFun(currentTriplet[1]):
+            raise ValueError("forbidLocalMaximaDecrease violated by inputSeq!")
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
+      rememberedLocalMaxima.append(currentTriplet[1])
+      print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+    
+  currentTripletFilledBefore = False
+  inputItemsExhausted = False
     
   while True:
-    while not canOutputNow():
-      try:
-        nextValue = next(inputGen)
-        nextKey = keyFun(nextValue)
-        currentTriplet.append((nextKey, nextValue))
-        if len(currentTriplet) > 3:
-          insort(history, currentTriplet.popleft(), stable=True, keyFun=sortKeyFun)
-      except StopIteration:
-        for itemB in sorted(history, key=sortKeyFun):
-          yield itemB[1]
-        for itemC in sorted(currentTriplet, key=sortKeyFun):
-          yield itemC[1]
-        return
-      if len(currentTriplet) < 3:
-        continue #impossible to detect local extrema yet.
+    assert len(currentTriplet) <= 3
+    if len(currentTriplet) == 3:
+      currentTripletFilledBefore = True
       
-      if sortKeyFun(min(currentTriplet ,key=sortKeyFun)) == sortKeyFun(currentTriplet[-2]):
-        if forbidLocalMinimaDecrease:
-          if len(rememberedLocalMinima) > 0:
-            if not sortKeyFun(rememberedLocalMinima[-1]) <= sortKeyFun(currentTriplet[-2]):
-              raise ValueError("forbidLocalMinimaDecrease violated by inputSeq!")
-        rememberedLocalMinima.append(currentTriplet[-2])
+    if canOutputNow():
+      print("SpiralMath.genDezigged: normal out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
+      yield history[0][1]
+      if forbidLocalMinimaDecrease:
+        if history[0] == rememberedLocalMinima[0]:
+          rememberedLocalMinima.popleft()
+      else:
+        raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
+      if forbidLocalMaximaDecrease:
+        if history[0] == rememberedLocalMaxima[0]:
+          rememberedLocalMaxima.popleft()
+      else:
+        raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
+      del history[0] #@ slow!
+      continue
       
-      if sortKeyFun(max(currentTriplet, key=sortKeyFun)) == sortKeyFun(currentTriplet[-2]):
-        if forbidLocalMaximaDecrease:
-          if len(rememberedLocalMinima) > 0:
-            if not sortKeyFun(rememberedLocalMaxima[-1]) <= sortKeyFun(currentTriplet[-2]):
-              raise ValueError("forbidLocalMaximaDecrease violated by inputSeq!")
-        rememberedLocalMaxima.append(currentTriplet[-2])
+    try:
+      nextValue = next(inputGen)
+      nextKey = keyFun(nextValue)
+      nextItem = (nextKey, nextValue)
+      print("SpiralMath.genDezigged: notice: {}, ingesting {}.".format(getStatus(), nextItem))
+      assert len(currentTriplet) <= 3
+      currentTriplet.append(nextItem)
+      insort(history, nextItem, stable=True, keyFun=sortKeyFun)
+      print("SpiralMath.genDezigged: notice: {}, ingested {}.\n".format(getStatus(), nextItem))
+      #assert len(currentTriplet) <= 4
+      #if len(currentTriplet) == 4:
+      #  currentTriplet.popleft()
+      #assert len(currentTriplet) <= 3
+    except StopIteration:
+      inputItemsExhausted = True
+      
+    if currentTripletFilledBefore:
+      currentTriplet.popleft() #to make up for not doing it earlier in the try block above.
+      assert len(currentTriplet) <= 3
     
-    #print("SpiralMath.genDezigged: yielding {}.".format(history[0][1]))
-    yield history[0][1]
-    if forbidLocalMinimaDecrease:
-      if history[0] == rememberedLocalMinima[0]:
-        rememberedLocalMinima.popleft()
+      if len(currentTriplet) == 3:
+        detectLocalExtrema()
+        continue
+      elif len(currentTriplet) == 2:
+        assert inputItemsExhausted, "if not, then why is currentTriplet less than full?"
+        detectLocalExtrema(suspendRules=True)
+        continue
+      elif len(currentTriplet) == 1:
+        pass #allow endgame.
+      elif len(currentTriplet) == 0:
+        raise ValueError()
+      else:
+        assert False
     else:
-      raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
-    if forbidLocalMaximaDecrease:
-      if history[0] == rememberedLocalMaxima[0]:
-        rememberedLocalMaxima.popleft()
-    else:
-      raise NotImplementedError("There is currently no way to remove items from rememberedLocalMaxima when they are not sorted. Try forbidding decreases in them.")
-    del history[0] #@ slow!
+      continue #don't reach the endgame before the right time.
+        
+    assert len(currentTriplet) == 1
+    assert inputItemsExhausted
+        
+    for endgameItem in sorted(history):
+      
+      print("SpiralMath.genDezigged: endgame out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
+      yield endgameItem[1]
+    return
+
   assert False, "unreachable statement."
           
 
