@@ -329,7 +329,7 @@ def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
 
 def genCircularSpiralCoords(**customizationKwargs):
   for basicCoord in genBasicCircularSpiralCoords():
-    yield customizeSpiralCoord(basicCoord, **customizationKwargs)
+    yield customizedSpiralCoord(basicCoord, **customizationKwargs)
 
 def genBasicCircularSpiralCoords():
   return genDezigged(genBasicSpiralCoords(), keyFun=magnitude)

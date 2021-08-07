@@ -422,7 +422,7 @@ class Log:
   def __init__(self):
     pass
   def __call__(self,*args,**kwargs):
-    self.doLog(*args,**kwargs)
+    return self.doLog(*args,**kwargs)
 
     
 def implementLogging(otherSelf,existingLogList=None,loggingLinePrefix="",passthroughPrefix=True):
@@ -563,7 +563,7 @@ class CellElimRunCodecState:
     self.headerManager.doPhase("AFTER_PREP_OP_MODE:1")
     self.prepSpaceDefinition()
     self.headerManager.doPhase("AFTER_PREP_SPACE_DEFINITION")
-    self.spline.set_interpolation_mode(self.headerManager["interpolation_mode"])
+    self.spline.setInterpolationMode(self.headerManager["interpolation_mode"])
       
     self.headerManager.doPhase("AFTER_PREP_GROUP")
 
@@ -981,5 +981,11 @@ assert testResult == [4,10,4,4,9,5,35]
 
 for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
   assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpoint_init_mode":testEndpointInitMode}]),[5,0,100,75,50])
+
+
+testResult = cellElimRunBlockTranscode([[1,2,3,2,1],[2,3,5,3,2],[3,5,8,5,3],[2,3,5,3,2],[1,2,3,2,1]],"encode",{"interpolation_mode":{"method_name":"inverse_distance_weighted"},"space_definition":{"size":[5,5,10]}})
+
+assert testResult == [25, 31, 9, 25, 14, 74, 8, 0, 0, 0]
+
 
 
