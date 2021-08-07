@@ -2,6 +2,7 @@
 from PyGenTools import makeGen, arrTakeOnly
 from PyArrTools import insort
 import collections
+import itertools
 
 
 
@@ -55,6 +56,7 @@ def spiralCoordDecode(t, startXY, startDirection, rotationDirection):
   result = coordSum([result, startXY])
   return result
 
+
 def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
   spiralCoord = coordSum([coord,scaledCoord(startXY,-1)])
   for i in range(startDirection):
@@ -62,6 +64,87 @@ def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
   spiralCoord = (spiralCoord[0]*rotationDirection, spiralCoord[1])
   return basicSpiralCoordEncode(spiralCoord)
 
+
+def genBasicSpiralCoords(*args):
+  #4 to 8 times faster for large spirals.
+  startT = 0
+  endT = None
+  direction = 1
+  eternal = True
+  
+  if len(args) == 1:
+    endT = args[0]
+    assert endT >= 0
+    eternal = False
+  if len(args) >= 2:
+    startT, endT = args[0], args[1]
+    assert startT >= 0
+    assert endT >= 0
+    if startT == endT:
+      return
+    eternal = False
+  if len(args) >= 3:
+    direction = args[2]
+    assert direction in [1, -1]
+  if len(args) > 3:
+    raise ValueError("too many arguments.")
+    
+  if endT != None:
+    if (endT-startT)*direction < 0:
+      return
+
+    
+  t = startT
+  if t == 0: #because spiralRingSideLength can't handle ring index 0.
+    assert direction > 0
+    yield (0,0)
+    t += direction
+    if t == endT:
+      return
+    
+  print(startT,endT,direction,eternal)
+  
+  startRingIndex, tInStartRing = findSubdivisionAndInnerLocation(0, t, subdivisionSizeFun=spiralRingLength)
+  startSideLen = spiralRingSideLength(startRingIndex, 1)
+  sideInStartRing, tInStartSide = findSubdivisionAndInnerLocation(0, tInStartRing, subdivisionSize=startSideLen)
+  """
+  if eternal:
+    endRingIndex, tInEndRing = None, None
+    endSideInRing, tInEndSide = None, None
+  else:
+    endRingIndex, tInEndRing = findSubdivisionAndInnerLocation(0, endT, subdivisionSizeFun=spiralRingLength)
+    if endRingIndex > 0:
+      endSideLen = spiralRingSideLength(endRingIndex, 1)
+      endSideInRing, tInEndSide = findSubdivisionAndInnerLocation(0, tInEndRing, subdivisionSize=endSideLen)"""
+  
+  #def printStatus():
+  #  print("ringIndex",ringIndex
+  for ringIndex in itertools.count(startRingIndex, direction): #iterate ringIndex
+    print("ringIndex",ringIndex)
+    if ringIndex == 0:
+      yield (0,0)
+      assert direction < 0
+      return
+    sideLen = spiralRingSideLength(ringIndex, 1)
+    sideInRingSeq = (range(sideInStartRing,4,1) if direction==1 else range(sideInStartRing,-1,-1)) if (ringIndex == startRingIndex) else (range(0,4,1) if direction==1 else range(3,-1,-1))
+    for sideInRing in sideInRingSeq: #iterate sideInRing
+      tInSideSeq = (range(tInStartSide,sideLen,1) if direction==1 else range(tInStartSide,-1,-1)) if (ringIndex == startRingIndex and sideInRing == sideInStartRing) else (range(0,sideLen,1) if direction==1 else range(sideLen-1,-1,-1))
+      print("sideInRing",sideInRing)
+      sideDirection = directionIndexToVector((sideInRing+1)%4)
+      sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
+      for tInSide in tInSideSeq:
+        print("tInSide",tInSide)
+        if not eternal:
+          if (endT-t)*direction <= 0:
+            assert t == endT, "skip!"
+            #assert ringIndex == endRingIndex, "skip!"
+            #assert sideInRing == endSideInRing, "skip!"
+            #assert tInSide == tInEndSide, "skip!"
+            print("normal spiral end. t={}.".format(t))
+            return
+        result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
+        yield result
+        t += direction
 
 def basicSpiralCoordDecode(t):
   assert t >= 0
