@@ -105,12 +105,17 @@ def lookup_if_str(lookup_dict, potential_key, default=None):
     return potential_key
     
     
-def genFindNearest2d(startPoint,triggerFun,timeout=None):
-  for i in (range(0,timeout) if timeout != None else itertools.count(0)):
-    currentCoord = SpiralMath.spiralCoordDecode(i,startPoint,0,1)
-    if triggerFun(currentCoord):
-      yield currentCoord
+def genFindNearest2d(startPoint,triggerFun,shape="circle",timeout=None):
+  assert shape in ["circle","square"]
+  if shape == "square":
+    for i in (range(0,timeout) if timeout != None else itertools.count(0)):
+      currentCoord = SpiralMath.spiralCoordDecode(i,startPoint,0,1)
+      if triggerFun(currentCoord):
+        yield currentCoord
+  elif shape == "circle":
     
+  else:
+    assert False
     
 
 

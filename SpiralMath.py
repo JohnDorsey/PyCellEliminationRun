@@ -97,23 +97,40 @@ def spiralRingSideMatchableCoords(ringIndex):
 
 
 
-def spiralCoordDecode(t, startXY, startDirection, rotationDirection):
-  assert startDirection in [0,1,2,3] #N-E-S-W.
-  assert rotationDirection in [1,-1] #1 is CW, -1 is CCW.
-  basicResult = basicSpiralCoordDecode(t)
-  result = (basicResult[0]*rotationDirection, basicResult[1])
-  for i in range(startDirection):
-    result = coordRotatedCW(result)
-  result = coordSum([result, startXY])
+def spiralCoordEncode(coord, **customizationKwargs):
+  basicCoord = decustomizedSpiralCoord(coord, **customizationKwargs)
+  result = basicSpiralCoordEncode(basicCoord)
   return result
 
 
-def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
-  spiralCoord = coordSum([coord,scaledCoord(startXY,-1)])
-  for i in range(startDirection):
-    spiralCoord = coordRotatedCCW(spiralCoord)
-  spiralCoord = (spiralCoord[0]*rotationDirection, spiralCoord[1])
-  return basicSpiralCoordEncode(spiralCoord)
+def spiralCoordDecode(t, **customizationKwargs):
+  basicResult = basicSpiralCoordDecode(t)
+  result = customizedSpiralCoord(basicResult, **customizationKwargs)
+  return result
+  
+  
+  
+  
+
+def decustomizedSpiralCoord(coord, home=None, rot=None, spin=None):
+  assert len(coord) == 2 and len(home) == 2
+  assert spin in [1,-1] #1 is CW, -1 is CCW.
+  result = coordSum([coord,scaledCoord(home,-1)])
+  for i in range(rot%4): #0 1 2 3 -> first step is N E S W
+    result = coordRotatedCCW(result)
+  result = (result[0]*spin, result[1])
+  return result
+
+  
+def customizedSpiralCoord(coord, home=None, rot=None, spin=None):
+  assert len(coord) == 2 and len(home) == 2
+  assert spin in [1,-1] #1 is CW, -1 is CCW.
+  result = (coord[0]*spin, coord[1])
+  for i in range(rot%4): #0 1 2 3 -> first step is N E S W
+    result = coordRotatedCW(result)
+  result = coordSum([result, home])
+  return result
+  
 
 
 
@@ -188,7 +205,10 @@ def findSubdivisionAndInnerLocation(startingSubdivisionIndex, absoluteLocation, 
   
   
   
-
+def genSpiralCoords(*args, **customizationKwargs):
+  for basicCoord in genBasicSpiralCoords(*args):
+    yield customizedSpiralCoord(basicCoord, **customizationKwargs)
+  
 
 def genBasicSpiralCoords(*args):
   #4 to 8 times faster for large spirals.
@@ -207,7 +227,7 @@ def genBasicSpiralCoords(*args):
     direction = args[2]
     assert direction in [1, -1]
   if len(args) > 3:
-    raise ValueError("too many arguments.")
+    raise ValueError("wrong number of arguments.")
     
   if endTExclusive != None:
     endT = endTExclusive - direction
@@ -306,6 +326,10 @@ def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
   return
   
   
+
+def genCircularSpiralCoords(**customizationKwargs):
+  for basicCoord in genBasicCircularSpiralCoords():
+    yield customizeSpiralCoord(basicCoord, **customizationKwargs)
 
 def genBasicCircularSpiralCoords():
   return genDezigged(genBasicSpiralCoords(), keyFun=magnitude)
@@ -438,7 +462,7 @@ def genDezigged(inputSeq, forbidLocalMinimaDecrease=True, forbidLocalMaximaDecre
 for rotationDirection in [-1,1]:
   for startDirection in [0,1,2,3]:
     for startPosition in [(0,0),(20,100)]:
-      assert [spiralCoordEncode(spiralCoordDecode(i,startPosition,startDirection,rotationDirection),startPosition,startDirection,rotationDirection) for i in range(50)] == [i for i in range(50)]
+      assert [spiralCoordEncode(spiralCoordDecode(i,home=startPosition,rot=startDirection,spin=rotationDirection),home=startPosition,rot=startDirection,spin=rotationDirection) for i in range(50)] == [i for i in range(50)]
 
 assert [basicSpiralCoordDecode(t) for t in range(16)] == [(0, 0), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (-1, 2), (0, 2), (1, 2), (2, 2), (2, 1), (2, 0), (2, -1)]
 
