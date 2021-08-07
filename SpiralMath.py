@@ -32,6 +32,9 @@ def coordsAreNeighbors(coord0,coord1):
 def distance(coord0,coord1):
   assert len(coord0) == len(coord1)
   return float(sum((coord0[i]-coord1[i])**2 for i in range(len(coord0))))**0.5
+  
+def magnitude(coord0):
+  return float(sum(coord0Element**2 for coord0Element in coord0))**0.5
 
 def sign(x):
   return int(math.copysign(1,x))
@@ -43,18 +46,55 @@ def modularMinimumDistance(value0,value1,modulus):
   distances = [item for item in [value0 - value1, value1 - value0, value0 + modulus - value1, value1 + modulus - value0] if item >= 0]
   return min(distances)
 
-"""
-class Undefined:
-  def __init__(self,*args):
-    if len(args) > 1:
-      raise ValueError("too many args.")
-    if len(args) == 1:
-      self.msg = args[0]
-    else:
-      self.msg = ""
-  def __repr__(self):
-    return "Undefined("+self.msg+")"
-"""
+
+
+def spiralRingSideLength(ringIndex,includedCorners):
+  assert includedCorners in [0,1,2]
+  assert ringIndex > 0
+  #if ringIndex == 0:
+  #  result = spiralRingSideLength(ringIndex+1,includedCorners) - 4
+  #  print("SpiralMath.spiralRingSideLength: returning {} instead of an error.".format(result))
+  #  return result
+  #  return Undefined("spiralRingSideLength is undefined for ringIndex=0")
+  return ((2*ringIndex)-1)+includedCorners
+
+def spiralRingLength(ringIndex):
+  assert ringIndex >= 0
+  if ringIndex == 0:
+    return 1
+  return 4 * spiralRingSideLength(ringIndex,1)
+
+def spiralRingArea(ringIndex):
+  if ringIndex == 0:
+    return 1
+  if ringIndex == 1:
+    return 9
+  return spiralRingSideLength(ringIndex,2)**2
+
+def spiralRingInnerArea(ringIndex):
+  #return sum(spiralRingLength(i) for i in range(ringIndex))
+  if ringIndex == 0:
+    return 0
+  return spiralRingArea(ringIndex-1)
+
+def spiralRingSideStartCoords(ringIndex):
+  assert ringIndex > 0
+  if ringIndex == 1:
+    return [(0,1),(1,0),(0,-1),(-1,0)]
+  return [(0-(ringIndex-1),ringIndex),(ringIndex,ringIndex-1),(ringIndex-1,-ringIndex),(-ringIndex,0-(ringIndex-1))]
+
+def spiralRingSideMatchableCoords(ringIndex):
+  assert ringIndex > 0
+  if ringIndex == 1:
+    return [(None,1),(1,None),(None,-1),(-1,None)]
+  return [(None,ringIndex),(ringIndex,None),(None,-ringIndex),(-ringIndex,None)]
+
+
+
+
+
+
+
 
 
 def spiralCoordDecode(t, startXY, startDirection, rotationDirection):
@@ -74,6 +114,80 @@ def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
     spiralCoord = coordRotatedCCW(spiralCoord)
   spiralCoord = (spiralCoord[0]*rotationDirection, spiralCoord[1])
   return basicSpiralCoordEncode(spiralCoord)
+
+
+
+
+      
+
+def basicSpiralCoordDecode(t):
+  assert t >= 0
+  if t == 0: #because spiralRingSideLength can't handle ring index 0.
+    return (0,0) 
+  
+  ringIndex, tInRing = findSubdivisionAndInnerLocation(0, t, subdivisionSizeFun=spiralRingLength)
+  
+  sideLen = spiralRingSideLength(ringIndex, 1)
+  sideInRing, tInSide = findSubdivisionAndInnerLocation(0, tInRing, subdivisionSize=sideLen)
+
+  sideDirection = directionIndexToVector((sideInRing+1)%4)
+  sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
+  result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
+  return result
+
+
+def basicSpiralCoordEncode(coord):
+  ringIndex = max(abs(value) for value in coord)
+  if ringIndex == 0:
+    return 0
+  if ringIndex == 1: #because the side index finding loop can't handle ring 1.
+    return {(0,1):1,(1,1):2,(1,0):3,(1,-1):4,(0,-1):5,(-1,-1):6,(-1,0):7,(-1,1):8}[coord]
+  ringSideStartCoords = spiralRingSideStartCoords(ringIndex)
+  ringSideMatchableCoords = spiralRingSideMatchableCoords(ringIndex)
+  sideInRing = None
+  sideMatches = []
+  for sideIndex,testCoord in enumerate(ringSideMatchableCoords):
+    if (coord[0] == testCoord[0] or coord[1] == testCoord[1]):
+      sideMatches.append(sideIndex)
+  if len(sideMatches) == 1:
+    sideInRing = sideMatches[0]
+  else:
+    assert len(sideMatches) == 2
+    offset = modularMinimumDistance(sideMatches[0],sideMatches[1],4)
+    assert offset == 1
+    if sideMatches == [0,3]:
+      sideInRing = 3
+    else:
+      assert sideMatches in [[0,1],[1,2],[2,3]]
+      sideInRing = min(sideMatches)
+  assert sideInRing != None
+  sideStartCoord = ringSideStartCoords[sideInRing]
+  tPassedRings = spiralRingInnerArea(ringIndex)
+  tPassedSides = (sideInRing*spiralRingSideLength(ringIndex,1))
+  tWithinSide = int(round(distance(coord,sideStartCoord)))
+  #print("(ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide)="+str((ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide))+".")
+  t = tPassedRings + tPassedSides + tWithinSide
+  return t
+  
+  
+def findSubdivisionAndInnerLocation(startingSubdivisionIndex, absoluteLocation, subdivisionSize=None, subdivisionSizeFun=None): #this can be modified to work in higher dimensions.
+  assert not (subdivisionSize == None and subdivisionSizeFun == None)
+  if subdivisionSizeFun == None:
+    subdivisionSizeFun = (lambda ignore: subdivisionSize)
+    
+  currentSubdivisionIndex = startingSubdivisionIndex
+  relativeLocation = absoluteLocation
+  while True:
+    currentSubdivisionSize = subdivisionSizeFun(currentSubdivisionIndex)
+    if currentSubdivisionSize > relativeLocation:
+      break
+    relativeLocation -= currentSubdivisionSize
+    currentSubdivisionIndex += 1
+  return currentSubdivisionIndex, relativeLocation
+  
+  
+  
+  
 
 
 def genBasicSpiralCoords(*args):
@@ -190,118 +304,17 @@ def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
       #print("genBasicSpiralRingCoords: sideInRing={}, tInSide={}, yielding {}.".format(sideInRing,tInSide,result))
       yield result
   return
-      
-
-def basicSpiralCoordDecode(t):
-  assert t >= 0
-  if t == 0: #because spiralRingSideLength can't handle ring index 0.
-    return (0,0) 
-  
-  ringIndex, tInRing = findSubdivisionAndInnerLocation(0, t, subdivisionSizeFun=spiralRingLength)
-  
-  sideLen = spiralRingSideLength(ringIndex, 1)
-  sideInRing, tInSide = findSubdivisionAndInnerLocation(0, tInRing, subdivisionSize=sideLen)
-
-  sideDirection = directionIndexToVector((sideInRing+1)%4)
-  sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
-  result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
-  return result
-
-
-def basicSpiralCoordEncode(coord):
-  ringIndex = max(abs(value) for value in coord)
-  if ringIndex == 0:
-    return 0
-  if ringIndex == 1: #because the side index finding loop can't handle ring 1.
-    return {(0,1):1,(1,1):2,(1,0):3,(1,-1):4,(0,-1):5,(-1,-1):6,(-1,0):7,(-1,1):8}[coord]
-  ringSideStartCoords = spiralRingSideStartCoords(ringIndex)
-  ringSideMatchableCoords = spiralRingSideMatchableCoords(ringIndex)
-  sideInRing = None
-  sideMatches = []
-  for sideIndex,testCoord in enumerate(ringSideMatchableCoords):
-    if (coord[0] == testCoord[0] or coord[1] == testCoord[1]):
-      sideMatches.append(sideIndex)
-  if len(sideMatches) == 1:
-    sideInRing = sideMatches[0]
-  else:
-    assert len(sideMatches) == 2
-    offset = modularMinimumDistance(sideMatches[0],sideMatches[1],4)
-    assert offset == 1
-    if sideMatches == [0,3]:
-      sideInRing = 3
-    else:
-      assert sideMatches in [[0,1],[1,2],[2,3]]
-      sideInRing = min(sideMatches)
-  assert sideInRing != None
-  sideStartCoord = ringSideStartCoords[sideInRing]
-  tPassedRings = spiralRingInnerArea(ringIndex)
-  tPassedSides = (sideInRing*spiralRingSideLength(ringIndex,1))
-  tWithinSide = int(round(distance(coord,sideStartCoord)))
-  #print("(ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide)="+str((ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide))+".")
-  t = tPassedRings + tPassedSides + tWithinSide
-  return t
   
   
-def findSubdivisionAndInnerLocation(startingSubdivisionIndex, absoluteLocation, subdivisionSize=None, subdivisionSizeFun=None): #this can be modified to work in higher dimensions.
-  assert not (subdivisionSize == None and subdivisionSizeFun == None)
-  if subdivisionSizeFun == None:
-    subdivisionSizeFun = (lambda ignore: subdivisionSize)
-    
-  currentSubdivisionIndex = startingSubdivisionIndex
-  relativeLocation = absoluteLocation
-  while True:
-    currentSubdivisionSize = subdivisionSizeFun(currentSubdivisionIndex)
-    if currentSubdivisionSize > relativeLocation:
-      break
-    relativeLocation -= currentSubdivisionSize
-    currentSubdivisionIndex += 1
-  return currentSubdivisionIndex, relativeLocation
+
+def genBasicCircularSpiralCoords():
+  return genDezigged(genBasicSpiralCoords(), keyFun=magnitude)
   
+
   
-def spiralRingSideLength(ringIndex,includedCorners):
-  assert includedCorners in [0,1,2]
-  assert ringIndex > 0
-  #if ringIndex == 0:
-  #  result = spiralRingSideLength(ringIndex+1,includedCorners) - 4
-  #  print("SpiralMath.spiralRingSideLength: returning {} instead of an error.".format(result))
-  #  return result
-  #  return Undefined("spiralRingSideLength is undefined for ringIndex=0")
-  return ((2*ringIndex)-1)+includedCorners
-
-def spiralRingLength(ringIndex):
-  assert ringIndex >= 0
-  if ringIndex == 0:
-    return 1
-  return 4 * spiralRingSideLength(ringIndex,1)
-
-def spiralRingArea(ringIndex):
-  if ringIndex == 0:
-    return 1
-  if ringIndex == 1:
-    return 9
-  return spiralRingSideLength(ringIndex,2)**2
-
-def spiralRingInnerArea(ringIndex):
-  #return sum(spiralRingLength(i) for i in range(ringIndex))
-  if ringIndex == 0:
-    return 0
-  return spiralRingArea(ringIndex-1)
-
-def spiralRingSideStartCoords(ringIndex):
-  assert ringIndex > 0
-  if ringIndex == 1:
-    return [(0,1),(1,0),(0,-1),(-1,0)]
-  return [(0-(ringIndex-1),ringIndex),(ringIndex,ringIndex-1),(ringIndex-1,-ringIndex),(-ringIndex,0-(ringIndex-1))]
-
-def spiralRingSideMatchableCoords(ringIndex):
-  assert ringIndex > 0
-  if ringIndex == 1:
-    return [(None,1),(1,None),(None,-1),(-1,None)]
-  return [(None,ringIndex),(ringIndex,None),(None,-ringIndex),(-ringIndex,None)]
 
 
-
-def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecrease=True,keyFun=None):
+def genDezigged(inputSeq, forbidLocalMinimaDecrease=True, forbidLocalMaximaDecrease=True, keyFun=None):
   if keyFun == None:
     keyFun = (lambda x: x)
   inputGen = makeGen(inputSeq)
