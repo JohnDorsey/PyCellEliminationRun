@@ -89,8 +89,6 @@ def genBasicSpiralCoords(*args):
     startT, endTExclusive = args[0], args[1]
     assert startT >= 0
     assert endTExclusive >= -1 #do stricter checks later.
-    #if startT == endTExclusive:
-    #  return
   if len(args) >= 3:
     direction = args[2]
     assert direction in [1, -1]
@@ -102,21 +100,6 @@ def genBasicSpiralCoords(*args):
     assert endT >= 0
   else:
     endT = None
-    
-  #if endT != None:
-  #  #if (endT-startT)*direction < 0:
-  #  #  return
-
-  """
-  t = startT
-  if t == 0: #because spiralRingSideLength can't handle ring index 0.
-    assert direction > 0
-    yield (0,0)
-    t += direction
-    if t == endT:
-      return"""
-    
-  #print(startT,endT,direction,eternal)
   
   startRingIndex, startTInStartRing = findSubdivisionAndInnerLocation(0, startT, subdivisionSizeFun=spiralRingLength)
   if startRingIndex > 0:
@@ -132,17 +115,13 @@ def genBasicSpiralCoords(*args):
       endSideLen = spiralRingSideLength(endRingIndex, 1)
       endSideInEndRing, endTInEndSide = findSubdivisionAndInnerLocation(0, endTInEndRing, subdivisionSize=endSideLen)
   
-  #def printStatus():
-  #  print("ringIndex",ringIndex
   ringIndex = startRingIndex
   
   if ringIndex == endRingIndex:
-    print("SpiralMath.GenBasicSpiralCoords: branch A")
     for outputItem in genBasicSpiralRingCoords(ringIndex,startTInStartRing,endTInEndRing,direction):
       yield outputItem
     return
   else:
-    print("SpiralMath.GenBasicSpiralCoords: branch B")
     for outputItem in genBasicSpiralRingCoords(ringIndex,startTInStartRing,None,direction):
       yield outputItem
     ringIndex += direction
@@ -152,26 +131,22 @@ def genBasicSpiralCoords(*args):
     if ringIndex == 0:
       yield (0,0)
       assert direction < 0
-    print("SpiralMath.GenBasicSpiralCoords: branch C")
     for outputItem in genBasicSpiralRingCoords(ringIndex,None,None,direction):
       yield outputItem
     ringIndex += direction
     
   assert ringIndex == endRingIndex
   if ringIndex == 0:
-    print("SpiralMath.GenBasicSpiralCoords: branch D")
     yield (0,0)
     return
     
-  
-  print("SpiralMath.GenBasicSpiralCoords: branch E")
   for outputItem in genBasicSpiralRingCoords(ringIndex,None,endTInEndRing,direction):
     yield outputItem
   return
   
         
 def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
-  print("genBasicSpiralRingCoords: ringIndex={}, startTInRing={}, endTInRing={}, direction={}.".format(ringIndex,startTInRing,endTInRing,direction))
+  #print("genBasicSpiralRingCoords: ringIndex={}, startTInRing={}, endTInRing={}, direction={}.".format(ringIndex,startTInRing,endTInRing,direction))
   if ringIndex == 0:
     if startTInRing in [0,None] and endTInRing in [0,None]:
       yield (0,0)
@@ -199,22 +174,20 @@ def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
   basicTInSideRangeStart = 0 if direction > 0 else sideLen-1
   basicTInSideRangeEnd = sideLen if direction > 0 else -1
   
-  print("genBasicSpiralRingCoords: (startSideInRing,startTInStartSide,sideInRingRangeStart)="+str((startSideInRing, startTInStartSide, sideInRingRangeStart)))
-  print("genBasicSpiralRingCoords: (endSideInRing,endTInEndSide,sideInRingSeqEnd)="+str((endSideInRing, endTInEndSide, sideInRingSeqEnd)))
-  print("genBasicSpiralRingCoords: (basicTInSideRangeStart,basicTInSideRangeEnd)="+str((basicTInSideRangeStart, basicTInSideRangeEnd)))
+  #print("genBasicSpiralRingCoords: (startSideInRing,startTInStartSide,sideInRingRangeStart)="+str((startSideInRing, startTInStartSide, sideInRingRangeStart)))
+  #print("genBasicSpiralRingCoords: (endSideInRing,endTInEndSide,sideInRingSeqEnd)="+str((endSideInRing, endTInEndSide, sideInRingSeqEnd)))
+  #print("genBasicSpiralRingCoords: (basicTInSideRangeStart,basicTInSideRangeEnd)="+str((basicTInSideRangeStart, basicTInSideRangeEnd)))
   
-  print("genBasicSpiralRingCoords: sideInRingSeq={}".format(sideInRingSeq)) #THIS LINE NOT PYTHON3 COMPATIBLE.
+  #print("genBasicSpiralRingCoords: sideInRingSeq={}".format(sideInRingSeq)) #THIS LINE NOT PYTHON3 COMPATIBLE.
   
   for sideInRing in sideInRingSeq: #iterate sideInRing
     tInSideSeq = range(startTInStartSide if sideInRing==startSideInRing else basicTInSideRangeStart, endTInEndSide+direction if sideInRing==endSideInRing else basicTInSideRangeEnd, direction)
-    #print("sideInRing",sideInRing)
     sideDirection = directionIndexToVector((sideInRing+1)%4)
     sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
-    print("genBasicSpiralRingCoords: sideInRing={}, tInSideSeq={}.".format(sideInRing,tInSideSeq))
+    #print("genBasicSpiralRingCoords: sideInRing={}, tInSideSeq={}.".format(sideInRing,tInSideSeq))
     for tInSide in tInSideSeq:
-      #print("tInSide",tInSide)
       result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
-      print("genBasicSpiralRingCoords: sideInRing={}, tInSide={}, yielding {}.".format(sideInRing,tInSide,result))
+      #print("genBasicSpiralRingCoords: sideInRing={}, tInSide={}, yielding {}.".format(sideInRing,tInSide,result))
       yield result
   return
       
@@ -367,7 +340,7 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
             raise ValueError("forbidLocalMinimaDecrease violated by inputSeq!")
       #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
       rememberedLocalMinima.append(currentTriplet[1])
-      print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
     if sortKeyFun(max(currentTriplet, key=sortKeyFun)) == sortKeyFun(currentTriplet[1]):
       if forbidLocalMaximaDecrease and not suspendRules:
         if len(rememberedLocalMaxima) > 0:
@@ -375,7 +348,7 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
             raise ValueError("forbidLocalMaximaDecrease violated by inputSeq!")
       #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
       rememberedLocalMaxima.append(currentTriplet[1])
-      print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
     
   currentTripletFilledBefore = False
   inputItemsExhausted = False
@@ -386,7 +359,7 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
       currentTripletFilledBefore = True
       
     if canOutputNow():
-      print("SpiralMath.genDezigged: normal out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
+      #print("SpiralMath.genDezigged: normal out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
       yield history[0][1]
       if forbidLocalMinimaDecrease:
         if history[0] == rememberedLocalMinima[0]:
@@ -405,15 +378,12 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
       nextValue = next(inputGen)
       nextKey = keyFun(nextValue)
       nextItem = (nextKey, nextValue)
-      print("SpiralMath.genDezigged: notice: {}, ingesting {}.".format(getStatus(), nextItem))
+      #print("SpiralMath.genDezigged: notice: {}, ingesting {}.".format(getStatus(), nextItem))
       assert len(currentTriplet) <= 3
       currentTriplet.append(nextItem)
       insort(history, nextItem, stable=True, keyFun=sortKeyFun)
-      print("SpiralMath.genDezigged: notice: {}, ingested {}.\n".format(getStatus(), nextItem))
-      #assert len(currentTriplet) <= 4
-      #if len(currentTriplet) == 4:
-      #  currentTriplet.popleft()
-      #assert len(currentTriplet) <= 3
+      #print("SpiralMath.genDezigged: notice: {}, ingested {}.\n".format(getStatus(), nextItem))
+
     except StopIteration:
       inputItemsExhausted = True
       
@@ -442,12 +412,14 @@ def genDezigged(inputSeq,forbidLocalMinimaDecrease=True,forbidLocalMaximaDecreas
         
     for endgameItem in sorted(history):
       
-      print("SpiralMath.genDezigged: endgame out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
+      #print("SpiralMath.genDezigged: endgame out: {}, yielding {}.\n".format(getStatus(), history[0][1]))
       yield endgameItem[1]
     return
 
   assert False, "unreachable statement."
-          
+
+
+
 
 
 for rotationDirection in [-1,1]:
