@@ -62,30 +62,22 @@ def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
   spiralCoord = (spiralCoord[0]*rotationDirection, spiralCoord[1])
   return basicSpiralCoordEncode(spiralCoord)
 
+
 def basicSpiralCoordDecode(t):
   assert t >= 0
   if t == 0: #because spiralRingSideLength can't handle ring index 0.
     return (0,0) 
-  ringIndex = 0
-  tInRing = t
-  while True:
-    ringLen = spiralRingLength(ringIndex)
-    if ringLen > tInRing:
-      break
-    tInRing -= ringLen
-    ringIndex += 1
-  sideInRing = 0
-  tInSide = tInRing
-  sideLen = spiralRingSideLength(ringIndex,1)
-  while True:
-    if sideLen > tInSide:
-      break
-    tInSide -= sideLen
-    sideInRing += 1
+  
+  ringIndex, tInRing = findSubdivisionAndInnerLocation(0, t, subdivisionSizeFun=spiralRingLength)
+  
+  sideLen = spiralRingSideLength(ringIndex, 1)
+  sideInRing, tInSide = findSubdivisionAndInnerLocation(0, tInRing, subdivisionSize=sideLen)
+
   sideDirection = directionIndexToVector((sideInRing+1)%4)
   sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
   result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
   return result
+
 
 def basicSpiralCoordEncode(coord):
   ringIndex = max(abs(value) for value in coord)
@@ -119,6 +111,22 @@ def basicSpiralCoordEncode(coord):
   #print("(ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide)="+str((ringIndex,sideInRing,tPassedRings,tPassedSides,tWithinSide))+".")
   t = tPassedRings + tPassedSides + tWithinSide
   return t
+  
+  
+def findSubdivisionAndInnerLocation(startingSubdivisionIndex, absoluteLocation, subdivisionSize=None, subdivisionSizeFun=None): #this can be modified to work in higher dimensions.
+  assert not (subdivisionSize == None and subdivisionSizeFun == None)
+  if subdivisionSizeFun == None:
+    subdivisionSizeFun = (lambda ignore: subdivisionSize)
+    
+  currentSubdivisionIndex = startingSubdivisionIndex
+  relativeLocation = absoluteLocation
+  while True:
+    currentSubdivisionSize = subdivisionSizeFun(currentSubdivisionIndex)
+    if currentSubdivisionSize > relativeLocation:
+      break
+    relativeLocation -= currentSubdivisionSize
+    currentSubdivisionIndex += 1
+  return currentSubdivisionIndex, relativeLocation
   
   
 def spiralRingSideLength(ringIndex,includedCorners):
@@ -285,4 +293,6 @@ for rotationDirection in [-1,1]:
   for startDirection in [0,1,2,3]:
     for startPosition in [(0,0),(20,100)]:
       assert [spiralCoordEncode(spiralCoordDecode(i,startPosition,startDirection,rotationDirection),startPosition,startDirection,rotationDirection) for i in range(50)] == [i for i in range(50)]
+
+assert [basicSpiralCoordDecode(t) for t in range(16)] == [(0, 0), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (-1, 2), (0, 2), (1, 2), (2, 2), (2, 1), (2, 0), (2, -1)]
 

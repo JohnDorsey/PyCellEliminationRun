@@ -64,6 +64,7 @@ def directBisectInsort(sortedList, newItem, startPoint=0, endPoint=None, keyFun=
   else:
     sortedList.insert(testPoint,newItem)
     
+    
 def iterativeBisectionSearch(sortedList, searchItem, keyFun=(lambda x: x)):
   sortedListLength = len(sortedList)
   if sortedListLength == 0:
