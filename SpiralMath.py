@@ -3,6 +3,7 @@ from PyGenTools import makeGen, arrTakeOnly
 from PyArrTools import insort
 import collections
 import itertools
+import math
 
 
 
@@ -42,8 +43,18 @@ def modularMinimumDistance(value0,value1,modulus):
   distances = [item for item in [value0 - value1, value1 - value0, value0 + modulus - value1, value1 + modulus - value0] if item >= 0]
   return min(distances)
 
-
-
+"""
+class Undefined:
+  def __init__(self,*args):
+    if len(args) > 1:
+      raise ValueError("too many args.")
+    if len(args) == 1:
+      self.msg = args[0]
+    else:
+      self.msg = ""
+  def __repr__(self):
+    return "Undefined("+self.msg+")"
+"""
 
 
 def spiralCoordDecode(t, startXY, startDirection, rotationDirection):
@@ -68,83 +79,145 @@ def spiralCoordEncode(coord, startXY, startDirection, rotationDirection):
 def genBasicSpiralCoords(*args):
   #4 to 8 times faster for large spirals.
   startT = 0
-  endT = None
+  endTExclusive = None
   direction = 1
-  eternal = True
   
   if len(args) == 1:
-    endT = args[0]
-    assert endT >= 0
-    eternal = False
+    endTExclusive = args[0]
+    assert endTExclusive >= -1
   if len(args) >= 2:
-    startT, endT = args[0], args[1]
+    startT, endTExclusive = args[0], args[1]
     assert startT >= 0
-    assert endT >= 0
-    if startT == endT:
-      return
-    eternal = False
+    assert endTExclusive >= -1 #do stricter checks later.
+    #if startT == endTExclusive:
+    #  return
   if len(args) >= 3:
     direction = args[2]
     assert direction in [1, -1]
   if len(args) > 3:
     raise ValueError("too many arguments.")
     
-  if endT != None:
-    if (endT-startT)*direction < 0:
-      return
-
+  if endTExclusive != None:
+    endT = endTExclusive - direction
+    assert endT >= 0
+  else:
+    endT = None
     
+  #if endT != None:
+  #  #if (endT-startT)*direction < 0:
+  #  #  return
+
+  """
   t = startT
   if t == 0: #because spiralRingSideLength can't handle ring index 0.
     assert direction > 0
     yield (0,0)
     t += direction
     if t == endT:
-      return
+      return"""
     
-  print(startT,endT,direction,eternal)
+  #print(startT,endT,direction,eternal)
   
-  startRingIndex, tInStartRing = findSubdivisionAndInnerLocation(0, t, subdivisionSizeFun=spiralRingLength)
-  startSideLen = spiralRingSideLength(startRingIndex, 1)
-  sideInStartRing, tInStartSide = findSubdivisionAndInnerLocation(0, tInStartRing, subdivisionSize=startSideLen)
-  """
-  if eternal:
-    endRingIndex, tInEndRing = None, None
-    endSideInRing, tInEndSide = None, None
+  startRingIndex, startTInStartRing = findSubdivisionAndInnerLocation(0, startT, subdivisionSizeFun=spiralRingLength)
+  if startRingIndex > 0:
+    startSideLen = spiralRingSideLength(startRingIndex, 1)
+    startSideInStartRing, startTInStartSide = findSubdivisionAndInnerLocation(0, startTInStartRing, subdivisionSize=startSideLen)
+  
+  if endT == None:
+    endRingIndex, endTInEndRing = None, None
+    endSideInEndRing, endTInEndSide = None, None
   else:
-    endRingIndex, tInEndRing = findSubdivisionAndInnerLocation(0, endT, subdivisionSizeFun=spiralRingLength)
+    endRingIndex, endTInEndRing = findSubdivisionAndInnerLocation(0, endT, subdivisionSizeFun=spiralRingLength)
     if endRingIndex > 0:
       endSideLen = spiralRingSideLength(endRingIndex, 1)
-      endSideInRing, tInEndSide = findSubdivisionAndInnerLocation(0, tInEndRing, subdivisionSize=endSideLen)"""
+      endSideInEndRing, endTInEndSide = findSubdivisionAndInnerLocation(0, endTInEndRing, subdivisionSize=endSideLen)
   
   #def printStatus():
   #  print("ringIndex",ringIndex
-  for ringIndex in itertools.count(startRingIndex, direction): #iterate ringIndex
-    print("ringIndex",ringIndex)
+  ringIndex = startRingIndex
+  
+  if ringIndex == endRingIndex:
+    print("SpiralMath.GenBasicSpiralCoords: branch A")
+    for outputItem in genBasicSpiralRingCoords(ringIndex,startTInStartRing,endTInEndRing,direction):
+      yield outputItem
+    return
+  else:
+    print("SpiralMath.GenBasicSpiralCoords: branch B")
+    for outputItem in genBasicSpiralRingCoords(ringIndex,startTInStartRing,None,direction):
+      yield outputItem
+    ringIndex += direction
+    
+  while ringIndex != endRingIndex: #iterate ringIndex
+    #print("ringIndex",ringIndex)
     if ringIndex == 0:
       yield (0,0)
       assert direction < 0
+    print("SpiralMath.GenBasicSpiralCoords: branch C")
+    for outputItem in genBasicSpiralRingCoords(ringIndex,None,None,direction):
+      yield outputItem
+    ringIndex += direction
+    
+  assert ringIndex == endRingIndex
+  if ringIndex == 0:
+    print("SpiralMath.GenBasicSpiralCoords: branch D")
+    yield (0,0)
+    return
+    
+  
+  print("SpiralMath.GenBasicSpiralCoords: branch E")
+  for outputItem in genBasicSpiralRingCoords(ringIndex,None,endTInEndRing,direction):
+    yield outputItem
+  return
+  
+        
+def genBasicSpiralRingCoords(ringIndex,startTInRing,endTInRing,direction):
+  print("genBasicSpiralRingCoords: ringIndex={}, startTInRing={}, endTInRing={}, direction={}.".format(ringIndex,startTInRing,endTInRing,direction))
+  if ringIndex == 0:
+    if startTInRing in [0,None] and endTInRing in [0,None]:
+      yield (0,0)
       return
-    sideLen = spiralRingSideLength(ringIndex, 1)
-    sideInRingSeq = (range(sideInStartRing,4,1) if direction==1 else range(sideInStartRing,-1,-1)) if (ringIndex == startRingIndex) else (range(0,4,1) if direction==1 else range(3,-1,-1))
-    for sideInRing in sideInRingSeq: #iterate sideInRing
-      tInSideSeq = (range(tInStartSide,sideLen,1) if direction==1 else range(tInStartSide,-1,-1)) if (ringIndex == startRingIndex and sideInRing == sideInStartRing) else (range(0,sideLen,1) if direction==1 else range(sideLen-1,-1,-1))
-      print("sideInRing",sideInRing)
-      sideDirection = directionIndexToVector((sideInRing+1)%4)
-      sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
-      for tInSide in tInSideSeq:
-        print("tInSide",tInSide)
-        if not eternal:
-          if (endT-t)*direction <= 0:
-            assert t == endT, "skip!"
-            #assert ringIndex == endRingIndex, "skip!"
-            #assert sideInRing == endSideInRing, "skip!"
-            #assert tInSide == tInEndSide, "skip!"
-            print("normal spiral end. t={}.".format(t))
-            return
-        result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
-        yield result
-        t += direction
+    else:
+      raise ValueError("the conditions to work with ringIndex=0 are not met. startTInRing and endTInRing each must be either 0 or None.")
+  sideLen = spiralRingSideLength(ringIndex, 1)
+  
+  if startTInRing != None:
+    startSideInRing, startTInStartSide = findSubdivisionAndInnerLocation(0, startTInRing, subdivisionSize=sideLen)
+    sideInRingRangeStart = startSideInRing
+  else:
+    startSideInRing, startTInStartSide = (None, None)
+    sideInRingRangeStart = 0 if direction > 0 else 3
+    
+  if endTInRing != None:
+    endSideInRing, endTInEndSide = findSubdivisionAndInnerLocation(0, endTInRing, subdivisionSize=sideLen)
+    sideInRingSeqEnd = endSideInRing
+  else:
+    endSideInRing, endTInEndSide = (None,None)
+    sideInRingSeqEnd = 3 if direction > 0 else 0
+      
+  sideInRingSeq = range(sideInRingRangeStart, sideInRingSeqEnd + sign(direction), direction)
+
+  basicTInSideRangeStart = 0 if direction > 0 else sideLen-1
+  basicTInSideRangeEnd = sideLen if direction > 0 else -1
+  
+  print("genBasicSpiralRingCoords: (startSideInRing,startTInStartSide,sideInRingRangeStart)="+str((startSideInRing, startTInStartSide, sideInRingRangeStart)))
+  print("genBasicSpiralRingCoords: (endSideInRing,endTInEndSide,sideInRingSeqEnd)="+str((endSideInRing, endTInEndSide, sideInRingSeqEnd)))
+  print("genBasicSpiralRingCoords: (basicTInSideRangeStart,basicTInSideRangeEnd)="+str((basicTInSideRangeStart, basicTInSideRangeEnd)))
+  
+  print("genBasicSpiralRingCoords: sideInRingSeq={}".format(sideInRingSeq)) #THIS LINE NOT PYTHON3 COMPATIBLE.
+  
+  for sideInRing in sideInRingSeq: #iterate sideInRing
+    tInSideSeq = range(startTInStartSide if sideInRing==startSideInRing else basicTInSideRangeStart, endTInEndSide+direction if sideInRing==endSideInRing else basicTInSideRangeEnd, direction)
+    #print("sideInRing",sideInRing)
+    sideDirection = directionIndexToVector((sideInRing+1)%4)
+    sideStartCoord = spiralRingSideStartCoords(ringIndex)[sideInRing]
+    print("genBasicSpiralRingCoords: sideInRing={}, tInSideSeq={}.".format(sideInRing,tInSideSeq))
+    for tInSide in tInSideSeq:
+      #print("tInSide",tInSide)
+      result = coordSum([sideStartCoord,scaledCoord(sideDirection,tInSide)])
+      print("genBasicSpiralRingCoords: sideInRing={}, tInSide={}, yielding {}.".format(sideInRing,tInSide,result))
+      yield result
+  return
+      
 
 def basicSpiralCoordDecode(t):
   assert t >= 0
@@ -215,6 +288,11 @@ def findSubdivisionAndInnerLocation(startingSubdivisionIndex, absoluteLocation, 
 def spiralRingSideLength(ringIndex,includedCorners):
   assert includedCorners in [0,1,2]
   assert ringIndex > 0
+  #if ringIndex == 0:
+  #  result = spiralRingSideLength(ringIndex+1,includedCorners) - 4
+  #  print("SpiralMath.spiralRingSideLength: returning {} instead of an error.".format(result))
+  #  return result
+  #  return Undefined("spiralRingSideLength is undefined for ringIndex=0")
   return ((2*ringIndex)-1)+includedCorners
 
 def spiralRingLength(ringIndex):
