@@ -6,11 +6,14 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 
 """
 
+import itertools
+
 import CodecTools
 import FibonacciMath
-from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, genSkipFirst, ExhaustionError
+import PyGenTools
+from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, genTakeOnly, genSkipFirst, ExhaustionError
 from PyArrTools import rjustedArr, arrEndsWith
-
+import IntSeqMath
 
 
 class ParseError(Exception):
@@ -200,6 +203,7 @@ def incrementEnbocode(inputBitArr, order=2):
       inputBitArr[i] = 0
     finishLTRBinAddition(inputBitArr)
   assert False, "impossible error."
+  
 testArr = [1,1]
 incrementEnbocode(testArr,order=2)
 assert testArr == [0,1,1]
@@ -216,11 +220,34 @@ incrementEnbocode(testArr,order=3)
 assert testArr == [0,0,0,0,0,1,1,1]
 del testArr
 
+
+def isPureEnbocode(inputBitArr):
+  zeroCount = inputBitArr.count(0)
+  oneCount = inputBitArr.count(1)
+  if zeroCount+oneCount == len(inputBitArr):
+    if sum(inputBitArr[-oneCount:])==oneCount:
+      return True
+  return False
+  
+def genPureEnbocodeValuesSlow(order=2):
+  for index,bitArr in enumerate(genEnbocodeBitArrs(order=order)):
+    if isPureEnbocode(bitArr):
+      value = index+1
+      print("{} is pure, yielding {}.".format(bitArr,value))
+      yield value
+
+def genPureEnbocodeValues(order=2):
+  if order != 3:
+    print("Codes.genPureEnbocodeValues: WARNING: not tested for orders other than 3!")
+  return genSkipFirst((item[0] for item in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order))),order-1)
+  
+
 def genEnbocodeBitArrs(order=2):
   workingBitArr = [1 for i in range(order)]
   while True:
     yield [outputBit for outputBit in workingBitArr] #make a copy!
     incrementEnbocode(workingBitArr,order=order)
+    
 testArr = arrTakeOnly(genEnbocodeBitArrs(order=2),12)
 testArrCorrect = [[1,1],[0,1,1],[0,0,1,1],[1,0,1,1],[0,0,0,1,1],[1,0,0,1,1],[0,1,0,1,1],[0,0,0,0,1,1],[1,0,0,0,1,1],[0,1,0,0,1,1], [0,0,1,0,1,1], [1,0,1,0,1,1]]
 if not testArr == testArrCorrect:
@@ -271,24 +298,26 @@ def intToFibcodeBitArr(inputInt): #this is based on math that is a special case 
       print("intToFibcodeBitArr: result ends the wrong way. This is never supposed to happen. (inputInt,result)=" + str((inputInt,result)) + ".")
   return result
 
-def intToEnbocodeBitArr(inputInt,order=2):
+def intToEnbocodeBitArr(inputInt, order=2):
   assert order > 1
+  assert inputInt >= 1
   if order == 2:
     return intToFibcodeBitArr(inputInt)
   else:
-    raise NotImplementedError("orders higher than 2 are not yet supported.")
+    return PyGenTools.valueAtIndexInGen(inputInt-1, genEnbocodeBitArrs(order=order))
 
 
 def intToFibcodeBitSeq(inputInt):
   #exists only for uniform naming of functions.
   return makeGen(intToFibcodeBitArr(inputInt))
+  
 
 def intToEnbocodeBitSeq(inputInt,order=2):
   assert order > 1
   if order == 2:
     return intToFibcodeBitSeq(inputInt)
   else:
-    raise NotImplementedError("orders higher than 2 are not yet supported.")
+    return makeGen(intToEnbocodeBitArr(inputInt,order=order))
 
 
 def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special case for order 2 fibonacci sequence coding.
@@ -322,14 +351,50 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
     result += currentFibNum * bitHistory[i]
   assert result > 0
   return result
+  
+
+def thribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes time with izip.
+  inputBitGen = makeGen(inputBitGen)
+  bitHistory = []
+  while not bitHistory[-3:] == [1,1,1]:
+    try:
+      bitHistory.append(next(inputBitGen))
+    except StopIteration:
+      raise ParseError("ran out of input bits midword.")
+  assert len(bitHistory) >= 3
+  if len(bitHistory) <= 4:
+    return len(bitHistory) - 2
+  thribonacciNumGen = genSkipFirst(FibonacciMath.genEnbonacciNums(order=3),3)
+  altNumGen = genPureEnbocodeValues(order=3)
+  result = 0
+  for currentPlaceIndex,currentPlaceValue in enumerate(thribonacciNumGen):
+    #print("options are {}.".format(currentPlaceValueOptions))
+    if currentPlaceIndex == len(bitHistory) - 3:
+      assert currentPlaceIndex-2 >= 0, "handle this sooner."
+      usedOptionValue = currentPlaceValue - PyGenTools.valueAtIndexInGen(currentPlaceIndex - 2, altNumGen)
+      #print("using branch Alt value {}.".format(usedOptionValue))
+      assert usedOptionValue > 0
+      result += bitHistory[currentPlaceIndex]*usedOptionValue
+      #PyGenTools.valueAtIndexInGen(currentPlaceIndex - 2, tetranacciNumGen)
+      break
+    else:
+      usedOptionValue = currentPlaceValue
+      #print("using branch Main value {}.".format(usedOptionValue))
+      assert usedOptionValue > 0
+      result += bitHistory[currentPlaceIndex]*usedOptionValue
+  assert result > 0
+  return result
+    
 
 
 def enbocodeBitSeqToInt(inputBitSeq,order=2):
   assert order > 1
   if order == 2:
     return fibcodeBitSeqToInt(inputBitSeq)
+  elif order == 3:
+    return thribcodeBitSeqToInt(inputBitSeq)
   else:
-    raise NotImplementedError("orders higher than 2 are not yet supported.")
+    raise NotImplementedError("orders higher than 3 are not yet supported.")
 
 
 def intSeqToEnbocodeBitSeq(inputIntSeq,order=2):

@@ -60,9 +60,11 @@ Usage:
 
 Explanation of compression settings:
 
-  The interpolation mode chosen for the Spline affects how the Spline will estimate the values of the missing samples. Interpolation modes that are better at approximating audio signals generally result in better compression. Valid interpolationModes are "hold", "nearest-neighbor", "linear", "sinusoidal", and "finite difference cubic hermite", the last two of which contain unreliable float comparisons, making "linear" the best reliable mode.
+  The interpolation mode chosen for the Spline affects how the Spline will estimate the values of the missing samples. Interpolation modes that are better at approximating audio signals generally result in better compression. Valid interpolationModes are "hold", "nearest_neighbor", "linear", "sinusoidal", "finite_difference_cubic_hermite", and "inverse_distance_weighted". Of these, "linear" seems to give the best compression for the sample file moo8bmono44100.txt.
 
   The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 256 or 512 seems like a good balance.
+  
+  The block size may be a 2-element list where size[0] is the block length in plaindata values and size[-1] is greater than the largest plaindata value. The block size may be a 3-element list, allowing images to be compressed in the same way as sound. In this case, the last element of size is always the range of valid plaindata values. "inverse_distance_weighted" works with 3d (image) data, but most other methods don't yet.
 
 ---
 
@@ -133,9 +135,7 @@ Design notes:
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
         
       -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
-        
-      -make circular spiral for searches.
-        
+
       -convolution-based weighted spline interpolation.
     
       -complete and test grid mode for CellCatalogue.
@@ -270,4 +270,6 @@ Design notes:
       
     -make CellElimRunCodecState unaware of how many dimensions the plaindata has.
     
-    -add image compression with a 3d spline.
+    -add image compression with a 3d spline.        
+    
+    -make circular spiral for searches.

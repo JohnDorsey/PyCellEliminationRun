@@ -70,7 +70,7 @@ def testCellElimRunCodec(testCERCodec,testSound,compressAgain=False):
 
   reconstPlainDataNums = testCERCodec.decode(pressDataNums)
   if reconstPlainDataNums == testSound:
-    print("Testing.testCellElimRunCodec: test passed.\n")
+    print("Testing.testCellElimRunCodec: test passed.\n")++++
     for i in range(len(testSound)):
       assert testSound[i] == reconstPlainDataNums[i]
   else:
