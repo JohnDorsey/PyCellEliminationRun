@@ -32,7 +32,7 @@ def makeFlatKeySeq(template, sortDictKeys=True):
   templateKeySeq = None
   if type(template) == dict:
     templateKeySeq = sorted(template.keys()) if sortDictKeys else getDictKeys(template)
-  elif type(template) == list:
+  elif hasattr(template,"__len__"):
     templateKeySeq = range(len(template))
   else:
     raise TypeError("unsupported template type: " + str(type(template)) + ".")
@@ -58,6 +58,8 @@ def makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys=True):
 
 
 def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
+  if tuple in [type(dict0),type(dict1)]:
+    raise TypeError("Tuple was provided.")
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
   if dict0 == None or dict1 == None:
@@ -74,15 +76,22 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
             print("PyDictTools.augmentDict: recursive: warning: inputs have a value type mismatch at key " + str(key) + " where recursion would otherwise be possible.")
           
 def cloneDict(inputStructure):
-  result, keySeq = makeBlankResultAndKeySeqFromTemplate(inputStructure,sortDictKeys=False)
-  for key in keySeq:
-    if type(inputStructure[key]) in [list,dict]:
-      result[key] = cloneDict(inputStructure[key])
-    elif type(inputStructure[key]) == str:
-      result[key] = inputStructure[key]
-    else:
-      result[key] = eval(str(inputStructure[key]))
-  return result
+  try:
+    return inputStructure.copy()
+  except AttributeError:
+    try:
+      result, keySeq = makeBlankResultAndKeySeqFromTemplate(inputStructure,sortDictKeys=False)
+      for key in keySeq:
+        if type(inputStructure[key]) in [list,dict]:
+          result[key] = cloneDict(inputStructure[key])
+        elif type(inputStructure[key]) == str:
+          result[key] = inputStructure[key]
+        else:
+          result[key] = eval(str(inputStructure[key]))
+      return result
+    except TypeError:
+      return eval(str(inputStructure))
+  
 
 def augmentedDict(dict0, dict1, **kwargs):
   result = cloneDict(dict0)

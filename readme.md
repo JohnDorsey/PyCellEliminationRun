@@ -133,6 +133,8 @@ Design notes:
         -separate into 2d and nd.
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
+      
+      -combine lewis truncation with haven bucket fibonacci coding.
         
       -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
 
@@ -153,8 +155,6 @@ Design notes:
       -improve structure of Spline init args.
         
       -make CERCS test for more incompatible settings.
-      
-      -combine lewis truncation with haven bucket fibonacci coding.
         
       -fix unnecessary calls to dict.keys().
         

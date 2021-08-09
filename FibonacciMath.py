@@ -20,10 +20,6 @@ def unwrapArr(inputArr,startIndex):
   assert startIndex >= 0
   return inputArr[startIndex:] + inputArr[:startIndex]
 
-def offsetEnum(inputGen,offset):
-  for i,item in enumerate(inputGen):
-    yield (i+offset,item)
-
 
 
 

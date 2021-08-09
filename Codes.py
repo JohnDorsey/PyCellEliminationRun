@@ -11,7 +11,7 @@ import itertools
 import CodecTools
 import FibonacciMath
 import PyGenTools
-from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, genTakeOnly, genSkipFirst, ExhaustionError
+from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, genTakeOnly, genSkipFirst, ExhaustionError, IterationFailure
 from PyArrTools import rjustedArr, arrEndsWith
 import IntSeqMath
 
@@ -46,7 +46,20 @@ def binaryBitArrToInt(inputBitArr):
     assert inputBitArr[-1-i] in [0,1]
     result += 2**i*inputBitArr[-1-i]
   return result
-
+  
+  
+def intToBinaryBitSeq(inputInt, maxInputInt=None):
+  assert inputInt >= 0
+  assert maxInputInt > 0
+  assert inputInt <= maxInputInt
+  bodyLength = maxInputInt.bit_length()
+  return makeGen(rjustedArr(intToBinaryBitArr(inputInt),bodyLength))
+  
+def binaryBitSeqToInt(inputBitSeq, maxInputInt=None):
+  assert maxInputInt > 0
+  bodyLength = maxInputInt.bit_length()
+  return binaryBitArrToInt(arrTakeOnly(inputBitSeq,bodyLength))
+  
 
 def extendIntByBits(headInt, inputBitSeq, bitCount, onExhaustion="fail"):
   #this function eats up to bitCount bits from an inputBitSeq and returns an integer based on the input headInt followed by those generated bits.
@@ -66,7 +79,7 @@ def extendIntByBits(headInt, inputBitSeq, bitCount, onExhaustion="fail"):
     if i >= bitCount:
       return result
   if onExhaustion == "fail":
-    raise ExhaustionError("Codes.extendIntByBits ran out of bits, and its onExhaustion action is \"fail\".")
+    raise IterationFailure("Codes.extendIntByBits ran out of bits, and its onExhaustion action is \"fail\".")
   if "warn" in onExhaustion:
     print("Codes.extendIntByBits ran out of bits, and may return an undesired value.")
   if "partial" in onExhaustion:
@@ -154,6 +167,7 @@ assert getStopcodeRIndicesInEnbocode([0,1,1,1,1,1,1,1,1],order=3) == [3,6]
 
 
 def clearEnbocode(bitArrToFix, order):
+  assert order > 1
   for i in range(len(bitArrToFix)):
     bitArrToFix[i] = 0
   clearEnbocodeEnd(bitArrToFix, order)
@@ -186,6 +200,7 @@ def finishLTRBinAddition(bitArrToFinish):
       bitArrToFinish.append(1) #carry the 1 and lengthen the number.
 
 def incrementEnbocode(inputBitArr, order=None):
+  assert order > 1
   originalLength = len(inputBitArr)
   inputBitArr[0] += 1
   finishLTRBinAddition(inputBitArr)
@@ -312,14 +327,7 @@ def truncatedEnbocodeBitSeq(inputBitGen, order=None, maxInputInt=None): #does no
   bodyLength = predictEnbocodeBodyLength(maxInputInt, order)
   assert bodyLength >= 0
   return genTakeOnly(inputBitGen, bodyLength, onExhaustion="partial")
-  #for i in range(bodyLength):
-  #  try:
-  #    yield next(inputBitGen)
-  #  except StopIteration:
-  #    raise ExhaustionError("Codes.trancatedEnbocodeBitSeq: inputBitGen ran out.")
-  #for i in range(order)
-  #  yield 1
-  #raise ParseError("overdrawn.")
+
   
 def detruncatedEnbocodeBitSeq(inputBitGen, order=None, maxInputInt=None):
   assert isGen(inputBitGen) #debug
@@ -467,7 +475,7 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
   
 
   
-def higherEnbocodeBitSeqToInt(inputBitGen,order=None): #wastes memory with bitHistory. wastes time with izip.
+def higherEnbocodeBitSeqToInt(inputBitGen, order=None): #wastes memory with bitHistory. wastes time with izip.
   assert order > 2
   inputBitGen = makeGen(inputBitGen)
   bitHistory = []
@@ -740,10 +748,8 @@ print("defining codecs...")
 
 codecs = {}
 
-"""
-codecs["null"] = CodecTools.Codec((lambda x: x),(lambda y: y),zeroSafe=True)
-codecs["inSeq_null"] = CodecTools.Codec(makeGen,makeGen,zeroSafe=True)
-"""
+
+codecs["binary"] = CodecTools.Codec(intToBinaryBitSeq,binaryBitSeqToInt,domain="UNSIGNED")
 
 codecs["enbonacci"] = CodecTools.Codec(intToEnbocodeBitSeq,enbocodeBitSeqToInt,domain="UNSIGNED_NONZERO")
 codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt,domain="UNSIGNED")

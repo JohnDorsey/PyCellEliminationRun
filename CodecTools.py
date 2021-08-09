@@ -5,9 +5,10 @@ CodecTools.py by John Dorsey.
 CodecTools.py contains classes and other tools that might help make it easier to rapidly create and test codecs made from smaller codecs applied in stages.
 
 """
-
+import traceback
 import itertools
 from PyGenTools import makeArr, isGen, makeGen, ExhaustionError, genAddInt, arrAddInt
+from PyDictTools import augmentedDict
 
 
 def measureIntArray(inputIntArr):
@@ -178,8 +179,12 @@ class Codec:
   def encode(self,data,*args,**kwargs):
     if not (self.encodeFun or self.transcodeFun):
       raise AttributeError("Either encodeFun or transcodeFun must be defined to decode.")
-    argsToUse = args if args else self.extraArgs #a single extra argument specified when calling Codec.encode will override ALL stored values in Codec.extraArgs.
-    kwargsToUse = kwargs if kwargs else self.extraKwargs #a single extra keyword argument specified when calling Codec.encode will override ALL stored values in Codec.extraKwargs.
+    #argsToUse = args if args else self.extraArgs #a single extra argument specified when calling Codec.encode will override ALL stored values in Codec.extraArgs.
+    #kwargsToUse = kwargs if kwargs else self.extraKwargs #a single extra keyword argument specified when calling Codec.encode will override ALL stored values in Codec.extraKwargs.
+    if args and self.extraArgs:
+      print("CodecTools.Codec.encode: warning: some args may be excluded.")
+    argsToUse = args if args else self.extraArgs
+    kwargsToUse = augmentedDict(kwargs, self.extraKwargs)
     if self.encodeFun:
       return self.encodeFun(data,*argsToUse,**kwargsToUse)
     else:
@@ -188,8 +193,12 @@ class Codec:
   def decode(self,data,*args,**kwargs):
     if not (self.decodeFun or self.transcodeFun):
       raise AttributeError("Either decodeFun or transcodeFun must be defined to decode.")
+    #argsToUse = args if args else self.extraArgs
+    #kwargsToUse = kwargs if kwargs else self.extraKwargs
+    if args and self.extraArgs:
+      print("CodecTools.Codec.encode: warning: some args may be excluded.")
     argsToUse = args if args else self.extraArgs
-    kwargsToUse = kwargs if kwargs else self.extraKwargs
+    kwargsToUse = augmentedDict(kwargs, self.extraKwargs)
     if self.decodeFun:
       return self.decodeFun(data,*argsToUse,**kwargsToUse)
     else:
@@ -198,23 +207,53 @@ class Codec:
   def zeroSafeEncode(self,data,*args,**kwargs):
     #will be replaced with domain comparisons soon.
     if self.isZeroSafe():
-      return self.encode(data,*args,**kwargs)
+      dataToUse = data
+      #return self.encode(data,*args,**kwargs)
     else:
+      maxInputInt = kwargs.get("maxInputInt",None)
+      if maxInputInt != None:
+        kwargs["maxInputInt"] = maxInputInt+1
+      if "seqSum" in kwargs:
+        raise NotImplementedError("zeroSafeEncode can't adjust seqSum.")
+        
       if type(data) == int:
-        return self.encode(data+1,*args,**kwargs)
+        #return self.encode(data+1,*args,**kwargs)
+        dataToUse = data+1
       elif isGen(data):
-        return self.encode(genAddInt(data,1),*args,**kwargs)
+        #return self.encode(genAddInt(data,1),*args,**kwargs)
+        dataToUse = genAddInt(data,1)
       elif type(data) == list:
-        return self.encode(arrAddInt(data,1),*args,**kwargs)
+        #return self.encode(arrAddInt(data,1),*args,**kwargs)
+        dataToUse = arrAddInt(data,1)
       else:
         raise NotImplementedError("CodecTools.Codec.zeroSafeEncode can't handle data of this type.")
+    try:
+      return self.encode(dataToUse,*args,**kwargs)
+    except AssertionError as ae:
+      print("AssertionError encountered. Args were {}, kwargs were {}. Error will be re-raised.".format(args,kwargs))
+      print(traceback.format_exc())
+      raise ae
+        
         
   def zeroSafeDecode(self,data,*args,**kwargs):
     #will be replaced with domain comparisons soon.
-    if self.isZeroSafe():
-      return self.decode(data,*args,**kwargs)
-    else:
+    if not self.isZeroSafe():
+      maxInputInt = kwargs.get("maxInputInt",None)
+      if maxInputInt != None:
+        kwargs["maxInputInt"] = maxInputInt+1
+      if "seqSum" in kwargs:
+        raise NotImplementedError("zeroSafeDecode can't adjust seqSum.")
+      
+    try:      
       result = self.decode(data,*args,**kwargs)
+    except AssertionError as ae:
+      print("AssertionError encountered. Args were {}, kwargs were {}. Error will be re-raised.".format(args,kwargs))
+      print(traceback.format_exc())
+      raise ae
+      
+    if self.isZeroSafe():
+      return result
+    else:
       if type(result) == int:
         return result-1
       elif isGen(result):
@@ -223,6 +262,7 @@ class Codec:
         return arrAddInt(result,-1)
       else:
         raise NotImplementedError("CodecTools.Codec.zeroSafeDecode can't handle data of this type.")
+        
         
   def clone(self,extraArgs=None,extraKwargs=None):
     if self.extraArgs != [] and extraArgs != None:

@@ -22,37 +22,15 @@ def genTrackDelayedRemainingSum(inputSeq,seqSum,enumerated=False):
     i += 1
     
 
-def lewisTrackedSumTruncationEncode(inputIntSeq,seqSum,addDbgCommas=False): #left-weighted integer sequence truncated.
+
+def lewisTrackedSumTruncationEncode(inputIntSeq, seqSum, addDbgCommas=False): #left-weighted integer sequence truncated.
   #this generator processes a sequence of integers, and compares the provided sum of the entire sequence with the sum of items processed so far to determine the maximum value the current item could have, and truncates it to that length in the generated output.
   #it is generally much less efficient than fibonacci coding for storing the pressdata numbers produced by PyCellElimRun.
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
-  justStarted = True
-  sumSoFar = 0
-  for delayedRemainingSum,currentInt in genTrackDelayedRemainingSum(inputIntSeq,seqSum):
-    storeLength = int.bit_length(delayedRemainingSum)
-    store = rjustedArr(Codes.intToBinaryBitArr(currentInt),storeLength,fillItem=0)
-    if addDbgCommas:
-      if not justStarted:
-        yield ","
-      else:
-        justStarted = False
-    for outputBit in store:
-      yield outputBit
+  return lewisTrackedSumBoundedCodecEncode(inputIntSeq, seqSum, Codes.codecs["binary"], addDbgCommas=addDbgCommas)
 
-def lewisTrackedSumTruncationDecode(inputBitSeq,seqSum):
-  sumSoFar = 0
-  store = None
-  while True:
-    storeLength = int.bit_length(seqSum-sumSoFar)
-    try:
-      store = arrTakeOnly(inputBitSeq,storeLength,onExhaustion="ExhaustionError")
-    except ExhaustionError:
-      break
-    num = Codes.binaryBitArrToInt(store)
-    sumSoFar += num
-    yield num
-
-
+def lewisTrackedSumTruncationDecode(inputBitSeq, seqSum, addDbgCommas=False):
+  return lewisTrackedSumBoundedCodecDecode(inputBitSeq, seqSum, Codes.codecs["binary"], addDbgCommas=addDbgCommas)
 
 
 def lewisTrackedSumBoundedCodecEncode(inputIntSeq, seqSum, boundedNumberCodec, addDbgCommas=False):
@@ -84,48 +62,67 @@ def lewisTrackedSumBoundedCodecDecode(inputBitSeq, seqSum, boundedNumberCodec):
 
 
 
+def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt=None, addDbgCommas=False):
+  assert havenBucketSize >= 0
+  
+  maxInputIntForNumberCodec = maxInputInt
+  extraKwargsForNumberCodec = dict()
+  if maxInputIntForNumberCodec != None:
+    maxInputIntForNumberCodec >>= havenBucketSize
+    extraKwargsForNumberCodec["maxInputInt"] = maxInputIntForNumberCodec
+    
+  encodedBitArr = makeArr(numberCodec.zeroSafeEncode(inputInt >> havenBucketSize, **extraKwargsForNumberCodec))
+  if addDbgCommas:
+    encodedBitArr.append(".")
+  havenBucketData = rjustedArr(Codes.intToBinaryBitArr(inputInt), havenBucketSize, crop=True)
+  encodedBitArr.extend(havenBucketData)
+  for item in encodedBitArr:
+    yield item
 
-
-
-
-def genDecodeWithHavenBucket(inputBitSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0):
-  #parseFun must take only as many bits as it needs and return an integer.
-  inputBitSeq = makeGen(inputBitSeq)
-  havenBucketSize = initialHavenBucketSize
-  while True:
-    assert havenBucketSize >= 0
-    parseResult = None
-    try:
-      parseResult = numberCodec.zeroSafeDecode(inputBitSeq)
-    except ExhaustionError:
-      break #out of data.
-    assert parseResult != None, "None-based generator stopping should be phased out."
-    havenBucketBits = arrTakeOnly(inputBitSeq,havenBucketSize)
-    #parseResult -= (0 if numberCodec.zeroSafe else 1)
-    decodedValue = ((parseResult)<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
-    yield decodedValue
-    havenBucketSize = havenBucketSizeFun(decodedValue)
-
-
-def genEncodeWithHavenBucket(inputIntSeq,numberCodec,havenBucketSizeFun,initialHavenBucketSize=0,addDbgCommas=False):
+def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, addDbgCommas=False):
   #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
   justStarted = True #used only to control debug commas.
-  for num in inputIntSeq:
-    assert havenBucketSize >= 0
-    encodedBitArr = makeArr(numberCodec.zeroSafeEncode(num >> havenBucketSize))
-    if addDbgCommas:
-      encodedBitArr.append(".")
-    havenBucketData = rjustedArr(Codes.intToBinaryBitArr(num),havenBucketSize,crop=True)
-    encodedBitArr.extend(havenBucketData)
+  for inputInt in inputIntSeq:
     if addDbgCommas:
       if not justStarted:
         yield ","
       else:
         justStarted = False
-    for item in encodedBitArr:
-      yield item
-    havenBucketSize = havenBucketSizeFun(num)
+    for outputBit in intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, addDbgCommas=addDbgCommas):
+      yield outputBit
+    havenBucketSize = havenBucketSizeFun(inputInt)
+    
+
+def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize):
+    inputBitGen = makeGen(inputBitGen)
+    assert havenBucketSize >= 0
+    
+    parseResult = numberCodec.zeroSafeDecode(inputBitGen) #may raise ExhaustionError.
+    
+    assert parseResult != None, "None-based generator stopping should be phased out."
+    try:
+      havenBucketBits = arrTakeOnly(inputBitGen, havenBucketSize, onExhaustion="ExhaustionError")
+    except ExhaustionError:
+      raise ParseError("ran out of input bits before completing the haven bucket.")
+    #parseResult -= (0 if numberCodec.zeroSafe else 1)
+    decodedValue = ((parseResult)<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
+    return decodedValue
+
+def genDecodeWithHavenBucket(inputBitSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0):
+  #parseFun must take only as many bits as it needs and return an integer.
+  inputBitSeq = makeGen(inputBitSeq)
+  havenBucketSize = initialHavenBucketSize
+  while True:
+    try:
+      decodedValue = havenBucketedBitSeqToInt(inputBitSeq, numberCodec, havenBucketSize)
+    except ExhaustionError:
+      break
+    yield decodedValue
+    havenBucketSize = havenBucketSizeFun(decodedValue)
+
+
+
 
 havenBucketCodecs = dict()
 havenBucketCodecs["base"] = CodecTools.Codec(genEncodeWithHavenBucket,genDecodeWithHavenBucket,domain="UNSIGNED")
