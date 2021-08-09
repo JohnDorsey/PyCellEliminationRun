@@ -114,6 +114,17 @@ def arrTakeLast(inputGen,count):
   splitPoint = i+1
   return storage[splitPoint:]+storage[:splitPoint]
   
+def getLast(inputGen):
+  if type(inputGen) == list:
+    print("PyGenTools.getLast was called on a list. It will treat the list like a generator. This might be a pointless waste of time.")
+  storage = None
+  loopRan = False
+  for item in inputGen:
+    loopRan = True
+    storage = item
+  assert loopRan
+  return storage
+  
   
 def indexOfValueInGen(testValue,testGen): #used in MarkovTools.
   for i,item in enumerate(testGen):
@@ -125,6 +136,7 @@ def valueAtIndexInGen(inputIndex,inputGen): #used in MarkovTools.
   if inputIndex == None:
     raise ValueError("inputIndex can't be None.")
   return arrTakeLast(genTakeOnly(inputGen,inputIndex+1),1)[0]
+
   
 
 def sentinelize(inputSeq,sentinel=None,loopSentinel=False,failFun=None):

@@ -221,42 +221,6 @@ assert testArr == [0,0,0,0,0,1,1,1]
 del testArr
 
 
-def isPureEnbocode(inputBitArr):
-  zeroCount = inputBitArr.count(0)
-  oneCount = inputBitArr.count(1)
-  if zeroCount+oneCount == len(inputBitArr):
-    if sum(inputBitArr[-oneCount:])==oneCount:
-      return True
-  return False
-  
-def genPureEnbocodeValues(order=2):
-  #tested for order 4, for first 20 results.
-  yield 1
-  for value, _ in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)):
-    if value != 0:
-      yield value + 1
-  
-def genPureEnbocodeValuesSlow(order=2):
-  for index,bitArr in enumerate(genEnbocodeBitArrs(order=order)):
-    if isPureEnbocode(bitArr):
-      value = index+1
-      #print("Codes.genPureEnbocodeValuesSlow: {} is pure, yielding {}.".format(bitArr,value))
-      yield value
-      
-"""
-def genPureEnbocodeValueOffsetsSlow(order=2):
-  print("Codes.genPureEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
-  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genPureEnbocodeValuesSlow(order=order)):
-    yield expected-actual
-"""
-
-def genPureEnbocodeValueOffsets(order=2):
-  #gives the difference between an expected enbocode column value and its actual value. Subtract this from expected to get actual?
-  if order != 3:
-    print("Codes.genPureEnbocodeValueOffsets: WARNING: not tested for orders other than 3!")
-  return (item[0] for item in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)))
-  
-
 def genEnbocodeBitArrs(order=2):
   workingBitArr = [1 for i in range(order)]
   while True:
@@ -278,17 +242,64 @@ del testArrCorrect
 
 
 
+def isRoundEnbocode(inputBitArr):
+  zeroCount = inputBitArr.count(0)
+  oneCount = inputBitArr.count(1)
+  if zeroCount+oneCount == len(inputBitArr):
+    if sum(inputBitArr[-oneCount:])==oneCount:
+      return True
+  return False
+  
+  
+  
+def genRoundEnbocodeValuesSlow(order=2):
+  print("Codes.genRoundEnbocodeValuesSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
+  for index,bitArr in enumerate(genEnbocodeBitArrs(order=order)):
+    if isPureEnbocode(bitArr):
+      value = index+1
+      #print("Codes.genPureEnbocodeValuesSlow: {} is pure, yielding {}.".format(bitArr,value))
+      yield value
+      
+def genRoundEnbocodeValues(order=2):
+  #tested for order 4, for first 20 results.
+  yield 1
+  for value, _ in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)):
+    if value != 0:
+      yield value + 1
+  
+
+      
+
+def genRoundEnbocodeValueOffsetsSlow(order=2):
+  print("Codes.genRoundEnbocodeValueOffsetsSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
+  print("Codes.genRoundEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
+  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genRoundEnbocodeValuesSlow(order=order)):
+    yield expected-actual
+
+
+def genRoundEnbocodeValueOffsets(order=2):
+  #gives the difference between an expected enbocode column value and its actual value when it is first used because of the first bit of the stopcode.
+  if order != 3:
+    print("Codes.genRoundEnbocodeValueOffsets: WARNING: not tested for orders other than 3!")
+  return (item[0] for item in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)))
+  
+
+
+
+
+
+
 
 def intToFibcodeBitArr(inputInt): #this is based on math that is a special case for order 2 fibonacci sequence coding.
   assert isInt(inputInt)
   assert inputInt >= 1
   result = []
   currentInt = inputInt
-  for index,fibNum in FibonacciMath.genEnboNumsDescendingFromValue(inputInt*2+10,order=2):
+  for index,fibNum in FibonacciMath.genEnboNumsDescendingFromValue(inputInt*2+10,order=2,includeIndices=True,indexStartArr=False):
     #print("intToEnbocodeBitArr: before loop body: (inputInt,order,index,enboNum,result)=" + str((inputInt,order,index,enboNum,result)) + ".")
-    if index < 2:
+    #if index < 2:
       #print("intToEnbocodeBitArr: breaking loop because of index.")
-      break
+    #  break
     assert fibNum > 0
     if fibNum <= currentInt:
       #print("intToEnbocodeBitArr: enboNum will be subtracted from currentInt. (currentInt,index,enboNum)"+str((currentInt,index,enboNum))+".")
@@ -312,6 +323,28 @@ def intToFibcodeBitArr(inputInt): #this is based on math that is a special case 
     if not arrEndsWith(result,[0,1,1]):
       print("intToFibcodeBitArr: result ends the wrong way. This is never supposed to happen. (inputInt,result)=" + str((inputInt,result)) + ".")
   return result
+  
+def intToHigherEnbocodeBitArr(inputInt, order=None):
+  #stopcodeValue is the value that the stopcode has on its own - the plaindata integer value x of the largest round enbocode (the enbocode with all bits being zeroes except for the stopcode bits) such that x <= inputInt.
+  stopcodeStartIndex, stopcodeValue = PyGenTools.getLast(enumerate(itertools.takewhile((lambda x: x <= inputInt), genRoundEnbocodeValues(order=order))))
+  #print(("Codes.intToHigherEnbocodeBitArr",stopcodeStartIndex, stopcodeValue))
+  inputInt -= stopcodeValue
+  result = [0 for i in range(stopcodeStartIndex)] + [1 for i in range(order)]
+  for enboNumIndex,enboNum in FibonacciMath.genEnboNumsDescendingFromIndex(stopcodeStartIndex, order=order, includeIndices=True, indexStartArr=False):
+    #print("Codes.intToHigherEnbocodeBitArr: {},{}.".format(enboNumIndex,enboNum))
+    if inputInt == 0:
+      #print("Codes.intToHigherEnbocodeBitArr: returning early.")
+      return result
+    assert enboNum > 0
+    if inputInt >= enboNum:
+      result[enboNumIndex] = 1
+      inputInt -= enboNum
+    else:
+      pass
+    #print("Codes.intToHigherEnbocodeBitArr: result={}, inputInt={}.".format(result,inputInt))
+  assert inputInt == 0
+  return result
+  
 
 def intToEnbocodeBitArr(inputInt, order=2):
   assert order > 1
@@ -319,7 +352,7 @@ def intToEnbocodeBitArr(inputInt, order=2):
   if order == 2:
     return intToFibcodeBitArr(inputInt)
   else:
-    return PyGenTools.valueAtIndexInGen(inputInt-1, genEnbocodeBitArrs(order=order))
+    return intToHigherEnbocodeBitArr(inputInt, order=order)
 
 
 def intToFibcodeBitSeq(inputInt):
@@ -327,12 +360,12 @@ def intToFibcodeBitSeq(inputInt):
   return makeGen(intToFibcodeBitArr(inputInt))
   
 
-def intToEnbocodeBitSeq(inputInt,order=2):
+def intToEnbocodeBitSeq(inputInt, order=2):
   assert order > 1
   if order == 2:
     return intToFibcodeBitSeq(inputInt)
   else:
-    return makeGen(intToEnbocodeBitArr(inputInt,order=order))
+    return makeGen(intToEnbocodeBitArr(inputInt, order=order))
 
 
 def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special case for order 2 fibonacci sequence coding.
@@ -368,7 +401,7 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
   return result
   
 """
-def thribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes time with izip.
+def tribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes time with izip.
   inputBitGen = makeGen(inputBitGen)
   bitHistory = []
   while not bitHistory[-3:] == [1,1,1]:
@@ -379,7 +412,7 @@ def thribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes ti
   assert len(bitHistory) >= 3
   if len(bitHistory) <= 4:
     return len(bitHistory) - 2
-  thribonacciNumGen = FibonacciMath.genEnbonacciNums(order=3,skipStart=True)
+  thribonacciNumGen = FibonacciMath.genEnbonacciNums(order=3,includeStartArr=False)
   altNumGen = genPureEnbocodeValueOffsets(order=3)
   result = 0
   for currentPlaceIndex,currentPlaceValue in enumerate(thribonacciNumGen):
@@ -409,12 +442,14 @@ def higherEnbocodeBitSeqToInt(inputBitGen,order=3): #wastes memory with bitHisto
     try:
       bitHistory.append(next(inputBitGen))
     except StopIteration:
-      raise ParseError("ran out of input bits midword.")
+      if len(bitHistory) == 0:
+        raise ExhaustionError("higherEnbocodeBitSeqToInt received empty input data.")
+      raise ParseError("ran out of input bits midword. order={}, bitHistory was {}.".format(order,bitHistory))
   #print("Codes.higherEnbocodeBitSeqToInt: processing {}.".format(bitHistory))
   assert len(bitHistory) >= order
   if len(bitHistory) <= order + 1:
     return len(bitHistory) - order + 1
-  placeValueGen = FibonacciMath.genEnbonacciNums(order=order,skipStart=True)
+  placeValueGen = FibonacciMath.genEnbonacciNums(order=order,includeStartArr=False)
   #differenceGen = genPureEnbocodeValueOffsetsSlow(order=order)
   altPlaceValueGen = genPureEnbocodeValues(order=order)
   result = 0
@@ -729,28 +764,33 @@ assert makeArr(testGen) == [0,0,1]
 
 
 
+
+for testOrder in [3,4,5,8,14]:
+  print("testing enbonacci fast decoding: order {}...".format(testOrder))
+  if order > 3:
+    print("orders above 3 are currently broken.")
+    break
+  testResult = arrTakeOnly((higherEnbocodeBitSeqToInt(item) for item in genEnbocodeBitArrs(order=testOrder)), 32)
+  assert testResult == [i for i in range(1,33)]
+
+
+
 print("performing full codec tests...")
 
-for testCodecName in ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]:
+testNumCodecNames = ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+FIBONACCI_ORDER_NICKNAMES.keys()
+
+for testCodecName in testNumCodecNames:
   print("testing " + testCodecName + "...")
   for testNum in [1,5,10,255,257,65535,65537,999999]:
     assert CodecTools.roundTripTest(codecs[testCodecName],testNum)
 
-for testCodecName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]:
+testNumSeqCodecNames = ["inSeq_"+testNumCodecName for testNumCodecName in ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+FIBONACCI_ORDER_NICKNAMES.keys()] #no unary.
+
+for testCodecName in testNumSeqCodecNames:
   print("testing " + testCodecName + "...")
   testArr = [1,2,3,4,5,100,1000,1000000,1,1000,1,100,1,5,4,3,2,1]
   assert CodecTools.roundTripTest(codecs[testCodecName],testArr)
-
-"""
-for testCodecName in FIBONACCI_ORDER_NICKNAMES.keys():
-  print("testing " + testCodecName + "...")
-  for testNum in [1,5,10,255,257,65535,65537,999999]:
-    print((testCodecName,testNum,CodecTools.roundTripTest(codecs[testCodecName],testNum)))
-  testCodecName = "inSeq_" + testCodecName
-  print("testing " + testCodecName + "...")
-  testArr = [1,2,3,4,5,100,1000,1000000,1,1000,1,100,1,5,4,3,2,1]
-  print((testCodecName,testArr,CodecTools.roundTripTest(codecs[testCodecName],testArr)))
-"""
+  
 
 
 print("performing tests of Iota codings...")

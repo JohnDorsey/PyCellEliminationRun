@@ -6,7 +6,11 @@ FibonacciMath.py contains tools for generating different orders of Fibonacci seq
 
 """
 
-from PyGenTools import makeArr, arrTakeOnly, genSkipFirst
+import collections
+import itertools
+import PyGenTools
+from PyGenTools import makeArr, arrTakeOnly, genTakeOnly, arrTakeLast, genSkipFirst
+from PyArrTools import rjustedArr
 
 
 
@@ -42,12 +46,12 @@ def getEnbonacciStartArr(order=2):
 
 
 
-def genEnbonacciNums(order=2,skipStart=False):
+def genEnbonacciNums(order=2,includeStartArr=True):
   assert order > 1
   startArr = getEnbonacciStartArr(order=order)
   i = 0
   while i < len(startArr):
-    if not skipStart:
+    if includeStartArr:
       yield startArr[i]
     i += 1
   workingArr = [item for item in startArr]
@@ -59,37 +63,66 @@ def genEnbonacciNums(order=2,skipStart=False):
   assert False, "genEnbonacciNums should never stop."
 
 
-def getEnboNumAtIndexAndPredecessors(n,order=2):
-  assert n > 0
+def applyNegativeEnumeration(inputArr, defaultValue=0, includeIndices=True):
+  fillAmount = inputArr.count(None)
+  if fillAmount > 0:
+    for i in range(fillAmount):
+      inputArr[fillAmount-i-1] = (-i-1, defaultValue) if includeIndices else defaultValue
+      
+
+def getEnboNumAtIndexAndPredecessors(n, order=2, includeIndices=True, indexStartArr=False):
+  """
+  assert includeIndices
+  if n <= order:
+    #raise NotImplementedError("n <= order does not work yet")
+    pass
+  assert n >= 0
   assert order > 1
   startArr = getEnbonacciStartArr(order=order)
   if n < len(startArr):
-    result = rjustArr(startArr[:n+1],order,crop=True)
-    return result
-  workingArr = [item for item in startArr]
-  i = order-1
-  while i < n:
-    i += 1
-    ii = i%order
-    workingArr[ii] = sum(workingArr)
-  assert i == n
-  return makeArr(offsetEnum(unwrapArr(workingArr,i%order),i))
+    resultArr = rjustedArr(startArr[:n+1],order,crop=True)
+    return [(iii+n-len(resultArr)+1,item) for iii,item in enumerate(resultArr)]
+  else:
+    workingArr = [item for item in startArr]
+    i = order-1
+    while i < n:
+      i += 1
+      ii = i%order
+      workingArr[ii] = sum(workingArr)
+    assert i == n
+    resultArr = unwrapArr(workingArr,(ii+1)%order)
+    assert len(resultArr) == order
+    return [(iii+n-len(resultArr)+1,item) for iii,item in enumerate(resultArr)]
+  """
+  assert n >= -1
+  enboNumGen = genTakeOnly(genEnbonacciNums(order=order,includeStartArr=True), (n if indexStartArr else n+order)+1)
+  if includeIndices:
+    enboNumGen = enumerate(enboNumGen, 0 if indexStartArr else -order)
+  result = arrTakeLast(enboNumGen,order)
+  assert len(result) == order
+  if result.count(None) != 0:
+    if includeIndices:
+      assert indexStartArr, "disabling this is not possible yet."
+    applyNegativeEnumeration(result,includeIndices=includeIndices)
+  return result
+  
 
-
-def getEnboNumAboveValueAndPredecessors(value,order=2):
+def getEnboNumAboveValueAndPredecessors(value,order=2,includeIndices=True,indexStartArr=False):
+  """
   assert order > 1
   startArr = getEnbonacciStartArr(order=order)
   index = len(startArr) - 1
-  if value < startArr[index]:
+  if value < startArr[-1]:
     assert index - (order-1) >= 0
     while value < startArr[index-1]:
       index -= 1
     assert startArr[index-1] <= value
     assert startArr[index] > value
     #return ((index-1,fibNums[index-1]),(index,fibNums[index]))
-    result = makeArr(enumerate(startArr)[:index+1])
-    for i,item in enumerate(result):
-      assert item[i][0] == i
+    #result = makeArr(enumerate(startArr))[:index+1]
+    result = [(i,item) for i,item in enumerate(startArr) if i < index+1]
+    for i, item in enumerate(result):
+      assert item[0] == i
     return result
   workingArr = [item for item in startArr]
   i = order-1
@@ -98,25 +131,65 @@ def getEnboNumAboveValueAndPredecessors(value,order=2):
     i += 1
     ii = i%order
     workingArr[ii] = sum(workingArr)
-    if not workingArr[ii] < value:
+    if not workingArr[ii] <= value: #@ changed from <...
       break
   return makeArr(offsetEnum(unwrapArr(workingArr,(i+1)%order),i-(order-1)))
+  """
+  assert value >= 0
+  enboNumGen = PyGenTools.genTakeUntil(genEnbonacciNums(order=order),(lambda testNum: testNum > value),stopSignalsNeeded=1) #this doesn't go above value. using PyGenTools.genTakeUntil would make that possible.
+  if includeIndices:
+    enboNumGen = enumerate(enboNumGen,0 if indexStartArr else -order)
+  result = arrTakeLast(enboNumGen,order)
+  assert len(result) == order
+  if result.count(None) != 0:
+    if includeIndices:
+      assert indexStartArr, "disabling this is not possible yet."
+    applyNegativeEnumeration(result,includeIndices=includeIndices)
+  return result
 
 
-def genEnboNumsDescendingFromIndex(iEnd,order=2):
+def genEnboNumsDescendingFromIndex(iEnd, order=2, includeIndices=True, indexStartArr=False):
   assert order > 1
-  workingArr = getEnboNumAtIndexAndPredecessors(iEnd,order=order)
-  return genEnboNumsDescendingFromPreset(workingArr,iEnd,order=order)
+  assert includeIndices
+  workingArr = getEnboNumAtIndexAndPredecessors(iEnd, order=order, includeIndices=True, indexStartArr=indexStartArr)
+  #print("FibonacciMath.genEnboNumsDescendingFromIndex: iEnd={}, order={}, workingArr={}.".format(iEnd,order,workingArr))
+  return genEnboNumsDescendingFromPreset(workingArr, iEnd=None, order=order, includeIndices=includeIndices, indexStartArr=indexStartArr)
 
 
-def genEnboNumsDescendingFromPreset(presetArr,iEnd=None,order=2):
+def genEnboNumsDescendingFromPreset(presetArr, iEnd=None, order=2, includeIndices=True, indexStartArr=False):
+  #assert indexStartArr == True
+  assert order > 1
+  #assert stopBefore in [0,1]
+  presetArrIsEnumerated = hasattr(presetArr[-1],"__getitem__")
+  if includeIndices:
+    if iEnd==None:
+      assert presetArrIsEnumerated, "iEnd must be specified somehow."
+      #assert indexStartArr, "disabling this is not possible yet."
+      iEnd = presetArr[-1][0]
+  workingPresetArr = [item[1] for item in presetArr] if presetArrIsEnumerated else presetArr
+  
+  currentNums = collections.deque(workingPresetArr)
+  while True:
+    currentSum = sum(currentNums)
+    leavingSuccessor = currentNums.pop()
+    newPredecessor = leavingSuccessor-(currentSum-leavingSuccessor)
+    currentSum += newPredecessor - leavingSuccessor
+    yield (iEnd, leavingSuccessor) if includeIndices else leavingSuccessor
+    if leavingSuccessor == 1:
+      return
+    if includeIndices:
+      iEnd -= 1
+    currentNums.appendleft(newPredecessor)
+"""
   assert order > 1
   #print("genEnboNumsDescendingFromPreset: on call: (presetArr,iEnd,order)=" + str((presetArr,iEnd,order)) + ".")
   isEnumerated = all(type(item) == tuple for item in presetArr)
   if isEnumerated and (iEnd != None):
     assert presetArr[-1][0] == iEnd
   else:
+    assert all(type(item) == int for item in presetArr)
     iEnd = presetArr[-1][0]
+    raise ValueError("input must be enumerated.")
   #print("genEnboNumsDescendingFromPreset: after adjustment: (presetArr,iEnd,order)=" + str((presetArr,iEnd,order)) + ".")
   workingArr = None
   if isEnumerated:
@@ -141,12 +214,12 @@ def genEnboNumsDescendingFromPreset(presetArr,iEnd=None,order=2):
       continue
     #print("genEnboNumsDescendingFromPreset: yielding " + str((i, item)) + ".")
     yield (i,item)
+"""
 
-
-def genEnboNumsDescendingFromValue(value,order=2):
-  presetArr = getEnboNumAboveValueAndPredecessors(value,order=order)
+def genEnboNumsDescendingFromValue(value, order=2, includeIndices=True, indexStartArr=False):
+  presetArr = getEnboNumAboveValueAndPredecessors(value, order=order, includeIndices=True, indexStartArr=indexStartArr)
   #print("getEnboNumsDescendingFromValue: (value,order,presetArr)=" + str((value,order,presetArr))+".")
-  return genEnboNumsDescendingFromPreset(presetArr,iEnd=None,order=order)
+  return genEnboNumsDescendingFromPreset(presetArr, iEnd=None, order=order, includeIndices=includeIndices, indexStartArr=indexStartArr)
 
 
 
