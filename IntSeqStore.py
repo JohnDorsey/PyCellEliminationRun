@@ -55,11 +55,11 @@ def lewisTrackedSumTruncationDecode(inputBitSeq,seqSum):
 
 
 
-def lewisTrackedSumBoundedCodecEncode(inputIntSeq,seqSum,boundedNumberCodec,addDbgCommas=False):
+def lewisTrackedSumBoundedCodecEncode(inputIntSeq, seqSum, boundedNumberCodec, addDbgCommas=False):
   justStarted = True
   sumSoFar = 0
   for delayedRemainingSum,currentInt in genTrackDelayedRemainingSum(inputIntSeq,seqSum):
-    store = boundedNumberCodec.encode(currentInt,maxInputInt=delayedRemainingSum)
+    store = boundedNumberCodec.encode(currentInt, maxInputInt=delayedRemainingSum)
     assert isGen(store) or type(store) == list
     if addDbgCommas:
       if not justStarted:
@@ -69,14 +69,14 @@ def lewisTrackedSumBoundedCodecEncode(inputIntSeq,seqSum,boundedNumberCodec,addD
     for outputBit in store:
       yield outputBit
 
-def lewisTrackedSumBoundedCodecDecode(inputBitSeq,seqSum,boundedNumberCodec):
+def lewisTrackedSumBoundedCodecDecode(inputBitSeq, seqSum, boundedNumberCodec):
   inputBitSeq = makeGen(inputBitSeq)
   sumSoFar = 0
   num = None
   while True:
     delayedRemainingSum = seqSum - sumSoFar
     try:
-      num = boundedNumberCodec.decode(inputBitSeq,maxInputInt=delayedRemainingSum)
+      num = boundedNumberCodec.decode(inputBitSeq, maxInputInt=delayedRemainingSum)
     except ExhaustionError:
       break
     sumSoFar += num

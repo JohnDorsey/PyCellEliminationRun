@@ -89,6 +89,7 @@ def intSeqToBitSeq(inputIntSeq, inputFun, addDbgChars=False):
       yield outputBit
 
 def bitSeqToIntSeq(inputBitSeq, inputFun):
+  #print("bitSeqToIntSeq called.")
   inputBitSeq = makeGen(inputBitSeq)
   outputInt = None
   while True:
@@ -98,7 +99,8 @@ def bitSeqToIntSeq(inputBitSeq, inputFun):
       #print("bitSeqToIntSeq is stopping.")
       return
     if outputInt == None:
-      raise ParseError("The inputFun " + str(inputFun) + " did not properly terminate.")
+      raise ParseError("The inputFun " + str(inputFun) + " did not properly terminate.") 
+    #print("bitSeqToIntSeq: yielding {}.".format(outputInt))
     yield outputInt
 
 
@@ -150,20 +152,25 @@ assert getStopcodeRIndicesInEnbocode([1,1,0,1,1,1,1],order=2) == [1,4,6]
 assert getStopcodeRIndicesInEnbocode([0,1,1,1,1,1,1,1,1],order=3) == [3,6]
 
 
-def clearEnbocode(bitArrToClear,order=None):
+
+def clearEnbocode(bitArrToFix, order):
+  for i in range(len(bitArrToFix)):
+    bitArrToFix[i] = 0
+  clearEnbocodeEnd(bitArrToFix, order)
+
+def clearEnbocodeEnd(bitArrToClear, order):
   assert order > 1
-  for i in range(len(bitArrToClear)-order,len(bitArrToClear)):
+  for i in range(len(bitArrToClear)-order, len(bitArrToClear)):
     bitArrToClear[i] = 1 #@ redundant at least once.
   #@ temp:
   assert sum(bitArrToClear) == order
 
-def lengthenEnbocode(bitArrToFix,order=None):
+def lengthenEnbocode(bitArrToFix, order=None):
   #lengthen enbocode by 1 bit and then clear it. Mainly for use in incrementEnbocode.
   assert order > 1
-  for i in range(len(bitArrToFix)):
-    bitArrToFix[i] = 0
   bitArrToFix.append(-123456789) #this number should not show up anywhere else. clearEnbocode should overwrite it.
-  clearEnbocode(bitArrToFix,order)
+  clearEnbocode(bitArrToFix, order)
+  
 
 def finishLTRBinAddition(bitArrToFinish):
   #finish binary incrementation by interpreting a 2 as a place where the bit must flip over to 0 and carry a 1. mainly for use in incrementEnbocode.
@@ -242,14 +249,17 @@ del testArrCorrect
 
 
 
-def isRoundEnbocode(inputBitArr):
-  zeroCount = inputBitArr.count(0)
-  oneCount = inputBitArr.count(1)
-  if zeroCount+oneCount == len(inputBitArr):
-    if sum(inputBitArr[-oneCount:])==oneCount:
-      return True
-  return False
-  
+def genRoundEnbocodeValueOffsetsSlow(order=None):
+  print("Codes.genRoundEnbocodeValueOffsetsSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
+  print("Codes.genRoundEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
+  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genRoundEnbocodeValuesSlow(order=order)):
+    yield expected-actual
+
+def genRoundEnbocodeValueOffsets(order=None):
+  #gives the difference between an expected enbocode column value and its actual value when it is first used because of the first bit of the stopcode.
+  if order != 3:
+    print("Codes.genRoundEnbocodeValueOffsets: WARNING: not tested for orders other than 3!")
+  return (item[0] for item in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)))
   
   
 def genRoundEnbocodeValuesSlow(order=None):
@@ -266,23 +276,77 @@ def genRoundEnbocodeValues(order=None):
   for value, _ in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)):
     if value != 0:
       yield value + 1
-  
-
       
 
-def genRoundEnbocodeValueOffsetsSlow(order=None):
-  print("Codes.genRoundEnbocodeValueOffsetsSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
-  print("Codes.genRoundEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
-  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genRoundEnbocodeValuesSlow(order=order)):
-    yield expected-actual
 
 
-def genRoundEnbocodeValueOffsets(order=None):
-  #gives the difference between an expected enbocode column value and its actual value when it is first used because of the first bit of the stopcode.
-  if order != 3:
-    print("Codes.genRoundEnbocodeValueOffsets: WARNING: not tested for orders other than 3!")
-  return (item[0] for item in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)))
+def makeRoundEnbocodeOfLength(length, order):
+  result = [0 for i in range(length)]
+  clearEnbocodeEnd(result, order)
+  return result
+
+def isRoundEnbocode(inputBitArr):
+  zeroCount = inputBitArr.count(0)
+  oneCount = inputBitArr.count(1)
+  if zeroCount+oneCount == len(inputBitArr):
+    if sum(inputBitArr[-oneCount:])==oneCount:
+      return True
+  return False
+        
+def predictEnbocodeTotalLength(inputInt, order):
+  assert inputInt > 0
+  assert order > 1
+  lengthsAndValuesGen = enumerate(itertools.takewhile((lambda x: x <= inputInt), genRoundEnbocodeValues(order=order)), order)
+  result = PyGenTools.getLast(lengthsAndValuesGen)[0]
+  return result
+    
+def predictEnbocodeBodyLength(inputInt, order):
+  assert order > 1
+  assert inputInt > 0
+  return predictEnbocodeTotalLength(inputInt, order) - order
+
+def truncatedEnbocodeBitSeq(inputBitGen, order=None, maxInputInt=None): #does not detect some parse errors, such as when two codes are called one code bit arr.
+  assert order > 1
+  assert maxInputInt > 1
+  inputBitGen = makeGen(inputBitGen)
+  bodyLength = predictEnbocodeBodyLength(maxInputInt, order)
+  assert bodyLength >= 0
+  return genTakeOnly(inputBitGen, bodyLength, onExhaustion="partial")
+  #for i in range(bodyLength):
+  #  try:
+  #    yield next(inputBitGen)
+  #  except StopIteration:
+  #    raise ExhaustionError("Codes.trancatedEnbocodeBitSeq: inputBitGen ran out.")
+  #for i in range(order)
+  #  yield 1
+  #raise ParseError("overdrawn.")
   
+def detruncatedEnbocodeBitSeq(inputBitGen, order=None, maxInputInt=None):
+  assert isGen(inputBitGen) #debug
+  #1/0
+  assert order > 1
+  assert maxInputInt > 1
+  inputBitGen = makeGen(inputBitGen)
+  bodyLength = predictEnbocodeBodyLength(maxInputInt, order)
+  i = None
+  for i in range(bodyLength):
+    try:
+      yield next(inputBitGen)
+    except StopIteration:
+      #print("Codes.detruncatedEnbocodeBitSeq: warning: inputBitGen ran out. Maybe this shouldn't happen.")
+      if i==0:
+        #print("Codes.detruncatedEnbocodeBitSeq: raising ExhaustionError because the inputBitGen was empty.")
+        raise ExhaustionError("inputBitGen was empty.")
+      break
+  for ii in range(order):
+    #print("Codes.detruncatedEnbocodeBitSeq: notice: yielding a stopcode bit.")
+    yield 1
+  print("Codes.detruncatedEnbocodeBitSeq: warning: overdrawn.")
+  #yield None
+
+  
+      
+
 
 
 
@@ -297,9 +361,6 @@ def intToFibcodeBitArr(inputInt): #this is based on math that is a special case 
   currentInt = inputInt
   for index,fibNum in FibonacciMath.genEnboNumsDescendingFromValue(inputInt*2+10,order=2,includeIndices=True,indexStartArr=False):
     #print("intToEnbocodeBitArr: before loop body: (inputInt,order,index,enboNum,result)=" + str((inputInt,order,index,enboNum,result)) + ".")
-    #if index < 2:
-      #print("intToEnbocodeBitArr: breaking loop because of index.")
-    #  break
     assert fibNum > 0
     if fibNum <= currentInt:
       #print("intToEnbocodeBitArr: enboNum will be subtracted from currentInt. (currentInt,index,enboNum)"+str((currentInt,index,enboNum))+".")
@@ -323,6 +384,7 @@ def intToFibcodeBitArr(inputInt): #this is based on math that is a special case 
     if not arrEndsWith(result,[0,1,1]):
       print("intToFibcodeBitArr: result ends the wrong way. This is never supposed to happen. (inputInt,result)=" + str((inputInt,result)) + ".")
   return result
+  
   
 def intToHigherEnbocodeBitArr(inputInt, order=None):
   #stopcodeValue is the value that the stopcode has on its own - the plaindata integer value x of the largest round enbocode (the enbocode with all bits being zeroes except for the stopcode bits) such that x <= inputInt.
@@ -360,8 +422,11 @@ def intToFibcodeBitSeq(inputInt):
   return makeGen(intToFibcodeBitArr(inputInt))
   
 
-def intToEnbocodeBitSeq(inputInt, order=None):
+def intToEnbocodeBitSeq(inputInt, order=None, maxInputInt=None):
   assert order > 1
+  if maxInputInt != None:
+    assert inputInt <= maxInputInt
+    return truncatedEnbocodeBitSeq(intToEnbocodeBitSeq(inputInt, order=order), order=order, maxInputInt=maxInputInt)
   if order == 2:
     return intToFibcodeBitSeq(inputInt)
   else:
@@ -400,39 +465,7 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
   assert result > 0
   return result
   
-"""
-def tribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes time with izip.
-  inputBitGen = makeGen(inputBitGen)
-  bitHistory = []
-  while not bitHistory[-3:] == [1,1,1]:
-    try:
-      bitHistory.append(next(inputBitGen))
-    except StopIteration:
-      raise ParseError("ran out of input bits midword.")
-  assert len(bitHistory) >= 3
-  if len(bitHistory) <= 4:
-    return len(bitHistory) - 2
-  thribonacciNumGen = FibonacciMath.genEnbonacciNums(order=3,includeStartArr=False)
-  altNumGen = genPureEnbocodeValueOffsets(order=3)
-  result = 0
-  for currentPlaceIndex,currentPlaceValue in enumerate(thribonacciNumGen):
-    #print("options are {}.".format(currentPlaceValueOptions))
-    if currentPlaceIndex == len(bitHistory) - 3:
-      assert currentPlaceIndex-2 >= 0, "handle this sooner."
-      usedOptionValue = currentPlaceValue - PyGenTools.valueAtIndexInGen(currentPlaceIndex, altNumGen)
-      #print("using branch Alt value {}.".format(usedOptionValue))
-      assert usedOptionValue > 0
-      result += bitHistory[currentPlaceIndex]*usedOptionValue
-      #PyGenTools.valueAtIndexInGen(currentPlaceIndex - 2, tetranacciNumGen)
-      break
-    else:
-      usedOptionValue = currentPlaceValue
-      #print("using branch Main value {}.".format(usedOptionValue))
-      assert usedOptionValue > 0
-      result += bitHistory[currentPlaceIndex]*usedOptionValue
-  assert result > 0
-  return result
-"""
+
   
 def higherEnbocodeBitSeqToInt(inputBitGen,order=None): #wastes memory with bitHistory. wastes time with izip.
   assert order > 2
@@ -474,19 +507,22 @@ def higherEnbocodeBitSeqToInt(inputBitGen,order=None): #wastes memory with bitHi
     
 
 
-def enbocodeBitSeqToInt(inputBitSeq,order=None):
+def enbocodeBitSeqToInt(inputBitSeq, order=None, maxInputInt=None):
+  #print("enbocodeBitSeqToInt called.")
   assert order > 1
+  if maxInputInt != None:
+    return enbocodeBitSeqToInt(detruncatedEnbocodeBitSeq(makeGen(inputBitSeq), order=order, maxInputInt=maxInputInt), order=order)
   if order == 2:
     return fibcodeBitSeqToInt(inputBitSeq)
   else:
     return higherEnbocodeBitSeqToInt(inputBitSeq,order=order)
 
 
-def intSeqToEnbocodeBitSeq(inputIntSeq,order=None):
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitSeq(x,order=order)))
+def intSeqToEnbocodeBitSeq(inputIntSeq, order=None, maxInputInt=None):
+  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitSeq(x, order=order, maxInputInt=maxInputInt)))
 
-def enbocodeBitSeqToIntSeq(inputBitSeq,order=None):
-  return bitSeqToIntSeq(inputBitSeq,(lambda x: enbocodeBitSeqToInt(x,order=order)))
+def enbocodeBitSeqToIntSeq(inputBitSeq, order=None, maxInputInt=None):
+  return bitSeqToIntSeq(inputBitSeq,(lambda x: enbocodeBitSeqToInt(x, order=order, maxInputInt=maxInputInt)))
 
 
 
@@ -691,6 +727,10 @@ def eliasDeltaFibBitSeqToIntSeq(inputBitSeq):
 
 
 
+  
+for testOrder in [2,3,5,8]:
+  for testNum in range(1,32):
+    assert predictEnbocodeTotalLength(testNum, order=testOrder) == len(intToEnbocodeBitArr(testNum, order=testOrder))
 
 
 
@@ -780,7 +820,7 @@ for testOrder in [3,4,5,8,14]:
 
 print("performing full codec tests...")
 
-testNumCodecNames = ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]
+testNumCodecNames = ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]
 
 for testCodecName in testNumCodecNames:
   print("testing " + testCodecName + "...")

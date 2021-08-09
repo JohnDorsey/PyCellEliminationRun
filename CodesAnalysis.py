@@ -168,4 +168,16 @@ def compareEfficiencies(codecDict,startValue,endValue):
 
 
 
+"""
+>>>> def testFun(exp2Range):
+....     for testExp2 in exp2Range:
+....         testExp = 2**testExp2
+....         print("\n2**{} (2**2**{})".format(testExp,testExp2))
+....         result = [[testOrder,len([item for item in Codes.codecs["enbonacci"].encode(2**testExp,order=testOrder)])] for testOrder in range(2,30)]
+....         for item in result:
+....             item.extend([item[1]-testExp,float(item[1])/float(testExp)])
+....         print(result)
+....         
 
+
+"""

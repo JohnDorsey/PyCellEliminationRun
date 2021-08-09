@@ -145,8 +145,6 @@ Design notes:
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
       
       -add optional filters to genCellCheckOrder and/or scoreFun.
-
-      -finish higher-order fibonacci coding.
         
       -add Shannon-Fano coding as a faster alternative to huffman coding.
         
@@ -273,3 +271,5 @@ Design notes:
     -add image compression with a 3d spline.        
     
     -make circular spiral for searches.
+
+    -finish higher-order fibonacci coding.
