@@ -61,17 +61,29 @@ def lewisTrackedSumBoundedCodecDecode(inputBitSeq, seqSum, boundedNumberCodec):
     yield num
 
 
+def getBucketSizeAdjustedKwargsForNumberCodec(havenBucketSize, maxInputInt):
+  maxInputIntForNumberCodec = maxInputInt
+  kwargsForNumberCodec = dict()
+  if maxInputIntForNumberCodec != None:
+    maxInputIntForNumberCodec >>= havenBucketSize
+    kwargsForNumberCodec["maxInputInt"] = maxInputIntForNumberCodec
+  return (kwargsForNumberCodec, maxInputIntForNumberCodec)
+
+
 
 def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt=None, addDbgCommas=False):
   assert havenBucketSize >= 0
+  if maxInputInt != None:
+    assert inputInt <= maxInputInt
   
-  maxInputIntForNumberCodec = maxInputInt
-  extraKwargsForNumberCodec = dict()
-  if maxInputIntForNumberCodec != None:
-    maxInputIntForNumberCodec >>= havenBucketSize
-    extraKwargsForNumberCodec["maxInputInt"] = maxInputIntForNumberCodec
+  kwargsForNumberCodec, maxInputIntForNumberCodec = getBucketSizeAdjustedKwargsForNumberCodec(havenBucketSize, maxInputInt)
+  
+  if maxInputIntForNumberCodec != 0: #avoid error.
+    encodedBitArr = makeArr(numberCodec.zeroSafeEncode(inputInt >> havenBucketSize, **kwargsForNumberCodec))
+  else:
+    #assert kwargsForNumberCodec["maxInputInt"] == 0
+    encodedBitArr = []
     
-  encodedBitArr = makeArr(numberCodec.zeroSafeEncode(inputInt >> havenBucketSize, **extraKwargsForNumberCodec))
   if addDbgCommas:
     encodedBitArr.append(".")
   havenBucketData = rjustedArr(Codes.intToBinaryBitArr(inputInt), havenBucketSize, crop=True)
@@ -79,9 +91,10 @@ def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt
   for item in encodedBitArr:
     yield item
 
-def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, addDbgCommas=False):
+def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, seqSum=None, addDbgCommas=False):
   #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
+  delayedRemainingSum = seqSum
   justStarted = True #used only to control debug commas.
   for inputInt in inputIntSeq:
     if addDbgCommas:
@@ -89,16 +102,25 @@ def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initi
         yield ","
       else:
         justStarted = False
-    for outputBit in intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, addDbgCommas=addDbgCommas):
+    for outputBit in intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt=delayedRemainingSum, addDbgCommas=addDbgCommas):
       yield outputBit
     havenBucketSize = havenBucketSizeFun(inputInt)
+    if delayedRemainingSum != None:
+      delayedRemainingSum -= inputInt
+      assert delayedRemainingSum >= 0
     
 
-def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize):
+def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize, maxInputInt=None):
     inputBitGen = makeGen(inputBitGen)
     assert havenBucketSize >= 0
     
-    parseResult = numberCodec.zeroSafeDecode(inputBitGen) #may raise ExhaustionError.
+    kwargsForNumberCodec, maxInputIntForNumberCodec = getBucketSizeAdjustedKwargsForNumberCodec(havenBucketSize, maxInputInt)
+    
+    if maxInputIntForNumberCodec != 0: #avoid error.
+      parseResult = numberCodec.zeroSafeDecode(inputBitGen, **kwargsForNumberCodec) #may raise ExhaustionError.
+    else:
+      #assert kwargsForNumberCodec["maxInputInt"] == 0
+      parseResult = 0
     
     assert parseResult != None, "None-based generator stopping should be phased out."
     try:
@@ -108,18 +130,23 @@ def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize):
     #parseResult -= (0 if numberCodec.zeroSafe else 1)
     decodedValue = ((parseResult)<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
     return decodedValue
+    
 
-def genDecodeWithHavenBucket(inputBitSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0):
+def genDecodeWithHavenBucket(inputBitSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, seqSum=None):
   #parseFun must take only as many bits as it needs and return an integer.
   inputBitSeq = makeGen(inputBitSeq)
   havenBucketSize = initialHavenBucketSize
+  delayedRemainingSum = seqSum
   while True:
     try:
-      decodedValue = havenBucketedBitSeqToInt(inputBitSeq, numberCodec, havenBucketSize)
+      decodedValue = havenBucketedBitSeqToInt(inputBitSeq, numberCodec, havenBucketSize, maxInputInt=delayedRemainingSum)
     except ExhaustionError:
       break
     yield decodedValue
     havenBucketSize = havenBucketSizeFun(decodedValue)
+    if delayedRemainingSum != None:
+      delayedRemainingSum -= decodedValue
+      assert delayedRemainingSum >= 0
 
 
 

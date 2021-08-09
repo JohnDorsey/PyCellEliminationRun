@@ -214,7 +214,7 @@ class Codec:
       if maxInputInt != None:
         kwargs["maxInputInt"] = maxInputInt+1
       if "seqSum" in kwargs:
-        raise NotImplementedError("zeroSafeEncode can't adjust seqSum.")
+        print("CodecTools.zeroSafeEncode: warning: can't adjust seqSum.")
         
       if type(data) == int:
         #return self.encode(data+1,*args,**kwargs)
@@ -242,7 +242,7 @@ class Codec:
       if maxInputInt != None:
         kwargs["maxInputInt"] = maxInputInt+1
       if "seqSum" in kwargs:
-        raise NotImplementedError("zeroSafeDecode can't adjust seqSum.")
+        print("CodecTools.zeroSafeDecode: warning: can't adjust seqSum.")
       
     try:      
       result = self.decode(data,*args,**kwargs)

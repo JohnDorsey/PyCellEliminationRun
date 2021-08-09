@@ -56,17 +56,17 @@ def test(interpolationModesToTest=["linear", "linear&round", "sinusoidal", {"met
       inputHeaderDict = {"interpolation_mode":interpolationMode,"score_mode":scoreMode,"space_definition":{"size":testSoundSize}}
       print("\nTesting.test: settings: " + str(inputHeaderDict)+".")
       testCERCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
-      testCellElimRunCodec(testCERCodec, testSound)
+      testCellElimRunCodec(testCERCodec, testSound, testSoundSize=testSoundSize)
 
   print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
 
 
-def testCellElimRunCodec(testCERCodec,testSound,compressAgain=False):
+def testCellElimRunCodec(testCERCodec, testSound, testSoundSize=None, compressAgain=False):
 
   pressDataNums = testCERCodec.encode(testSound)
   printSimpleAnalysis(pressDataNums)
 
-  testVariousUniversalCodings(testSound,pressDataNums)
+  testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=testSoundSize)
 
   reconstPlainDataNums = testCERCodec.decode(pressDataNums)
   if reconstPlainDataNums == testSound:
@@ -76,25 +76,43 @@ def testCellElimRunCodec(testCERCodec,testSound,compressAgain=False):
   else:
     print("Testing.testCellElimRunCodec: test failed. ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~~ FAIL ~~~~.")
   if compressAgain:
-    testCellElimRunCodecAgain(testSound,pressDataNums)
+    testCellElimRunCodecAgain(testSound, pressDataNums, testSoundSize=testSoundSize)
   print("\n")
     
     
-def testCellElimRunCodecAgain(testSound,testData): #compresses testData again.
+def testCellElimRunCodecAgain(testSound, testData, testSoundSize=None): #compresses testData again.
   inputHeaderDict2 = {"interpolation_mode":{"method_name":"linear"},"space_definition":{"size":[len(testData),sum(testData)],"bounds":{"upper":"EMBED:AFTER_PREP_OP_MODE"}}}
   print("\nTesting.testCellElimRunCodecAgain: settings: " + str(inputHeaderDict2)+".")
   testCERCodec2 = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict2])
   pressNums2 = testCERCodec2.encode(testData)
   printSimpleAnalysis(pressNums2)
-  testVariousUniversalCodings(testSound,pressNums2)
+  testVariousUniversalCodings(testSound, pressNums2, testSoundSize=testSoundSize)
       
       
-def testVariousUniversalCodings(testSound,pressDataNums):
-  for numberSeqCodecSrcStr in ["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]]+["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["0.125LL_fibonacci","0.25LL_fibonacci","0.375LL_fibonacci","HLL_fibonacci","0.625LL_fibonacci","0.75LL_fibonacci","0.875LL_fibonacci"]]:
-    print("testing with "+numberSeqCodecSrcStr+":")
+def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
+  families = {"seq":["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]],"haven bucket seq":["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["0.125LL_fibonacci","0.25LL_fibonacci","0.375LL_fibonacci","HLL_fibonacci","0.625LL_fibonacci","0.75LL_fibonacci","0.875LL_fibonacci"]]}
+  for numberSeqCodecSrcStr in families["seq"]:
     numberSeqCodec = eval(numberSeqCodecSrcStr)
+    print("testing with seq codec " + numberSeqCodecSrcStr + " :")
     CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
     assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
+    
+  for seqSumStrategy in ["without","with"]:
+    for numberSeqCodecSrcStr in families["haven bucket seq"]:      
+      numberSeqCodec = eval(numberSeqCodecSrcStr)
+      extraKwargs = dict()
+      if seqSumStrategy == "with":
+        if testSoundSize != None:
+          assert len(testSoundSize) == 2
+          extraKwargs["seqSum"] = testSoundSize[0]*testSoundSize[1]
+        else:
+          print("testVariousUniversalCodings: warning: can't.")
+          break
+      else:
+        assert seqSumStrategy == "without"
+      print("testing with haven bucket seq codec " + numberSeqCodecSrcStr + " " + seqSumStrategy + "seq sum strategy:")
+      CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums, **extraKwargs)))
+      assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
       
       
 def printSimpleAnalysis(pressDataNums):
