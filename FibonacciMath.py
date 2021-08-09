@@ -6,7 +6,7 @@ FibonacciMath.py contains tools for generating different orders of Fibonacci seq
 
 """
 
-from PyGenTools import makeArr, arrTakeOnly
+from PyGenTools import makeArr, arrTakeOnly, genSkipFirst
 
 
 
@@ -40,14 +40,15 @@ def getEnbonacciStartArr(order=2):
   assert order > 1
   return [0 for i in range(order-1)] + [1]
 
-  
 
-def genEnbonacciNums(order=2):
+
+def genEnbonacciNums(order=2,skipStart=False):
   assert order > 1
   startArr = getEnbonacciStartArr(order=order)
   i = 0
   while i < len(startArr):
-    yield startArr[i]
+    if not skipStart:
+      yield startArr[i]
     i += 1
   workingArr = [item for item in startArr]
   while True:
