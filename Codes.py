@@ -48,7 +48,7 @@ def binaryBitArrToInt(inputBitArr):
   return result
 
 
-def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
+def extendIntByBits(headInt, inputBitSeq, bitCount, onExhaustion="fail"):
   #this function eats up to bitCount bits from an inputBitSeq and returns an integer based on the input headInt followed by those generated bits.
   assert onExhaustion in ["fail","warn+partial","warn+None","partial","None"]
   assert type(headInt) == int
@@ -77,7 +77,7 @@ def extendIntByBits(headInt,inputBitSeq,bitCount,onExhaustion="fail"):
     raise ValueError("Codes.extendIntByBits: the value of keyword argument onExhaustion is invalid.")
 
 
-def intSeqToBitSeq(inputIntSeq,inputFun,addDbgChars=False):
+def intSeqToBitSeq(inputIntSeq, inputFun, addDbgChars=False):
   justStarted = True
   for inputInt in inputIntSeq:
     if addDbgChars:
@@ -88,7 +88,7 @@ def intSeqToBitSeq(inputIntSeq,inputFun,addDbgChars=False):
     for outputBit in inputFun(inputInt):
       yield outputBit
 
-def bitSeqToIntSeq(inputBitSeq,inputFun):
+def bitSeqToIntSeq(inputBitSeq, inputFun):
   inputBitSeq = makeGen(inputBitSeq)
   outputInt = None
   while True:
@@ -102,7 +102,7 @@ def bitSeqToIntSeq(inputBitSeq,inputFun):
     yield outputInt
 
 
-def intToHybridCodeBitSeq(inputInt,prefixEncoderFun,zeroSafe,addDbgChars=False):
+def intToHybridCodeBitSeq(inputInt, prefixEncoderFun, zeroSafe, addDbgChars=False):
   #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
   bodyBitArr = intToBinaryBitArr(inputInt)[1:]
   prefixBitSeq = prefixEncoderFun(len(bodyBitArr) + (0 if zeroSafe else 1))
@@ -113,7 +113,7 @@ def intToHybridCodeBitSeq(inputInt,prefixEncoderFun,zeroSafe,addDbgChars=False):
   for outputBit in bodyBitArr:
     yield outputBit
 
-def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe):
+def hybridCodeBitSeqToInt(inputBitSeq, prefixDecoderFun, zeroSafe):
   #the resulting hybrid code is never zero safe, and the zeroSafe arg only refers to whether the prefix function is.
   inputBitSeq = makeGen(inputBitSeq)
   prefixParseResult = prefixDecoderFun(inputBitSeq) - (0 if zeroSafe else 1)
@@ -128,7 +128,7 @@ def hybridCodeBitSeqToInt(inputBitSeq,prefixDecoderFun,zeroSafe):
 
 
 
-def getStopcodeLIndicesInEnbocode(inputBitArr, order=2):
+def getStopcodeLIndicesInEnbocode(inputBitArr, order=None):
   assert order > 1
   stopcode = [1 for i in range(order)]
   result = []
@@ -143,21 +143,21 @@ def getStopcodeLIndicesInEnbocode(inputBitArr, order=2):
 assert getStopcodeLIndicesInEnbocode([1,1,0,1,1,1,1],order=2) == [0,3,5]
 assert getStopcodeLIndicesInEnbocode([0,1,1,1,1,1,1,1,1],order=3) == [1,4]
 
-def getStopcodeRIndicesInEnbocode(inputBitArr, order=2):
+def getStopcodeRIndicesInEnbocode(inputBitArr, order=None):
   assert order > 1
   return [item + order - 1 for item in getStopcodeLIndicesInEnbocode(inputBitArr,order=order)]
 assert getStopcodeRIndicesInEnbocode([1,1,0,1,1,1,1],order=2) == [1,4,6]
 assert getStopcodeRIndicesInEnbocode([0,1,1,1,1,1,1,1,1],order=3) == [3,6]
 
 
-def clearEnbocode(bitArrToClear,order=2):
+def clearEnbocode(bitArrToClear,order=None):
   assert order > 1
   for i in range(len(bitArrToClear)-order,len(bitArrToClear)):
     bitArrToClear[i] = 1 #@ redundant at least once.
   #@ temp:
   assert sum(bitArrToClear) == order
 
-def lengthenEnbocode(bitArrToFix,order=2):
+def lengthenEnbocode(bitArrToFix,order=None):
   #lengthen enbocode by 1 bit and then clear it. Mainly for use in incrementEnbocode.
   assert order > 1
   for i in range(len(bitArrToFix)):
@@ -178,7 +178,7 @@ def finishLTRBinAddition(bitArrToFinish):
       bitArrToFinish[i] = 0
       bitArrToFinish.append(1) #carry the 1 and lengthen the number.
 
-def incrementEnbocode(inputBitArr, order=2):
+def incrementEnbocode(inputBitArr, order=None):
   originalLength = len(inputBitArr)
   inputBitArr[0] += 1
   finishLTRBinAddition(inputBitArr)
@@ -221,7 +221,7 @@ assert testArr == [0,0,0,0,0,1,1,1]
 del testArr
 
 
-def genEnbocodeBitArrs(order=2):
+def genEnbocodeBitArrs(order=None):
   workingBitArr = [1 for i in range(order)]
   while True:
     yield [outputBit for outputBit in workingBitArr] #make a copy!
@@ -252,7 +252,7 @@ def isRoundEnbocode(inputBitArr):
   
   
   
-def genRoundEnbocodeValuesSlow(order=2):
+def genRoundEnbocodeValuesSlow(order=None):
   print("Codes.genRoundEnbocodeValuesSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
   for index,bitArr in enumerate(genEnbocodeBitArrs(order=order)):
     if isPureEnbocode(bitArr):
@@ -260,7 +260,7 @@ def genRoundEnbocodeValuesSlow(order=2):
       #print("Codes.genPureEnbocodeValuesSlow: {} is pure, yielding {}.".format(bitArr,value))
       yield value
       
-def genRoundEnbocodeValues(order=2):
+def genRoundEnbocodeValues(order=None):
   #tested for order 4, for first 20 results.
   yield 1
   for value, _ in IntSeqMath.genTrackInstantSum(FibonacciMath.genEnbonacciNums(order=order)):
@@ -270,14 +270,14 @@ def genRoundEnbocodeValues(order=2):
 
       
 
-def genRoundEnbocodeValueOffsetsSlow(order=2):
+def genRoundEnbocodeValueOffsetsSlow(order=None):
   print("Codes.genRoundEnbocodeValueOffsetsSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
   print("Codes.genRoundEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
   for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genRoundEnbocodeValuesSlow(order=order)):
     yield expected-actual
 
 
-def genRoundEnbocodeValueOffsets(order=2):
+def genRoundEnbocodeValueOffsets(order=None):
   #gives the difference between an expected enbocode column value and its actual value when it is first used because of the first bit of the stopcode.
   if order != 3:
     print("Codes.genRoundEnbocodeValueOffsets: WARNING: not tested for orders other than 3!")
@@ -346,7 +346,7 @@ def intToHigherEnbocodeBitArr(inputInt, order=None):
   return result
   
 
-def intToEnbocodeBitArr(inputInt, order=2):
+def intToEnbocodeBitArr(inputInt, order=None):
   assert order > 1
   assert inputInt >= 1
   if order == 2:
@@ -360,7 +360,7 @@ def intToFibcodeBitSeq(inputInt):
   return makeGen(intToFibcodeBitArr(inputInt))
   
 
-def intToEnbocodeBitSeq(inputInt, order=2):
+def intToEnbocodeBitSeq(inputInt, order=None):
   assert order > 1
   if order == 2:
     return intToFibcodeBitSeq(inputInt)
@@ -434,7 +434,7 @@ def tribcodeBitSeqToInt(inputBitGen): #wastes memory with bitHistory. wastes tim
   return result
 """
   
-def higherEnbocodeBitSeqToInt(inputBitGen,order=3): #wastes memory with bitHistory. wastes time with izip.
+def higherEnbocodeBitSeqToInt(inputBitGen,order=None): #wastes memory with bitHistory. wastes time with izip.
   assert order > 2
   inputBitGen = makeGen(inputBitGen)
   bitHistory = []
@@ -451,7 +451,7 @@ def higherEnbocodeBitSeqToInt(inputBitGen,order=3): #wastes memory with bitHisto
     return len(bitHistory) - order + 1
   placeValueGen = FibonacciMath.genEnbonacciNums(order=order,includeStartArr=False)
   #differenceGen = genPureEnbocodeValueOffsetsSlow(order=order)
-  altPlaceValueGen = genPureEnbocodeValues(order=order)
+  altPlaceValueGen = genRoundEnbocodeValues(order=order)
   result = 0
   for currentPlaceIndex,currentPlaceValue in enumerate(placeValueGen):
     #print("Codes.higherEnbocodeBitSeqToInt: for index {}, expected value is {}.".format(currentPlaceIndex,currentPlaceValue))
@@ -474,7 +474,7 @@ def higherEnbocodeBitSeqToInt(inputBitGen,order=3): #wastes memory with bitHisto
     
 
 
-def enbocodeBitSeqToInt(inputBitSeq,order=2):
+def enbocodeBitSeqToInt(inputBitSeq,order=None):
   assert order > 1
   if order == 2:
     return fibcodeBitSeqToInt(inputBitSeq)
@@ -482,10 +482,10 @@ def enbocodeBitSeqToInt(inputBitSeq,order=2):
     return higherEnbocodeBitSeqToInt(inputBitSeq,order=order)
 
 
-def intSeqToEnbocodeBitSeq(inputIntSeq,order=2):
+def intSeqToEnbocodeBitSeq(inputIntSeq,order=None):
   return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitSeq(x,order=order)))
 
-def enbocodeBitSeqToIntSeq(inputBitSeq,order=2):
+def enbocodeBitSeqToIntSeq(inputBitSeq,order=None):
   return bitSeqToIntSeq(inputBitSeq,(lambda x: enbocodeBitSeqToInt(x,order=order)))
 
 
@@ -767,24 +767,27 @@ assert makeArr(testGen) == [0,0,1]
 
 for testOrder in [3,4,5,8,14]:
   print("testing enbonacci fast decoding: order {}...".format(testOrder))
-  if order > 3:
-    print("orders above 3 are currently broken.")
-    break
-  testResult = arrTakeOnly((higherEnbocodeBitSeqToInt(item) for item in genEnbocodeBitArrs(order=testOrder)), 32)
+  #if order > 3:
+  #  print("orders above 3 are currently broken.")
+    #break
+  testDataSrc = arrTakeOnly(genEnbocodeBitArrs(order=testOrder), 32)
+  #print(testDataSrc)
+  testResult = [higherEnbocodeBitSeqToInt(item, order=testOrder) for item in testDataSrc]
+  #print(testResult)
   assert testResult == [i for i in range(1,33)]
 
 
 
 print("performing full codec tests...")
 
-testNumCodecNames = ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+FIBONACCI_ORDER_NICKNAMES.keys()
+testNumCodecNames = ["fibonacci","unary","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]
 
 for testCodecName in testNumCodecNames:
   print("testing " + testCodecName + "...")
   for testNum in [1,5,10,255,257,65535,65537,999999]:
     assert CodecTools.roundTripTest(codecs[testCodecName],testNum)
 
-testNumSeqCodecNames = ["inSeq_"+testNumCodecName for testNumCodecName in ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+FIBONACCI_ORDER_NICKNAMES.keys()] #no unary.
+testNumSeqCodecNames = ["inSeq_"+testNumCodecName for testNumCodecName in ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]] #no unary.
 
 for testCodecName in testNumSeqCodecNames:
   print("testing " + testCodecName + "...")
