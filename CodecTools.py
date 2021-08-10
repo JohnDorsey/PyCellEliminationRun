@@ -13,13 +13,13 @@ from PyDictTools import augmentedDict
 
 def measureIntArray(inputIntArr):
   rectBitSize = (len(inputIntArr),len(bin(max(inputIntArr))[2:]))
-  return {"length":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectBitSize[1]}
+  return {"len":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectBitSize[1]}
 
 def printComparison(plainData,pressData):
   plainDataMeasures, pressDataMeasures = (measureIntArray(plainData), measureIntArray(pressData))
   estimatedCR = float(plainDataMeasures["bit_area"])/float(pressDataMeasures["bit_area"])
   estimatedSaving = 1.0 - 1.0/estimatedCR
-  print("CodecTools.printComparison: plainData measures " + str(plainDataMeasures) + ". pressData measures " + str(pressDataMeasures) + ". Estimated CR is " + str(estimatedCR)[:8] + ". Estimated saving rate is " + str(estimatedSaving*100.0)[:8] + "%.")
+  print("CT.printComp: plain meas: " + str(plainDataMeasures) + ". press meas: " + str(pressDataMeasures) + ". Est CR: " + str(estimatedCR)[:8] + ". Est SR: " + str(estimatedSaving*100.0)[:8] + "%.")
 
 def countTrailingZeroes(inputArr):
   i = 0

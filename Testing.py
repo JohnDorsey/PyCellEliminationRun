@@ -38,7 +38,7 @@ sampleCerPressNums = {
 
 
 
-def test(interpolationModesToTest=["linear", "linear&round", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
+def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
   #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
   #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")
@@ -97,7 +97,8 @@ def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
     CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
     assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
     
-  for seqSumStrategy in ["without","with"]:
+  for seqSumStrategy in ["without","with","with_embedded"]:
+    print("") #new line.
     for numberSeqCodecSrcStr in families["haven bucket seq"]:      
       numberSeqCodec = eval(numberSeqCodecSrcStr)
       extraKwargs = dict()
@@ -108,9 +109,11 @@ def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
         else:
           print("testVariousUniversalCodings: warning: can't.")
           break
+      elif seqSumStrategy == "with_embedded":
+        extraKwargs["seqSum"] = "EMBED"
       else:
         assert seqSumStrategy == "without"
-      print("testing with haven bucket seq codec " + numberSeqCodecSrcStr + " " + seqSumStrategy + "seq sum strategy:")
+      print("testing with haven bucket seq codec " + numberSeqCodecSrcStr + ", seqSumStrategy={}:".format(seqSumStrategy))
       CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums, **extraKwargs)))
       assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
       

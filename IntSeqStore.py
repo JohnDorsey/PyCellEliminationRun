@@ -71,7 +71,7 @@ def getBucketSizeAdjustedKwargsForNumberCodec(havenBucketSize, maxInputInt):
 
 
 
-def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt=None, addDbgCommas=False):
+def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt=None, autoTruncateBucket=True, addDbgCommas=False):
   assert havenBucketSize >= 0
   if maxInputInt != None:
     assert inputInt <= maxInputInt
@@ -86,12 +86,28 @@ def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt
     
   if addDbgCommas:
     encodedBitArr.append(".")
-  havenBucketData = rjustedArr(Codes.intToBinaryBitArr(inputInt), havenBucketSize, crop=True)
+    
+  if autoTruncateBucket and maxInputInt != None:
+    assert maxInputInt >= 0
+    havenBucketData = rjustedArr(Codes.intToBinaryBitArr(inputInt), min(maxInputInt, maxInputInt.bit_length(), havenBucketSize), crop=True)
+  else:
+    havenBucketData = rjustedArr(Codes.intToBinaryBitArr(inputInt), havenBucketSize, crop=True)
+    
   encodedBitArr.extend(havenBucketData)
   for item in encodedBitArr:
     yield item
 
+
 def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, seqSum=None, addDbgCommas=False):
+  if seqSum == "EMBED":
+    if isGen(inputIntSeq):
+      inputIntSeq = makeArr(inputIntSeq)
+    seqSum = sum(inputIntSeq)
+    for outputBit in numberCodec.zeroSafeEncode(seqSum):
+      yield outputBit
+    if addDbgCommas:
+      yield ","
+      
   #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
   delayedRemainingSum = seqSum
@@ -110,7 +126,7 @@ def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initi
       assert delayedRemainingSum >= 0
     
 
-def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize, maxInputInt=None):
+def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize, maxInputInt=None, autoTruncateBucket=True):
     inputBitGen = makeGen(inputBitGen)
     assert havenBucketSize >= 0
     
@@ -124,10 +140,13 @@ def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize, maxInput
     
     assert parseResult != None, "None-based generator stopping should be phased out."
     try:
-      havenBucketBits = arrTakeOnly(inputBitGen, havenBucketSize, onExhaustion="ExhaustionError")
+      if autoTruncateBucket and maxInputInt != None:
+        assert maxInputInt >= 0
+        havenBucketBits = arrTakeOnly(inputBitGen, min(havenBucketSize, maxInputInt.bit_length(), maxInputInt), onExhaustion="ExhaustionError")
+      else:
+        havenBucketBits = arrTakeOnly(inputBitGen, havenBucketSize, onExhaustion="ExhaustionError")
     except ExhaustionError:
       raise ParseError("ran out of input bits before completing the haven bucket.")
-    #parseResult -= (0 if numberCodec.zeroSafe else 1)
     decodedValue = ((parseResult)<<len(havenBucketBits)) + Codes.binaryBitArrToInt(havenBucketBits)
     return decodedValue
     
@@ -135,6 +154,10 @@ def havenBucketedBitSeqToInt(inputBitGen, numberCodec, havenBucketSize, maxInput
 def genDecodeWithHavenBucket(inputBitSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, seqSum=None):
   #parseFun must take only as many bits as it needs and return an integer.
   inputBitSeq = makeGen(inputBitSeq)
+  
+  if seqSum == "EMBED":
+    seqSum = numberCodec.zeroSafeDecode(inputBitSeq)
+    
   havenBucketSize = initialHavenBucketSize
   delayedRemainingSum = seqSum
   while True:
