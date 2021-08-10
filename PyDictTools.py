@@ -62,8 +62,11 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
     raise TypeError("Tuple was provided.")
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
-  if dict0 == None or dict1 == None:
-    raise ValueError("received None for a dict argument.")
+  if dict0 == None:
+    print("PyDictTools.augmentDict: warning: received None for arg dict0 and will take no actions.")
+  if dict1 == None:
+    print("PyDictTools.augmentDict: warning: received None for arg dict1 and will make no changes to dict0.")
+    return
   for key in makeFlatKeySeq(dict1):
     if not key in makeFlatKeySeq(dict0):
       dict0[key] = dict1[key]

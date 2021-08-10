@@ -17,6 +17,8 @@ import PyCellElimRun as pcer
 import IntArrMath
 import IntSeqStore
 
+import HeaderTools
+
 import QuickTimers
 
 from PyGenTools import makeArr, makeGen
@@ -97,20 +99,23 @@ def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
     CodecTools.printComparison(testSound,makeArr(numberSeqCodec.zeroSafeEncode(pressDataNums)))
     assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
     
-  for seqSumStrategy in ["without","with","with_embedded"]:
+  for seqSumStrategy in ["without","with","with_embedded","with_embed_sign"]:
     print("") #new line.
     for numberSeqCodecSrcStr in families["haven bucket seq"]:      
       numberSeqCodec = eval(numberSeqCodecSrcStr)
       extraKwargs = dict()
+      maxPossibleSeqSum = testSoundSize[0]*testSoundSize[1]
       if seqSumStrategy == "with":
         if testSoundSize != None:
           assert len(testSoundSize) == 2
-          extraKwargs["seqSum"] = testSoundSize[0]*testSoundSize[1]
+          extraKwargs["seqSum"] = maxPossibleSeqSum
         else:
           print("testVariousUniversalCodings: warning: can't.")
           break
       elif seqSumStrategy == "with_embedded":
         extraKwargs["seqSum"] = "EMBED"
+      elif seqSumStrategy == "with_embed_sign":
+        extraKwargs["seqSum"] = HeaderTools.EmbedSign(includedCodec=Codes.codecs["fibonacci"].clone(extraKwargs={"maxInputInt":maxPossibleSeqSum}))
       else:
         assert seqSumStrategy == "without"
       print("testing with haven bucket seq codec " + numberSeqCodecSrcStr + ", seqSumStrategy={}:".format(seqSumStrategy))
@@ -119,9 +124,21 @@ def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
       
       
 def printSimpleAnalysis(pressDataNums):
-  print("Testing.printSimpleAnalysis: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing. The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + ". The start of the numbers looks like " + str(pressDataNums[:PEEK])[:PEEK] + ".")
+  resultText = ""
+  
+  resultText += "Testing.printSimpleAnalysis: The sum of the pressDataNums from the Cell Elimination Run codec is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(CodecTools.countTrailingZeroes(pressDataNums)) + " are trailing."
+  
+  #resultText += "The last " + str(CodecTools.countTrailingMatches(pressDataNums, (lambda x: x in [0,1]))) + " nums fall in 0..1. The last " + str(CodecTools.countTrailingMatches(pressDataNums, (lambda x: x in [0,1,2]))) + " nums fall in 0..2."
+  includePercentage = lambda inputInt: (inputInt, str(inputInt*100.0/len(pressDataNums))[:6] + "%")
+  resultText += " Where f(a) gives greatest b such that max(pressDataNums[-b:]) <= a, the start of f(a) looks like {}.".format([(testUpperBound, includePercentage(CodecTools.countTrailingMatches(pressDataNums, (lambda x: x <= testUpperBound)))) for testUpperBound in [1,2,4,8,16,32,64,128,256,512,1024]])
+  
+  resultText += " The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + "."
+  
   if VERBOSE:
-    print("Testing.printSimpleAnalysis: The pressDataNums are " + str(pressDataNums))
+    resultText += "The pressDataNums are " + str(pressDataNums) + "."
+  else:
+    resultText += "The start of the pressDataNums look like " + str(pressDataNums[:PEEK])[:PEEK] + "..."
+  print(resultText)
       
       
       

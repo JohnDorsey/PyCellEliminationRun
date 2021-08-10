@@ -133,8 +133,6 @@ Design notes:
         -separate into 2d and nd.
         
         -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
-      
-      -combine lewis truncation with haven bucket fibonacci coding.
         
       -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
 
@@ -273,3 +271,5 @@ Design notes:
     -make circular spiral for searches.
 
     -finish higher-order fibonacci coding.
+      
+    -combine lewis truncation with haven bucket fibonacci coding.

@@ -26,6 +26,12 @@ def countTrailingZeroes(inputArr):
   while inputArr[-1-i] == 0:
     i += 1
   return i
+  
+def countTrailingMatches(inputArr, matchFun):
+  i = 0
+  while matchFun(inputArr[-1-i]):
+    i += 1
+  return i
 
 def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=False):
   #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
@@ -268,9 +274,9 @@ class Codec:
     if self.extraArgs != [] and extraArgs != None:
       print("CodecTools.Codec.clone: warning: some existing extraArgs will not be cloned.")
     if self.extraKwargs != {} and extraKwargs != None:
-      print("CodecTools.Codec.clone: warning: some existing extraKwargs will not be cloned.")
+      print("CodecTools.Codec.clone: warning: some existing extraKwargs may not be cloned.")
     argsToUse = extraArgs if extraArgs else self.extraArgs
-    kwargsToUse = extraKwargs if extraKwargs else self.extraKwargs
+    kwargsToUse = augmentedDict(extraKwargs, self.extraKwargs)
     return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,domain=self.private_domain,extraArgs=argsToUse,extraKwargs=kwargsToUse)
 
 

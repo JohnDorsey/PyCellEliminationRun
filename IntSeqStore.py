@@ -7,6 +7,8 @@ IntSeqStore.py contains tools for storing integer sequences with minimized stora
 
 """
 
+import HeaderTools
+
 import Codes #for haven bucket.
 from PyArrTools import rjustedArr
 from PyGenTools import arrTakeOnly, makeGen, isGen, makeArr, sentinelize, ExhaustionError
@@ -99,14 +101,18 @@ def intToHavenBucketedBitSeq(inputInt, numberCodec, havenBucketSize, maxInputInt
 
 
 def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initialHavenBucketSize=0, seqSum=None, addDbgCommas=False):
-  if seqSum == "EMBED":
-    if isGen(inputIntSeq):
-      inputIntSeq = makeArr(inputIntSeq)
-    seqSum = sum(inputIntSeq)
-    for outputBit in numberCodec.zeroSafeEncode(seqSum):
+  if isGen(inputIntSeq):
+    inputIntSeq = makeArr(inputIntSeq)
+  if HeaderTools.isEmbedCode(seqSum):
+    seqSumValueToEmbed = sum(inputIntSeq)
+    assert type(seqSumValueToEmbed) == int
+    for outputBit in HeaderTools.getIncludedCodec(seqSum, default=numberCodec).zeroSafeEncode(seqSumValueToEmbed):
       yield outputBit
     if addDbgCommas:
       yield ","
+    seqSum = seqSumValueToEmbed
+  if not type(seqSum) in [int,NoneType]:
+    raise TypeError("seqSum must be an int or None, not {}.".format(repr(type(seqSum))))
       
   #parseFun must take only as many bits as it needs and return an integer.
   havenBucketSize = initialHavenBucketSize
@@ -155,8 +161,8 @@ def genDecodeWithHavenBucket(inputBitSeq, numberCodec, havenBucketSizeFun, initi
   #parseFun must take only as many bits as it needs and return an integer.
   inputBitSeq = makeGen(inputBitSeq)
   
-  if seqSum == "EMBED":
-    seqSum = numberCodec.zeroSafeDecode(inputBitSeq)
+  if HeaderTools.isEmbedCode(seqSum):
+    seqSum = HeaderTools.getIncludedCodec(seqSum, default=numberCodec).zeroSafeDecode(inputBitSeq)
     
   havenBucketSize = initialHavenBucketSize
   delayedRemainingSum = seqSum
