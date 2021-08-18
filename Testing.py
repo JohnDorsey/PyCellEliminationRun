@@ -151,11 +151,11 @@ def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
         sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}))
 
 
-def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCodec):
+def compressFull(soundName, destFileName, inputHeaderDict, blockWidth, numberSeqCodec):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
   QuickTimers.startTimer("compressFull")
   sound = WaveIO.sounds[soundName]
-  destFile = open(destFileName+" "+interpolationMode+" "+str(blockWidth),"w")
+  destFile = open(destFileName+" "+str(blockWidth),"w")
   offset = 0
   print("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
   print("Testing.compressFull: the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
@@ -163,7 +163,7 @@ def compressFull(soundName,destFileName,interpolationMode,blockWidth,numberSeqCo
     print(str((100.0*offset)/float(len(sound)))[:6]+"%...")
     audioData = sound[offset:offset+blockWidth]
     offset += blockWidth
-    pressDataNums = pcer.cellElimRunBlockTranscode(audioData,"encode",interpolationMode,[None,SAMPLE_VALUE_UPPER_BOUND])
+    pressDataNums = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict]).encode(audioData)
     print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
     #@ the following line might make an unecessary conversion to a list.
     pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.zeroSafeEncode([item for item in pressDataNums])) + "\n"

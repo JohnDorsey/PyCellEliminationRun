@@ -101,8 +101,6 @@ Design notes:
   Todo:
   
     -external features:
-    
-      -add a full-length sample song.
       
       -add 15-second 48kHz sample song. 
       
@@ -115,8 +113,6 @@ Design notes:
     -internal features:
         
       -make the cer block seq codec reuse a cercs.
-        
-      -add Shannon-Fano coding as a faster alternative to huffman coding.
         
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
         
@@ -158,7 +154,7 @@ Design notes:
       
       -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
       
-      -use the logging module.
+      -improve logging techniques, possibly using the logging module.
     
     -maintenance:
   
@@ -267,3 +263,7 @@ Design notes:
     -finish higher-order fibonacci coding.
       
     -combine lewis truncation with haven bucket fibonacci coding.
+        
+    -add Shannon-Fano coding as a faster alternative to huffman coding.
+    
+    -add a full-length sample song.

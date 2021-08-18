@@ -2,7 +2,7 @@
 
 WaveIO.py by John Dorsey.
 
-When loaded, WaveIO.py loads sample audio for easy use in testing the codec. Audio samples included in the project are in the public domain.
+When loaded, WaveIO.py loads sample audio for easy use in testing the codec. Audio samples included in the project have licenses described by /samples/licenses.txt.
 
 """
 
@@ -12,7 +12,7 @@ import wave
 import IntArrMath
 
 #don't use "samples/moo8bmono44100.wav":None "samples/crickets8bmono44100.wav":None,
-sounds = {"samples/moo8bmono44100.txt":None}
+sounds = {"samples/moo8bmono44100.txt":None,"samples/worthwhile-uint8mono96000.txt":None}
 
 
 
