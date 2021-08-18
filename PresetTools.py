@@ -33,7 +33,7 @@ except:
   unlimitedCerBlockCodecs = dict()
 
 
-def makeCerNumTreeBasedCodec(inputData, extendToHeight=0, cutToHeight=None, treeType=None): # -> HuffmanMath.HuffmanCodec:
+def makeCerNumTreeBasedCodec(inputData, treeType=None, extendToHeight=0, cutToHeight=None): # -> HuffmanMath.TreeBasedCodec:
   print("PresetTools.makeCerNumTreeBasedCodec: started.")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
@@ -47,8 +47,8 @@ def makeCerNumTreeBasedCodec(inputData, extendToHeight=0, cutToHeight=None, tree
   return HuffmanMath.makeTreeBasedCodecFromListHist(probabilityDistribution, treeType=treeType)
   
   
-def makeSubdividedCodec(zeroSafe=None,domain=None): # -> CodecTools.Codec:
-  newCodec = CodecTools.Codec(None,None,zeroSafe=zeroSafe,domain=domain)
+def makeSubdividedCodec(zeroSafe=None, domain=None): # -> CodecTools.Codec:
+  newCodec = CodecTools.Codec(None, None, zeroSafe=zeroSafe, domain=domain)
   newCodec.extraDataDict = dict()
   newCodec.extraDataDict["subCodecs"] = []
   def newEncodeFun(encInput,encSubdivisionIndex):
@@ -70,8 +70,8 @@ def makeSubdividedCodec(zeroSafe=None,domain=None): # -> CodecTools.Codec:
   newCodec.decodeFun = newDecodeFun
   return newCodec
   
-def makeColumnAwareSeqCodec(baseSubdividedCodec,zeroSafe=None,domain=None): # -> CodecTools.Codec:
-  newCodec = CodecTools.Codec(None,None,zeroSafe=zeroSafe,domain=domain)
+def makeColumnAwareSeqCodec(baseSubdividedCodec, zeroSafe=None, domain=None): # -> CodecTools.Codec:
+  newCodec = CodecTools.Codec(None, None, zeroSafe=zeroSafe, domain=domain)
   newCodec.extraDataDict = dict()
   newCodec.extraDataDict["baseSubdividedCodec"] = baseSubdividedCodec
   def newEncodeFun(encInput):
@@ -87,7 +87,7 @@ def makeColumnAwareSeqCodec(baseSubdividedCodec,zeroSafe=None,domain=None): # ->
   newCodec.decodeFun = newDecodeFun
   return newCodec
   
-def makeCerBlockTreeBasedCodec(inputData,treeType=None,extendToHeight=0,cutToHeight=None,subCodecTransformerFun=None,dbgPrintInterval=8): # -> CodecTools.Codec:
+def makeCerBlockTreeBasedCodec(inputData, treeType=None, extendToHeight=0, cutToHeight=None, subCodecTransformerFun=None, dbgPrintInterval=8): # -> CodecTools.Codec:
   print("making new cerBlockTreeBasedCodec: started.")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
@@ -102,12 +102,12 @@ def makeCerBlockTreeBasedCodec(inputData,treeType=None,extendToHeight=0,cutToHei
     if columnIndex%dbgPrintInterval == 0 and columnIndex != 0:
       print("columnIndex="+str(columnIndex)+".")
     assert type(columnData) == list
-    strongColumnData = StatCurveTools.scaledVector(columnData,len(inputData)) #this should make the columnData expressed about as strongly as the rest of the data combined.
+    strongColumnData = StatCurveTools.scaledVector(columnData, len(inputData)) #this should make the columnData expressed about as strongly as the rest of the data combined.
     backedColumnData = StatCurveTools.vectorSum([backgroundData,strongColumnData])
     newSubCodec = makeCerNumHuffmanCodec(backedColumnData, treeType=treeType, extendToHeight=extendToHeight, cutToHeight=cutToHeight)
     newSubCodec = subCodecTransformerFun(newSubCodec)
     subdividedCodec.extraDataDict["subCodecs"].append(newSubCodec)
-  newCodec = makeColumnAwareSeqCodec(subdividedCodec,zeroSafe=True)
+  newCodec = makeColumnAwareSeqCodec(subdividedCodec, zeroSafe=True)
   return newCodec
   
 
@@ -115,8 +115,8 @@ def makeCerBlockTreeBasedCodec(inputData,treeType=None,extendToHeight=0,cutToHei
   
   
 
-limitedCerNumCodecs["linear_1024x256_moo_short_sub4096_Huffman"] = makeCerNumHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_all", extendToHeight=1, cutToHeight=4096)
-limitedCerNumCodecs["linear_512x256_moo_sub4096_Huffman"] = makeCerNumHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all", extendToHeight=1, cutToHeight=4096)
+limitedCerNumCodecs["linear_1024x256_moo_short_sub4096_Huffman"] = makeCerNumTreeBasedCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_all", treeType="huffman", extendToHeight=1, cutToHeight=4096)
+limitedCerNumCodecs["linear_512x256_moo_sub4096_Huffman"] = makeCerNumTreeBasedCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all", treeType="huffman", extendToHeight=1, cutToHeight=4096)
 
 
 quickUnlockers = dict()

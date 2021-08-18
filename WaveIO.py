@@ -12,7 +12,7 @@ import wave
 import IntArrMath
 
 #don't use "samples/moo8bmono44100.wav":None "samples/crickets8bmono44100.wav":None,
-sounds = {"samples/moo8bmono44100.txt":None,"samples/worthwhile-uint8mono96000.txt":None}
+sounds = {"samples/moo8bmono44100.txt":None,"samples/worthwhile-uint8mono48000.txt":None}
 
 
 
@@ -56,7 +56,8 @@ def deserializeSound(filename):
   soundFile.close()
   return eval(result)
 
-
+"""
+#should be rewritten.
 def saveSound(filename,sound):
   assert filename.endswith(".wav")
   soundFile = wave.open(filename,mode="wb")
@@ -71,7 +72,7 @@ def saveSound(filename,sound):
     #soundFile.write(eval("b'"+chr(item)+"'"))
     soundFile.writeframesraw(bytes([item]))
   soundFile.close()
-
+"""
 
 def validateSound(sound):
   diffs = [0,0,0,0]
@@ -166,43 +167,17 @@ def toPyShortStr(inputSeq,weaklyIntified=True):
 
 def nestedToPyShortStr(inputSeqSeq,weaklyIntified=True):
   return "["+",".join(toPyShortStr(inputSeq,weaklyIntified=weaklyIntified) for inputSeq in inputSeqSeq)+"]"
-
-
-#the following are disabled because they haven't been tested well and aren't as useful as toPyShortStr, which is self-decompressing.
+  
 """
-def genHumanRLEEncode(inputSeq):
-  previousItem = None
-  currentRunLength = 1
-  justStarted = True
-  for currentItem in inputSeq:
-    if type(currentItem) == str:
-      if currentItem.startswith("x"):
-        raise ValueError("The input sequence already contains humanRLE signals.")
-    if justStarted:
-      previousItem = currentItem
-      justStarted = False
-      continue
-    if previousItem == currentItem:
-      currentRunLength += 1
-    else:
-      if currentRunLength > 1:
-        yield "x"+str(currentRunLength)
-        currentRunLength = 1
-      yield currentItem
-    previousItem = currentItem
-
-def genHumanRLEDecode(inputSeq):
-  previousItem = None
-  for currentItem in inputSeq:
-    if currentItem.startswith("x"):
-      runLength = int(currentItem[1:])
-      for i in range(runLength):
-        yield previousItem
-      continue
-    else:
-      yield currentItem
-      previousItem = currentItem
+def intSeqToStringInBase(inputSeq, base=None, delimiter=" "):
+  alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  if not base < len(alphabet):
+    raise ValueError("base is too high.")
+  toCharIDs = lambda numToProcess: (toCharIDs(numToProcess // base) if (numToProcess >= base) else []) + [numToProcess%base]
+  toChars = lambda numToConvert: "".join(alphabet[charID] for charID in toCharIDs(numToConvert))
+  return delimiter.join(toChars(num) for num in inputSeq)
 """
+
 
 
 loadSounds()

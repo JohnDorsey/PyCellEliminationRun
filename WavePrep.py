@@ -10,38 +10,54 @@ WavePrep.py provides tools to convert .wav files to new .wav files in a fixed fo
 import wave
 import WaveIO
 
-#"Night_Sounds_-_Crickets-Lisa_Redfern-591005346.wav"
-#"crickets8bmono44100.wav"
-
 #use a frame count of 88200 to replicate early sample files like moo.
 
+def getDataPreviewStr(data, displayItemCount=1000):
+  assert displayItemCount > 80
+  endLength = (displayItemCount//2)-20
+  dotCount = (len(data)-(endLength*2)).bit_length()
+  assert dotCount >= 3
+  return "{} ({} items).".format(
+    (str(data) if len(data) < displayItemCount else str(data[:endLength])[:-1]+", " + ("."*dotCount) + ", "+str(data[-endLength:])[1:]),
+    len(data)
+  )
 
-def convertAudio(sourceFileName, destFileName, destFramerate=44100):
-  readFile = wave.open(sourceFileName,mode='rb')
-  data = [int(item) for item in readFile.readframes(2**32)]
-  #data = data[44100:77175]
-  readFile.close()
+def convertAudio(source, destFileName, sourceFramerate=None, resamplingInterval=1):
+  if not sourceFramerate % resamplingInterval == 0:
+    raise ValueError("The resampling interval must divide the source framerate.")
+    
+  if type(source) == str:
+    print("source argument is a filename.")
+    data = WaveIO.loadSound(source)
+  else:
+    print("source argument is not a filename.")
+    data = source.copy()
 
-  print(len(data))
-  print([int(item) for item in data][:2048])
+  print("sourceFramerate is {}.".format(sourceFramerate))
+  print("data is " + getDataPreviewStr(data))
+  
   for i in range(len(data)-8):
-    #data[i] /= 2
-    #data[i] += data[i+4]/32
-    #data[i] = min(int(data[i]),255)
     if not i%4:
-      data[i] = 0
+      data[i] = None #do not use this sample!
 
-  data_int8 = [data[i] for i in range(len(data)) if i%4==1]
-  data_uint8 = [(data_int8[i]+128)%256 for i in range(len(data_int8))]
-
-  print(len(data_uint8))
-  print([int(item) for item in data_uint8][:2048])
+  old_rate_data_int8 = [data[i] for i in range(len(data)) if i%4==1]
+  print("old_rate_data_int8 is " + getDataPreviewStr(old_rate_data_int8))
+  old_rate_data_uint8 = [(old_rate_data_int8[i]+128)%256 for i in range(len(old_rate_data_int8))]
+  print("old_rate_data_uint8 is " + getDataPreviewStr(old_rate_data_uint8))
+  
+  new_rate_data_uint8 = old_rate_data_uint8[::resamplingInterval]
+  destFramerate = sourceFramerate / resamplingInterval
+  
+  print("destFramerate is {}.".format(destFramerate))
+  print("new_rate_data_uint8 is " + getDataPreviewStr(new_rate_data_uint8))
+  
+  assert None not in new_rate_data_uint8, "something went wrong while adjusting the framerate."
 
   writeFile = wave.open(destFileName+".wav", mode='wb')
   writeFile.setnchannels(1)
   writeFile.setsampwidth(1)
   writeFile.setframerate(destFramerate)
-  writeFile.writeframesraw(bytes(data_uint8))
+  writeFile.writeframesraw(bytes(new_rate_data_uint8))
   writeFile.close()
   
-  WaveIO.serializeSound(destFileName+".txt",data_uint8)
+  WaveIO.serializeSound(destFileName+".txt",new_rate_data_uint8)
