@@ -33,8 +33,8 @@ except:
   unlimitedCerBlockCodecs = dict()
 
 
-def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None): # -> HuffmanMath.HuffmanCodec:
-  print("PresetTools.makeCerNumHuffmanCodec: started.")
+def makeCerNumTreeBasedCodec(inputData, extendToHeight=0, cutToHeight=None, treeType=None): # -> HuffmanMath.HuffmanCodec:
+  print("PresetTools.makeCerNumTreeBasedCodec: started.")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
     inputData = PresetData.__dict__[inputData]
@@ -43,8 +43,8 @@ def makeCerNumHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None): # -> Hu
   StatCurveTools.extendListHistMinimally(probabilityDistribution, extendToHeight)
   if not cutToHeight == None:
     probabilityDistribution = probabilityDistribution[:cutToHeight]
-  print("PresetTools.makeCerNumHuffmanCodec: continuing to HuffmanCodec creation using probabilityDistribution of length {}.".format(len(probabilityDistribution)))
-  return HuffmanMath.makeHuffmanCodecFromListHist(probabilityDistribution)
+  print("PresetTools.makeCerNumTreeBasedCodec: continuing to TreeBasedCodec creation using probabilityDistribution of length {}.".format(len(probabilityDistribution)))
+  return HuffmanMath.makeTreeBasedCodecFromListHist(probabilityDistribution, treeType=treeType)
   
   
 def makeSubdividedCodec(zeroSafe=None,domain=None): # -> CodecTools.Codec:
@@ -87,8 +87,8 @@ def makeColumnAwareSeqCodec(baseSubdividedCodec,zeroSafe=None,domain=None): # ->
   newCodec.decodeFun = newDecodeFun
   return newCodec
   
-def makeCerBlockHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None,subCodecTransformerFun=None,dbgPrintInterval=8): # -> CodecTools.Codec:
-  print("making new cerBlockHuffmanCodec: started.")
+def makeCerBlockTreeBasedCodec(inputData,treeType=None,extendToHeight=0,cutToHeight=None,subCodecTransformerFun=None,dbgPrintInterval=8): # -> CodecTools.Codec:
+  print("making new cerBlockTreeBasedCodec: started.")
   assert type(inputData) in [str,list]
   if type(inputData) == str: #if it is the name of a preset...
     inputData = PresetData.__dict__[inputData]
@@ -104,7 +104,7 @@ def makeCerBlockHuffmanCodec(inputData,extendToHeight=0,cutToHeight=None,subCode
     assert type(columnData) == list
     strongColumnData = StatCurveTools.scaledVector(columnData,len(inputData)) #this should make the columnData expressed about as strongly as the rest of the data combined.
     backedColumnData = StatCurveTools.vectorSum([backgroundData,strongColumnData])
-    newSubCodec = makeCerNumHuffmanCodec(backedColumnData,extendToHeight=extendToHeight,cutToHeight=cutToHeight)
+    newSubCodec = makeCerNumHuffmanCodec(backedColumnData, treeType=treeType, extendToHeight=extendToHeight, cutToHeight=cutToHeight)
     newSubCodec = subCodecTransformerFun(newSubCodec)
     subdividedCodec.extraDataDict["subCodecs"].append(newSubCodec)
   newCodec = makeColumnAwareSeqCodec(subdividedCodec,zeroSafe=True)

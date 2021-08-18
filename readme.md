@@ -16,7 +16,7 @@ Usage:
 
     Testing.test()
   
-  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute.
+  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute. The saving rate should never be negative.
 
 
   compress the demo file "samples/moo8bmono44100.txt":
@@ -96,23 +96,15 @@ Design notes:
 
       -sample rate.
 
-      -missing sample value prediction mode.
-
-      -cell probability prediction mode (vertical distance to Spline, direct distance to Spline, non-circular direct distance to spline (such as (log(horiz distance to nearest point)+log(vert distance to nearest point))**0.5) because this is less affected by the speed of the audio).
-
-  possible block format:
-
-    -Superblocks:
-
-      -Superblocks might increase the effectiveness of some compression codecs which act on the batches of encoded blocks - e.g. palettization.
-
-    -Blocks.
+    -Superblocks, which might increase the effectiveness of some compression codecs which act on the batches of encoded blocks - e.g. palettization.
 
   Todo:
   
     -external features:
     
       -add a full-length sample song.
+      
+      -add 15-second 48kHz sample song. 
       
       -add a sample image.
     
@@ -121,32 +113,22 @@ Design notes:
       -inclusion of LZMA and/or GZIP.
       
     -internal features:
-    
-      -simplify the CellElimRunCodecState:
         
-        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
-      
-        -separate experimental features from the headerDict and header routines.
+      -make the cer block seq codec reuse a cercs.
         
-      -simplify Spline:
-      
-        -separate into 2d and nd.
-        
-        -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
-        
-      -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
-
-      -convolution-based weighted spline interpolation.
-    
-      -complete and test grid mode for CellCatalogue.
+      -add Shannon-Fano coding as a faster alternative to huffman coding.
         
       -add bound corner touch header features to make the CER codec easily able to compress its own output.
         
+      -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
+        
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
+
+      -convolution-based weighted spline interpolation.
       
       -add optional filters to genCellCheckOrder and/or scoreFun.
-        
-      -add Shannon-Fano coding as a faster alternative to huffman coding.
+    
+      -complete and test grid mode for CellCatalogue.
         
       -store CellTargeter rankings as a heap for performance reasons.
         
@@ -158,7 +140,13 @@ Design notes:
         
       -allow Spline cache settings to be chosen automatically.
       
-      -make EmbedCode class to allow original values for settings to be embedded.
+      -modify EmbedCode class to allow original values for settings to be embedded.
+    
+      -simplify the CellElimRunCodecState:
+        
+        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
+      
+        -separate experimental features from the headerDict and header routines.
     
       -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
       
@@ -220,6 +208,12 @@ Design notes:
   will not do:
     
     -change the structure of CellElimRunCodecState to make it easier for other data predictors to be used instead of Curves.Spline.
+    
+    -simplify Spline:
+    
+      -separate into 2d and nd.
+      
+      -move caching to new classes - compose cachedSpline2d(Spline) and cachedSplineND(Spline).
 
   done:
 

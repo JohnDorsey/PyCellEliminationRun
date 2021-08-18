@@ -19,6 +19,7 @@ class AlienError(KeyError):
 
 
 
+  
 
 def morphAscendingEntriesIntoHuffmanTree(entries,includeTreeTotalChance=False):
   #modifies the input array and returns a tree.
@@ -189,11 +190,11 @@ class SegmentedSelfSortingList:
 
 
 
-def segmentedSelfSortingListBasedDrainAscendingEntriesIntoHuffmanTree(entries,segmentCount=None,includeTreeTotalChance=False):
+def segmentedSelfSortingListBasedDrainAscendingEntriesIntoHuffmanTree(entries, segmentCount=None, includeTreeTotalChance=False):
   #modifies the input array and returns a tree.
   #input must be in the same format as is specified in HuffmanMath.makeHuffmanTreeFromAscendingEntries.
   if len(entries) < 2:
-    raise ValueError("can't make a tree with fewer than 2 entries. Try makeHuffmanTreeFromAscendingEntries instead.")
+    raise ValueError("can't make a huffman tree with fewer than 2 entries. Try makeHuffmanTreeFromAscendingEntries instead.")
   appxMaxAbsLogBase2 = (abs(math.log(sum(item[0] for item in entries),2)) + abs(math.log(min(item[0] for item in entries if item[0] != 0),2)))/2.0
   if segmentCount == None:
     segmentCount = int(appxMaxAbsLogBase2/2.0)*2 #make divisible by 2.
@@ -217,7 +218,7 @@ def segmentedSelfSortingListBasedDrainAscendingEntriesIntoHuffmanTree(entries,se
 
 def makeHuffmanTreeFromAscendingEntries(entries,includeTreeTotalChance=False):
   #the input array must be in the format [(chance_0, item_0), (chance_1, item_1), ...].
-  #the chances do not need to be probabilities, do not need to sum to 1.0, and do not need to be floats. They only need to be usable on either side of the '+' operator, and comparable on either side of the '>' operator (within HuffmanMath.bubbleSortSingleItemRight).
+  #the chances do not need to be probabilities, do not need to sum to 1.0, and do not need to be floats. They only need to be usable on either side of the '+' operator, and comparable on either side of the '>' operator.
   if len(entries) == 0:
     raise ValueError("can't make a tree with 0 entries.")
   elif len(entries) == 1:
@@ -234,6 +235,63 @@ def makeHuffmanTreeFromEntries(entries,includeTreeTotalChance=False):
   result = makeHuffmanTreeFromAscendingEntries(ascendingEntries,includeTreeTotalChance=includeTreeTotalChance)
   #print("makeHuffmanTreeFromEntries: result is " + str(result)+".")
   return result
+  
+  
+def makeShannonFanoTreeFromAscendingEntries(entries, chanceSum=None): 
+  if not len(entries) >= 2:
+    raise ValueError("can't make Shannon-Fano tree with fewer than 2 entries.")
+  if len(entries) == 2:
+    return tuple(entry[1] for entry in entries)
+  #assert not iter(entries) is iter(entries)
+  if chanceSum == None:
+    chanceSum = sum(entry[0] for entry in entries)
+  chanceSumLeft = 0 #left side sum.
+  i = None
+  for i in range(len(entries)):
+    #assert i < len(entries), "break should have happened earlier."
+    chanceSumLeft += entries[i][0]
+    #assert chanceSumLeft < 0.5*chanceSum, "break should have happened before this fails."
+    if chanceSumLeft <= 0.5*chanceSum and chanceSumLeft + entries[i+1][0] >= 0.5*chanceSum:
+      break
+  else:
+    assert False, "how can this happen?"
+  #print("entries={}, i={}, chanceSumLeft={}, chanceSum={}".format(entries, i,chanceSumLeft,chanceSum))
+  if abs(chanceSum*0.5-(chanceSumLeft+entries[i+1][0])) < abs(chanceSum*0.5-chanceSumLeft):
+    tippingPoint = i+1
+    chanceSumLeft += entries[i+1][0]
+  else:
+    tippingPoint = i
+  tippingPoint += 1 #prepare it to be used as an index!
+  #print("entries={}, tippingPoint={}, chanceSumLeft={}, chanceSum={}".format(entries, tippingPoint,chanceSumLeft,chanceSum))
+  i = None #don't use again.
+  if len(entries[0:tippingPoint]) == 1:
+    leftBranch = entries[0][1]
+  else:
+    assert len(entries[0:tippingPoint]) > 1
+    leftBranch = makeShannonFanoTreeFromAscendingEntries(entries[0:tippingPoint], chanceSum=chanceSumLeft)
+  if len(entries[tippingPoint:]) == 1:
+    rightBranch = entries[tippingPoint][1]
+  else:
+    assert len(entries[tippingPoint:]) > 1
+    rightBranch = makeShannonFanoTreeFromAscendingEntries(entries[tippingPoint:], chanceSum=(chanceSum-chanceSumLeft))
+  return (leftBranch,rightBranch)
+  
+def makeShannonFanoTreeFromEntries(entries,includeTreeTotalChance=False):
+  if includeTreeTotalChance:
+    raise NotImplementedError("can't include tree total chance for Shannon-Fano.")
+  ascendingEntries = sorted(entries)
+  result = makeShannonFanoTreeFromAscendingEntries(ascendingEntries,includeTreeTotalChance=includeTreeTotalChance)
+  #print("makeHuffmanTreeFromEntries: result is " + str(result)+".")
+  return result
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 
 def genLeafIDs(tree):
@@ -280,6 +338,7 @@ def accessTreeLocation(tree,pathDefSeq,stopFun=None):
 
 def treeToReverseDict(tree):
   #take an input tree and return a dictionary mapping tree leaves to their paths.
+  #this is much slower than expected. In the case of shannon-fano trees, it is slower than creating the tree!
   result = dict()
   for entry in genLeafIDsAndItems(tree):
     result[entry[1]] = entry[0]
@@ -298,57 +357,66 @@ def reverseDictToTree(reverseDict):
 
 
 
-class HuffmanCodec(CodecTools.Codec):
-  def __init__(self,inputStructure,initType):
+class TreeBasedCodec(CodecTools.Codec):
+  def __init__(self,inputStructure,initType=None,treeType=None):
+    treeType = treeType.lower()
+    if not treeType in ["huffman","shannon-fano"]:
+      raise ValueError("invalid treeType argument value: {}.".format(repr(treeType)))
     self.extraDataDict = {}
     if initType == "ascending_entries": #a bit faster than "entries".
       assert type(inputStructure) == list
       self.extraDataDict["ascending_entries"] = inputStructure
-      self.extraDataDict["huffman_tree"] = makeHuffmanTreeFromAscendingEntries(inputStructure)
+      if treeType == "huffman":
+        self.extraDataDict["tree"] = makeHuffmanTreeFromAscendingEntries(inputStructure)
+      else:
+        self.extraDataDict["tree"] = makeShannonFanoTreeFromAscendingEntries(inputStructure)
     elif initType == "entries":
       assert type(inputStructure) == list
       self.extraDataDict["entries"] = inputStructure
-      self.extraDataDict["huffman_tree"] = makeHuffmanTreeFromEntries(inputStructure)
+      if treeType == "huffman":
+        self.extraDataDict["tree"] = makeHuffmanTreeFromEntries(inputStructure)
+      else:
+        self.extraDataDict["tree"] = makeShannonFanoTreeFromEntries(inputStructure)
     elif initType == "tree":
       assert type(inputStructure) == tuple
-      self.extraDataDict["huffman_tree"] = inputStructure
+      self.extraDataDict["tree"] = inputStructure
     else:
-      raise ValueError("invalid initType argument value: " + initType + ".")
-    self.extraDataDict["huffman_reverse_dict"] = treeToReverseDict(self.extraDataDict["huffman_tree"])
+      raise ValueError("invalid initType argument value: {}.".format(repr(initType)))
+    self.extraDataDict["reverse_dict"] = treeToReverseDict(self.extraDataDict["tree"])
       
     def newEncodeFun(newEncInput):
       try:
-        return self.extraDataDict["huffman_reverse_dict"][newEncInput]
+        return self.extraDataDict["reverse_dict"][newEncInput]
       except KeyError:
-        raise AlienError("HuffmanMath.HuffmanCodec: Encode: can't encode this value.")
+        raise AlienError("HuffmanMath.TreeBasedCodec: Encode: can't encode this value.")
     
     def newDecodeFun(newDecInput):
       try:
-        return accessTreeLocation(self.extraDataDict["huffman_tree"],newDecInput)
+        return accessTreeLocation(self.extraDataDict["tree"],newDecInput)
       except ExhaustionError as ee:
-        raise ExhaustionError("HuffmanMath.HuffmanCodec: Decode: " + str(ee.message) + ".")
+        raise ExhaustionError("HuffmanMath.TreeBasedCodec: Decode: " + str(ee.message) + ".")
       except ParseError as pe:
-        raise ParseError("HuffmanMath.HuffmanCodec: Decode: " + str(pe.message) + ".")
+        raise ParseError("HuffmanMath.TreeBasedCodec: Decode: " + str(pe.message) + ".")
         
     #CodecTools.Codec.__init__(self,newEncodeFun,newDecodeFun,zeroSafe=(0 in self.extraDataDict["huffman_reverse_dict"].keys()))
     self.encodeFun = newEncodeFun
     self.decodeFun = newDecodeFun
     self.extraArgs = []
     self.extraKwargs = dict()
-    self.private_domain = self.extraDataDict["huffman_reverse_dict"].keys()
+    self._domain = self.extraDataDict["reverse_dict"].keys()
     
   def zeroSafeEncode(self,*args,**kwargs):
-    if 0 in self.private_domain:
+    if 0 in self._domain:
       return self.encode(*args,**kwargs)
-    raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeEncode. The value 0 must be included in the tree.")
+    raise NotImplementedError("TreeBasedCodec instances do not allow value offsets in zeroSafeEncode. The value 0 must be included in the tree.")
     
   def zeroSafeDecode(self,*args,**kwargs):
-    if 0 in self.private_domain:
+    if 0 in self._domain:
       return self.decode(*args,**kwargs)
-    raise NotImplementedError("HuffmanCodec instances do not allow value offsets in zeroSafeDecode. The value 0 must be included in the tree.")
+    raise NotImplementedError("TreeBasedCodec instances do not allow value offsets in zeroSafeDecode. The value 0 must be included in the tree.")
     
   def clone(self,*args,**kwargs):
-    raise NotImplementedError("HuffmanCodec instances are not clonable.")
+    raise NotImplementedError("TreeBasedCodec instances are not clonable.")
 
 
 
@@ -356,29 +424,29 @@ class HuffmanCodec(CodecTools.Codec):
 
 
 
-def makeHuffmanCodecFromEntries(entries):
+def makeTreeBasedCodecFromAscendingEntries(entries, treeType=None):
   #huffmanTree = makeHuffmanTreeFromEntries(entries)
   #huffmanReverseDict = treeToReverseDict(huffmanTree)
   #print(huffmanTree)
   #print(huffmanReverseDict)
-  workingCodec = HuffmanCodec(entries,"ascending_entries")
+  workingCodec = TreeBasedCodec(entries, initType="ascending_entries", treeType=treeType)
   return workingCodec
 
-def makeHuffmanCodecFromFormula(chanceFun,minInputInt,maxInputInt):
+def makeTreeBasedCodecFromFormula(chanceFun, minInputInt, maxInputInt, treeType=None):
   entries = sorted((chanceFun(value),value) for value in range(minInputInt,maxInputInt+1))
-  return makeHuffmanCodecFromEntries(entries)
+  return makeTreeBasedCodecFromAscendingEntries(entries, treeType=treeType)
 
-def makeHuffmanCodecFromDictHist(inputDictHist,chanceExtractionFun=None):
+def makeTreeBasedCodecFromDictHist(inputDictHist, chanceExtractionFun=None, treeType=None):
   if chanceExtractionFun == None:
     chanceExtractionFun = (lambda x: x)
   entries = sorted((chanceExtractionFun(value),key) for key,value in inputDictHist.items())
-  return makeHuffmanCodecFromEntries(entries)
+  return makeTreeBasedCodecFromAscendingEntries(entries, treeType=treeType)
 
-def makeHuffmanCodecFromListHist(inputListHist,doPatch=False):
+def makeTreeBasedCodecFromListHist(inputListHist, doPatch=False, treeType=None):
   workingListHist = StatCurveTools.patchedListHist(inputListHist) if doPatch else inputListHist
   entries = [(item,i) for i,item in enumerate(workingListHist)]
   print("HuffmanMath.makeHuffmanCodecFromListHist: finished patching {} item inputListHist.".format(len(inputListHist)))
-  return makeHuffmanCodecFromEntries(entries)
+  return makeTreeBasedCodecFromAscendingEntries(entries, treeType=treeType)
   
   
 
