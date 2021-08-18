@@ -21,6 +21,7 @@ import HeaderTools
 
 import QuickTimers
 
+import PyGenTools
 from PyGenTools import makeArr, makeGen
 from PyArrTools import ljustedArr
 import HistTools
@@ -39,14 +40,24 @@ sampleCerPressNums = {
 }
 
 
+def evalSoundSrcStr(soundSrcStr):
+  print("Testing.evalSoundSrcStr: the sound source string is " + str(soundSrcStr) + ".")
+  try:
+    sound = WaveIO.sounds[soundSrcStr]
+    print("Testing.evalSoundSrcStr: the soundSrcStr {} was used as a key.".format(repr(soundSrcStr)))
+  except KeyError:
+    sound = eval(soundSrcStr)
+    print("Testing.evalSoundSrcStr: the soundSrcStr {} was used as an expression.".format(repr(soundSrcStr)))
+  return sound
+
 
 def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
   #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
   #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickTimers.startTimer("test")
   
-  print("Testing.test: the sound source string is " + str(soundSrcStr) + ".")
-  testSound = eval(soundSrcStr)[:soundLength]
+  testSound = evalSoundSrcStr(soundSrcStr)[:soundLength]
+  assert len(testSound) == soundLength, "testSound has an unacceptable length."
   testSoundSize = [soundLength,SAMPLE_VALUE_UPPER_BOUND]
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
@@ -151,59 +162,68 @@ def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
         sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}))
 
 
-def compressFull(soundName, destFileName, inputHeaderDict, blockWidth, numberSeqCodec):
+def compressFull(soundSrcStr, destFileName, inputHeaderDict, blockWidth, numberSeqCodec):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
   QuickTimers.startTimer("compressFull")
-  sound = WaveIO.sounds[soundName]
-  destFile = open(destFileName+" "+str(blockWidth),"w")
-  offset = 0
+  
+  sound = evalSoundSrcStr(soundSrcStr)
+    
   print("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
   print("Testing.compressFull: the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
-  while offset + blockWidth + 1 < len(sound):
-    print(str((100.0*offset)/float(len(sound)))[:6]+"%...")
-    audioData = sound[offset:offset+blockWidth]
-    offset += blockWidth
-    pressDataNums = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict]).encode(audioData)
-    print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
-    #@ the following line might make an unecessary conversion to a list.
-    pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.zeroSafeEncode([item for item in pressDataNums])) + "\n"
-    print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
-    destFile.write(pressDataBitStr)
-  destFile.close()
+  
+  cerBlockCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
+  blockCount = len(sound)//blockWidth
+    
+  with open(destFileName+" "+str(blockWidth)+" listStr","w") as pressDataListStrDestFile, open(destFileName+" "+str(blockWidth)+" bitStr","w") as pressDataBitStrDestFile:
+  
+    for currentBlockIndex, currentBlockData in enumerate(PyGenTools.genChunksAsLists(sound, n=blockWidth, partialChunkHandling="discard")):
+      if not len(currentBlockData) == blockWidth:
+        raise ValueError("for block of index {}, invalid currentBlockData length: {}.".format(currentBlockIndex, len(currentBlockData)))
+      print(str((100.0*currentBlockIndex)/float(blockCount))[:6]+"%...")
+      
+      pressDataNums = cerBlockCodec.encode(currentBlockData)
+      print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
+      pressDataListStrDestFile.write(str(pressDataNums)+"\n")
+      
+      pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.zeroSafeEncode(pressDataNums)) + "\n"
+      print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
+      pressDataBitStrDestFile.write(pressDataBitStr)
+
   print("Testing.compressFull: compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
 
 
-def decompressFull(srcFileName,interpolationMode,blockWidth,numberSeqCodec):
+def decompressFull(srcFileName, inputHeaderDict, blockWidth, numberSeqCodec):
   #inverse of compressFull.
   QuickTimers.startTimer("decompressFull")
   print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
-  result = []
-  srcFile = open(srcFileName,"r")
-  offset = 0
   print("Testing.decompressFull: starting decompression on file named " + str(srcFileName) + "...")
-  #print("the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:512]) + ".")
-  while True:
-    #print(str(100*offset/len(sound))[:5]+"%...")
-    loadedLine = None
-    try:
-      loadedLine = srcFile.readlines(1)[0].replace("\n","")
-    except:
-      break
-    print("Testing.decompressFull: loaded a line of length " + str(len(loadedLine)) + " which starts with " + loadedLine[:PEEK] + ".")
-    pressDataBitArr = CodecTools.bitSeqToStrCodec.decode(loadedLine)
-    #@ the following line might make an unecessary conversion to a list.
-    pressDataNums = [item for item in numberSeqCodec.zeroSafeDecode(pressDataBitArr)]
-    assert min(pressDataNums) == 0
-    if not len(pressDataNums) == blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending. It is less likely to happen now that the UniversalCoding class is no longer used.
-      print("Testing.decompressFull: pressDataNums is the wrong length. Trimming will be attempted.") 
-      pressDataNums = pressDataNums[:blockWidth]
-    plainDataNums = pcer.cellElimRunBlockTranscode(pressDataNums,"decode",interpolationMode,[blockWidth,SAMPLE_VALUE_UPPER_BOUND])
-    if not len(plainDataNums) == blockWidth:
-      print("Testing.decompressFull: plainDataNums is the wrong length. Trimming will be attempted. This has never happened before.")
-      plainDataNums = plainDataNums[:blockWidth]
-    print("Testing.decompressFull: extending results by " + str(len(plainDataNums)) + " item array which starts with " + str(plainDataNums[:PEEK])[:PEEK] + ".")
-    result.extend(plainDataNums)
-  srcFile.close()
+  
+  cerBlockCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
+  result = []
+  
+  with open(srcFileName,"r") as srcFile:
+    #print("the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:512]) + ".")
+    for currentLineNumber, currentLine in enumerate(srcFile):
+      #print(str(100*offset/len(sound))[:5]+"%...")
+      currentLine = currentLine.replace("\n","")
+      assert currentLine.count("0") + currentLine.count("1") == len(currentLine), "invalid line."
+      print("Testing.decompressFull: loaded a line of length " + str(len(currentLine)) + " which starts with " + currentLine[:PEEK] + ".")
+      pressDataBitArr = CodecTools.bitSeqToStrCodec.decode(currentLine)
+      
+      #@ the following line might make an unecessary conversion to a list.
+      pressDataNums = [item for item in numberSeqCodec.zeroSafeDecode(pressDataBitArr)]
+      if not min(pressDataNums) == 0:
+        print("Testing.decompressFull: the minimum of the pressDataNums is not 0. this is unusual.")
+      
+      if not len(pressDataNums) <= blockWidth: #this happens when the provided UniversalCoding numberCoding incorrectly yields an extra zero when its input data is ending. It is less likely to happen now that the UniversalCoding class is no longer used.
+        print("Testing.decompressFull: warning: pressDataNums is longer than the blockWidth. This is not supposed to happen with the Cell Elimination Run codec. Trimming will be attempted.") 
+        pressDataNums = pressDataNums[:blockWidth]
+        
+      plainDataNums = cerBlockCodec.decode(pressDataNums)
+      assert len(plainDataNums) == blockWidth, "plainDataNums is the wrong length. This has never happened before."
+      print("Testing.decompressFull: extending results by " + str(len(plainDataNums)) + " item array which starts with " + str(plainDataNums[:PEEK])[:PEEK] + ".")
+      result.extend(plainDataNums)
+      
   print("Testing.decompressFull: result has length " + str(len(result)) + " and ends with " + str(result[-PEEK:])[-PEEK:] + ".")
   print("Testing.decompressFull: decompression took " + str(QuickTimers.stopTimer("decompressFull")) + " seconds.")
   return result

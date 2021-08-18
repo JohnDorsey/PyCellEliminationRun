@@ -56,23 +56,25 @@ def deserializeSound(filename):
   soundFile.close()
   return eval(result)
 
-"""
-#should be rewritten.
-def saveSound(filename,sound):
+
+def saveSound(filename, sound, framerate=None):
+  assert framerate % 1 == 0, "framerate must be an integer."
   assert filename.endswith(".wav")
   soundFile = wave.open(filename,mode="wb")
   soundFile.setnchannels(1)
   soundFile.setsampwidth(1)
-  soundFile.setframerate(44100)
-  #soundFile.write("".join(chr(item) for item in sound))
+  soundFile.setframerate(framerate)
+  
+  #validate input data:
+  sound = [item for item in sound]
   for item in sound:
     assert type(item) == int
     assert item < 256
     assert item >= 0
-    #soundFile.write(eval("b'"+chr(item)+"'"))
-    soundFile.writeframesraw(bytes([item]))
+    
+  soundFile.writeframesraw(bytes(sound))
   soundFile.close()
-"""
+
 
 def validateSound(sound):
   diffs = [0,0,0,0]

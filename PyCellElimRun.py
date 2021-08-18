@@ -7,6 +7,7 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 """
 
 import math
+import itertools
 
 import Curves
 import CodecTools
@@ -17,7 +18,7 @@ import HeaderTools
 
 from Codes import ParseError
 import PyGenTools
-from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, accumulate, countIn, allAreEqual
+from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, countIn, allAreEqual
 from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
 import PyDeepArrTools
 from PyDeepArrTools import shape, enumerateDeeply, iterateDeeply
@@ -496,8 +497,8 @@ class CellElimRunCodecState:
         for keyB in makeFlatKeySeq(self.headerManager.headerDict[keyA]):
           if keyB == "size":
             self.size = self.headerManager.headerDict[keyA][keyB]
-            self.stepIndexTimeout = accumulate((measure+2 for measure in self.size),"*") #used in causing failure when processRun goes on for too long.
-            self.expectedLiveCellCount = accumulate((measure for measure in self.size[:-1]),"*")
+            self.stepIndexTimeout = PyGenTools.accumulate((measure+2 for measure in self.size),(lambda x,y:x*y)) #used in causing failure when processRun goes on for too long.
+            self.expectedLiveCellCount = PyGenTools.accumulate((measure for measure in self.size[:-1]),(lambda x,y:x*y))
             self.dimensions = len(self.size)
             
 

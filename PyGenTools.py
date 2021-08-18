@@ -195,15 +195,48 @@ def genDeduped(inputSeq):
   else:
     raise ValueError("unsupported type: " + str(type(inputSeq)) + ".")
 
-def accumulate(inputSeq, inputFun):
-  if type(inputFun) == str:
-    inputFun = eval("(lambda x,y: x{}y)".format(inputFun))
-  inputSeq = makeGen(inputSeq)
-  result = next(inputSeq)
-  for item in inputSeq:
-    result = inputFun(result, item)
+"""
+def getAccumulatorFun(thing):
+  if type(thing) == str:
+    result = eval("(lambda x,y: x{}y)".format(thing))
+  elif type(thing) == type((lambda x: x)):
+    result = thing
+  else:
+    raise TypeError("must be string or function.")
   return result
+"""
+
+try:
+  accumulate = itertools.accumulate
+except AttributeError: #must be python2.
+  def accumulate(inputSeq, inputFun):
+    inputSeq = makeGen(inputSeq)
+    #inputFun = getAccumulatorFun(inputFun) #not used anymore now that itertools.accumulate is sometimes used.
+    result = next(inputSeq)
+    for item in inputSeq:
+      result = inputFun(result, item)
+    return result
+
+
+def genChunksAsLists(inputGen, n=2, partialChunkHandling="warn partial"):
+  inputGen = makeGen(inputGen)
+  while True:
+    chunkAsList = arrTakeOnly(inputGen, n, onExhaustion="partial") #make list.
+    if len(chunkAsList) < n:
+      if "warn" in partialChunkHandling:
+        print("PyGenTools.genChunksAsLists: warning: partial chunk.")
+      if "fail" in partialChunkHandling:
+        raise IterationFailure("partial chunk.")
+      if not "partial" in partialChunkHandling:
+        if "discard" in partialChunkHandling:
+          return
+        else:
+          print("PyGenTools.genChunksAsLists: warning: partial chunk encountered, but the partialChunkHandling kwarg does not indicate what should be done (no \"partial\" and no \"discard\"). The chunk will be yielded.")
+    yield chunkAsList
+    if len(chunkAsList) == 0:
+      return
   
+
 def allAreEqual(inputSeq):
   inputSeq = makeGen(inputSeq)
   sharedValue = next(inputSeq)

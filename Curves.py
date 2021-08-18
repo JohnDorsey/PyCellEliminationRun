@@ -8,6 +8,7 @@ Curves.py contains tools like the Spline class for creating curves and doing cal
 
 import math
 import itertools
+
 import PyDeepArrTools
 import SpiralMath
 import PyGenTools
@@ -223,7 +224,7 @@ class Spline:
   def setSizeAndEndpoints(self,size,endpointInitMode):
     self.size = size
     self.dimensions = len(self.size)
-    self.volume = PyGenTools.accumulate(self.size,"*")
+    self.volume = PyGenTools.accumulate(self.size,(lambda x,y: x*y))
     assert type(endpointInitMode) in [list,str]
     if type(endpointInitMode) == str:
       endpointInitMode = [str(endpointInitMode) for i in range(2)]

@@ -21,6 +21,7 @@ def getDataPreviewStr(data, displayItemCount=1000):
     (str(data) if len(data) < displayItemCount else str(data[:endLength])[:-1]+", " + ("."*dotCount) + ", "+str(data[-endLength:])[1:]),
     len(data)
   )
+  
 
 def convertAudio(source, destFileName, sourceFramerate=None, resamplingInterval=1):
   if not sourceFramerate % resamplingInterval == 0:
@@ -53,11 +54,6 @@ def convertAudio(source, destFileName, sourceFramerate=None, resamplingInterval=
   
   assert None not in new_rate_data_uint8, "something went wrong while adjusting the framerate."
 
-  writeFile = wave.open(destFileName+".wav", mode='wb')
-  writeFile.setnchannels(1)
-  writeFile.setsampwidth(1)
-  writeFile.setframerate(destFramerate)
-  writeFile.writeframesraw(bytes(new_rate_data_uint8))
-  writeFile.close()
+  WaveIO.saveSound(destFileName+".wav", new_rate_data_uint8, framerate=destFramerate)
   
-  WaveIO.serializeSound(destFileName+".txt",new_rate_data_uint8)
+  WaveIO.serializeSound(destFileName+".txt", new_rate_data_uint8)
