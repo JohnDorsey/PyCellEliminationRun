@@ -35,6 +35,8 @@ PEEEK = 2048
 VERBOSE = True
 
 defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
+defaultNumSeqCodecSrcStr = "Codes.codecs[\"inSeq_fibonacci\"]"
+
 sampleCerPressNums = {
   "linear":{
     key:{256:None} for key in [1024,512,256,128,64,32,16,8]
@@ -51,6 +53,8 @@ def evalSoundSrcStr(soundSrcStr):
     sound = eval(soundSrcStr)
     print("Testing.evalSoundSrcStr: the soundSrcStr {} was used as an expression.".format(repr(soundSrcStr)))
   return sound
+  
+
 
 
 def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
@@ -181,18 +185,54 @@ def allocateDirectory(desiredName):
   return usedName
 
 
-def compressFull(soundSrcStr, sessionName, inputHeaderDict, blockWidth, numberSeqCodec):
-  #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
-  QuickClocks.start("compressFull")
-  QuickClocks.create("compressFull-cer")
+def expandCERCSInputHeaderDict(inputHeaderDict, blockSize=None):
+  if inputHeaderDict == None:
+    inputHeaderDict = dict()
+  elif type(inputHeaderDict) == str:
+    if "@" in inputHeaderDict:
+      raise NotImplementedError("@ splits are not handled by Testing.py full file compression methods.")
+    if inputHeaderDict in pcer.Curves.Spline.SUPPORTED_INTERPOLATION_METHOD_NAMES:
+      inputHeaderDict = {"interpolation_mode":{"method_name":inputHeaderDict}}
+  else:
+    if not isinstance(inputHeaderDict,dict):
+      raise TypeError("input header dict can't be expanded because it is of invalid type {}.".format(repr(type(inputHeaderDict))))
+  if "space_definition" not in inputHeaderDict:
+    inputHeaderDict["space_definition"] = dict()
+  spaceDefinition = inputHeaderDict["space_definition"]
+  if "size" not in spaceDefinition:
+    spaceDefinition["size"] = [None, None]
+  size = spaceDefinition["size"]
+  for i in range(len(size)):
+    if size[i] == None:
+      default = blockSize[i]
+      size[i] = default
+    if not size[i] == blockSize[i]:
+      raise ValueError("differences between blockSize and inputHeaderDict[\"space_definition\"][\"size\"] are not yet handled in Testing.py methods.")
+  assert isinstance(inputHeaderDict, dict)
+  return inputHeaderDict
+
+
+def compressFull(soundSrcStr, outputShortName, settings=None, blockSize=(256,256), numberSeqCodec=None):
+  """
+  access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
+  
+  settings may be None (for default settings), or may be the name of any interpolation method, or may be an inputHeaderDict in the format specified in PyCellElimRun.CellElimRunCodecState.DEFAULT_HEADER_DICT_TEMPLATE at any level of completion.
+  """
   
   sound = evalSoundSrcStr(soundSrcStr)
   
-  outputName = "testingOutputs/{}".format(sessionName)
-  outputName = allocateDirectory(outputName)
- 
-  outputCommonName = outputName+"/out "+str(blockWidth)
+  blockWidth = blockSize[0]
+  outputLongName = allocateDirectory("testingOutputs/{}".format(outputShortName))
+  outputCommonName = outputLongName+"/out "+str(blockWidth)
   logFileName = outputCommonName+" log.txt"
+  
+  inputHeaderDict = expandCERCSInputHeaderDict(settings, blockSize=blockSize)
+  
+  if numberSeqCodec == None:
+    numberSeqCodec = eval(defaultNumSeqCodecSrcStr)
+  
+  QuickClocks.start("compressFull")
+  QuickClocks.create("compressFull-cer")
   
   with open(logFileName,"w") as logFile:
 
@@ -239,20 +279,27 @@ def compressFull(soundSrcStr, sessionName, inputHeaderDict, blockWidth, numberSe
 
     plog("Testing.compressFull: compression took {} seconds, of which {} was spent on the Cell Elimination Run codec.".format(QuickClocks.stop("compressFull"), QuickClocks.stop("compressFull-cer")))
     
-    for scanFileName in os.listdir(outputName):
-      scanFileFullName = outputName+"/"+scanFileName
+    for scanFileName in os.listdir(outputLongName):
+      scanFileFullName = outputLongName+"/"+scanFileName
       plog("Testing.compressFull: size of {} is {}".format(repr(scanFileName), os.path.getsize(scanFileFullName)))
     
-    for scanFileName in os.listdir(outputName):
-      scanFileFullName = outputName+"/"+scanFileName
+    for scanFileName in os.listdir(outputLongName):
+      scanFileFullName = outputLongName+"/"+scanFileName
       if scanFileFullName.endswith(".partial"):
         os.rename(scanFileFullName,scanFileFullName[:-8])
     plog("end of logging.")
   print("log file closed.")
 
 
-def decompressFull(srcFileName, inputHeaderDict, blockWidth, numberSeqCodec):
+def decompressFull(srcFileName, settings=None, blockSize=(256,256), numberSeqCodec=None):
   #inverse of compressFull.
+  
+  inputHeaderDict = expandCERCSInputHeaderDict(settings, blockSize=blockSize)
+  blockWidth = blockSize[0]
+  
+  if numberSeqCodec == None:
+    numberSeqCodec = eval(defaultNumSeqCodecSrcStr)
+  
   QuickClocks.start("decompressFull")
   print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
   print("Testing.decompressFull: starting decompression on file named " + str(srcFileName) + "...")

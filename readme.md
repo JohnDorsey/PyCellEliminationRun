@@ -16,39 +16,48 @@ Usage:
 
     Testing.test()
   
-  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute. The saving rate should never be negative.
+  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute (for pypy). The saving rate should never be negative.
 
 
   compress the demo file "samples/moo8bmono44100.txt":
 
-    Testing.compressFull("samples/moo8bmono44100.txt","<your name for the output file>","linear",256,Testing.Codes.codecs["inSeq_fibonacci"])
+    Testing.compressFull("samples/moo8bmono44100.txt", "<your name for the output file>", settings=None, blockSize=[512,256], numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"])
     
-  The output file will be created in the same directory as the project, and will have the interpolation mode and block size appended to the end of its name.
+  The output file(s) will be created in a new folder inside testingOutputs/.
     
-  The output is full of the characters "1" and "0", each taking up a whole byte in UTF-8, so the output file will NOT be smaller than the original wave file until it is compressed using GZIP or LZMA.
-
+  The output includes separate files for each output format. Only the less practical _bitStr_ format (with each bit represented by a full UTF-8 character "1" or "0") is currently accepted by Testing.decompressFull. When the _bitStr_ format output file is compressed further using LZMA or GZIP, it is similar in size to the _bytes_ format output file.
+  
 
   decompress a compressed file:
 
-    reconstructedSound = Testing.decompressFull("<name of the compressed file>","linear",256,Testing.Codes.codecs["inSeq_fibonacci"])
-
+    reconstructedSound = Testing.decompressFull("<name of the compressed file>", settings=None, blockSize=[512,256], numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"])
+  
 
   verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
 
     testLen = min(len(reconstructedSound),len(Testing.WaveIO.sounds["samples/moo8bmono44100.txt"]))
 
-    reconstructedSound[:testLen] == Testing.WaveIO.sounds["samples/moo8bmono44100.txt"][:testLen]
+    assert reconstructedSound[:testLen] == Testing.WaveIO.sounds["samples/moo8bmono44100.txt"][:testLen]
+    
+  or more breifly:
+    
+    assert all(item[0]==item[1] for item in zip(reconstructedSound, Testing.WaveIO.sounds["samples/moo8bmono44100.txt"]))
 
-  The reconstructed sound could be slightly shorter or longer than the original.
+  The reconstructed sound could be cut slightly shorter or longer than the original, so only directly compare as many items as the shortest of them has.
+  
+  Both of the above tests are coincidentally passed when the reconstructedSound is an empty list, so maybe print out its contents, too.
   
 
   prepare custom wave files to be compressed:
 
     import WavePrep
 
-    WavePrep.convertAudio("source file name.wav","destination file name.wav")
+    WavePrep.convertAudio("<source file name>.wav", "<destination file name>", sourceFramerate=44100, resamplingInterval=1)
 
-  The above takes an int16 44.1kHz stereo source file and creates a uint8 44.1kHz mono destination file, the default format that other parts of the project expect. This is not a limitation of the Cell Elimination Run algorithm, which supports any integer as the maximum sample value,
+  The above takes an int16 44.1kHz stereo .wav source file and creates a uint8 44.1kHz mono destination file (in two formats: .wav, and .txt containing a python list literal). This is necessary because some parts of the project, particularly in Testing.py, assume that audio samples have values under 256 (although the Cell Elimination Run codec supports any integer as the maximum sample value).
+  
+  No parts of the project operate on more than one audio channel.
+
 
     import Testing
 

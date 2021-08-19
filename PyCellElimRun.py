@@ -775,7 +775,8 @@ class CellElimRunCodecState:
 
 def expandArgsToCERCSHeaderDict(args):
   if len(args) == 1:
-    assert type(args[0])==dict
+    if not type(args[0]) == dict:
+      raise TypeError("unnaceptable type for single arg: {}.".format(repr(type(args[0]))))
     headerDict = args[0]
   elif len(args) == 2:
     interpolationMode, spaceDefinition = (args[0], args[1])
