@@ -116,6 +116,8 @@ Design notes:
       -inclusion of LZMA and/or GZIP.
       
     -internal features:
+        
+      -store CellTargeter rankings as a heap for performance reasons.
     
       -make a strict most-aligned-axes-first interpolation mode for higher dimensions.
     
@@ -128,6 +130,8 @@ Design notes:
       -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
         
       -add automatic catalogue edits / editing functions for different situations like monotonic data.
+      
+      -modify EmbedCode class to allow original values for settings to be embedded.
 
       -convolution-based weighted spline interpolation.
       
@@ -135,17 +139,11 @@ Design notes:
     
       -complete and test grid mode for CellCatalogue.
         
-      -store CellTargeter rankings as a heap for performance reasons.
-        
       -improve structure of Spline init args.
         
       -make CERCS test for more incompatible settings.
         
-      -fix unnecessary calls to dict.keys().
-        
       -allow Spline cache settings to be chosen automatically.
-      
-      -modify EmbedCode class to allow original values for settings to be embedded.
     
       -simplify the CellElimRunCodecState:
         
@@ -166,6 +164,8 @@ Design notes:
       -improve logging techniques, possibly using the logging module.
     
     -maintenance:
+        
+      -fix unnecessary calls to dict.keys().
   
       -reduce file count.
     

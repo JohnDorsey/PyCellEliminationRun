@@ -278,7 +278,7 @@ class Spline:
       if "&" in interpolationMode:
         self.output_filters.extend(interpolationMode.split("&")[1].split(";")) #@ this is not ideal but it saves complexity in testing. It lets every configuration I want to test be described by a single string.
       if not self.interpolation_method_name in Spline.SUPPORTED_INTERPOLATION_METHOD_NAMES:
-        if self.interpolation_method_name != "unspecified":
+        if self.interpolation_method_name != "unspecified": #else let it slide.
           raise ValueError("The interpolation_method_name " + self.interpolation_method_name + " is not supported.")
       for outputFilter in self.output_filters:
         if not outputFilter in Spline.SUPPORTED_OUTPUT_FILTERS:
@@ -658,7 +658,7 @@ class Spline:
       assert False, "invalid dimension count."
 
 
-  def clearCacheInDirection(self,index,direction,times=1):
+  def clearCacheInDirection(self, index, direction, times=1):
     """
     skips clearing the value at index. The arg _times_ indicates the number of times to skip over a value of None and continue.
     If interpolation with endpoint wrapping is added, this method will need to be changed to wrap as well.
@@ -674,7 +674,7 @@ class Spline:
       pass
       
 
-  def clear_cache_entry_for_surroundings(self,sur):
+  def clear_cache_entry_for_surroundings(self, sur):
     assert all(len(item) == len(self.size) for item in sur if item != None)
     surHash = hash_point_list(sur,self.size)
     if surHash in self.value_cache_by_surroundings_hash:

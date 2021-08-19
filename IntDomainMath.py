@@ -1,8 +1,8 @@
 """
 
-IntMath.py by John Dorsey.
+IntDomainMath.py by John Dorsey.
 
-IntMath.py contains tools for remapping integer values. It may be used to transform items of a number sequence into a format that is easier to compress.
+IntDomainMath.py contains tools for remapping integer values. It may be used to transform items of a number sequence into a format that is easier to compress.
 
 P = domain (0, inf).
 OP = domain [0, inf).
@@ -13,23 +13,32 @@ I used the letter O for zero instead of the letter Z because NZP may look like i
 
 
 def NOP_to_OP(inputInt):
-  #map (-inf, inf) to [0, inf).
+  """ map (-inf, inf) to [0, inf). """
   return (inputInt * 2) if inputInt >= 0 else (inputInt * -2) -1
 
 def OP_to_NOP(inputInt):
-  #map [0, infinity) to (-inf, inf).
+  """ map [0, infinity) to (-inf, inf). """
   assert inputInt >= 0
   return ((inputInt+1)>>1)*((-2*(inputInt%2))+1)
-
+  
+  
+def OP_to_focusedNOP(inputInt, focus):
+  """ map [0, inf) to _(-inf, inf) centered around focus_. """
+  return OP_to_NOP(inputInt) + focus
+  
+def focusedNOP_to_OP(inputInt, focus):
+  """ map _(-inf, inf) centered around focus_ to [0, inf). """
+  return NOP_to_OP(inputInt - focus)
+  
 
 def unfocusedOP_to_focusedOP(inputInt,focus):
-  #map an input integer in [0, inf) to an output integer [0, inf) that is smaller whenever the input int is close to some expected value or _focus_ which is in [0, inf).
+  """ map an input integer in [0, inf) to an output integer [0, inf) that is smaller whenever the input int is close to some expected value or _focus_ which is in [0, inf). """
   if inputInt > focus*2:
     return inputInt
   return NOP_to_OP(inputInt-focus)
 
 def focusedOP_to_unfocusedOP(inputInt,focus):
-  #inverse of unfocusedOP_to_focusedOP.
+  """ inverse of unfocusedOP_to_focusedOP. """
   if inputInt > focus*2:
     return inputInt
   return OP_to_NOP(inputInt) + focus

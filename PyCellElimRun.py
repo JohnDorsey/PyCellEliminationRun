@@ -413,7 +413,7 @@ class CellTargeter:
       if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
         #print("the replacementCell " + str(replacementCell) + " is now assumed to be a duplicate and will not be insorted into the rankings.")
-        self.critCellCallbackMethod(replacementCell,dbgCatalogueValue=-438438)
+        self.critCellCallbackMethod(replacementCell, dbgCatalogueValue=-438438)
         del self.rankings[0]
       else:
         del self.rankings[0]

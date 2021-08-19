@@ -7,10 +7,13 @@ CodecTools.py contains classes and other tools that might help make it easier to
 """
 import traceback
 import itertools
+
 import PyGenTools
 from PyGenTools import makeArr, isGen, makeGen, ExhaustionError, genAddInt, arrAddInt
 from PyArrTools import ljustedArr
 from PyDictTools import augmentedDict
+
+from IntDomains import simpleIntDomains
 
 
 def measureIntArray(inputIntArr):
@@ -23,17 +26,15 @@ def printComparison(plainData,pressData):
   estimatedSaving = 1.0 - 1.0/estimatedCR
   print("CT.printComp: plain meas: " + str(plainDataMeasures) + ". press meas: " + str(pressDataMeasures) + ". Est CR: " + str(estimatedCR)[:8] + ". Est SR: " + str(estimatedSaving*100.0)[:8] + "%.")
 
-def countTrailingZeroes(inputArr):
-  i = 0
-  while inputArr[-1-i] == 0:
-    i += 1
-  return i
-  
 def countTrailingMatches(inputArr, matchFun):
   i = 0
   while matchFun(inputArr[-1-i]):
     i += 1
   return i
+  
+def countTrailingZeroes(inputArr):
+  return countTrailingMatches(inputArr, (lambda x: x==0))
+
 
 def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=False):
   #test the input testCodec on testData to make sure that it is capable of reconstructing its original input. If it isn't, print additional information before returning False.
@@ -65,87 +66,6 @@ def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=Fa
   return result
 
 
-
-class InfiniteIntSeq:
-  def __len__(self,testValue):
-    print("CodecTools.InfiniteIntSeq.__len__: Warning: this method should not be called, because no correct integer response is possible. returning 2**32.")
-    return 2**32
-
-
-class IntRay(InfiniteIntSeq):
-  def __init__(self,startValue,direction=1):
-    if not direction in [1,-1]:
-      raise ValueError("direction must be 1 or -1.")
-    self.startValue, self.direction = (startValue, direction)
-    
-  def __contains__(self,testValue):
-    if type(testValue) != int:
-      return False
-    if self.direction > 0:
-      return testValue >= self.startValue
-    else:
-      return testValue <= self.startValue
-      
-  def __getitem__(self,index):
-    return self.startValue + index*self.direction
-    
-  def index(self,value):
-    if value != self.startValue:
-      if type(value) != int:
-        raise ValueError("Value not found, because it is not possible for a value of type {} to be found.".format(type(value)))
-      if (value - self.startValue)*self.direction < 0:
-        raise ValueError("Value not found.")
-    result = abs(value - self.startValue)
-    return result
-    
-  def __iter__(self):
-    return itertools.count(self.startValue, self.direction)
-    
-    
-class IntStaggering(InfiniteIntSeq):
-  def __init__(self,startValue,direction=1):
-    if not direction in [1,-1]:
-      raise ValueError("direction must be 1 or -1.")
-    self.startValue, self.direction = (startValue, direction)
-    
-  def __contains__(self,testValue):
-    if type(testValue) != int:
-      return False
-    return True
-    
-  def __getitem__(self,index):
-    raise NotImplementedError()
-  def index(self,value):
-    raise NotImplementedError()
-  def __iter__(self):
-    raise NotImplementedError()
-    
-"""
-#this might be cancelled for being very prone to accidentally using slow linear searches.
-class InfiniteIntRangeWithFiniteExclusionSeq(InfiniteIntSeq):
-  def __init__(self,inclusionSeq,exclusionSeq):
-    self.inclusionSeq, self.exclusionSeq = (inclusionSeq, exclusionSeq)
-  
-  def __contains__(self,testValue):
-    if testValue in self.inclusionSeq:
-      if not testValue in self.exclusionSeq:
-        return True
-    return False
-    
-  def __getitem__(self,index):
-    if index < min(self.exclusionSeq):
-      return self.inclusionSeq[index]
-    elif index <= max(self.exclusionSeq):
-      pass
-    else:
-      pass
-"""
-
-#def remapToOutsideValueSeq(value,exclusionSeq):
-#def remapToOutsideValueRangeEncode(index,inclusionRangeStart,exclusionRangeStart,exclusionRangeEnd):
-#  exlusionRangeWidth = exclusionRangeEnd - exclusionRangeStart
-  
-simpleIntDomains = {"UNSIGNED":IntRay(0),"UNSIGNED_NONZERO":IntRay(1),"SIGNED":IntStaggering(0)}
 
 
 class Codec:

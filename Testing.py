@@ -114,7 +114,28 @@ def testCellElimRunCodecAgain(testSound, testData, testSoundSize=None): #compres
       
       
 def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
-  families = {"seq":["Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in ["inSeq_fibonacci","inSeq_eliasGamma","inSeq_eliasDelta","inSeq_eliasGammaFib","inSeq_eliasDeltaFib"]],"haven bucket seq":["IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in ["0.125LL_fibonacci","0.25LL_fibonacci","0.375LL_fibonacci","HLL_fibonacci","0.625LL_fibonacci","0.75LL_fibonacci","0.875LL_fibonacci"]]}
+  families = {
+    "seq":[
+      "Codes.codecs[\"{}\"]".format(codesCodecsName) for codesCodecsName in [
+        "inSeq_fibonacci",
+        "inSeq_eliasGamma",
+        "inSeq_eliasDelta",
+        "inSeq_eliasGammaFib",
+        "inSeq_eliasDeltaFib"
+      ]
+    ],
+    "haven bucket seq":[
+      "IntSeqStore.havenBucketCodecs[\"{}\"]".format(intSeqStoreCodecsName) for intSeqStoreCodecsName in [
+        "0.125LL_fibonacci",
+        "0.25LL_fibonacci",
+        "0.375LL_fibonacci",
+        "HLL_fibonacci",
+        "0.625LL_fibonacci",
+        "0.75LL_fibonacci",
+        "0.875LL_fibonacci"
+      ]
+    ]
+  }
   for numberSeqCodecSrcStr in families["seq"]:
     numberSeqCodec = eval(numberSeqCodecSrcStr)
     print("testing with seq codec " + numberSeqCodecSrcStr + " :")
@@ -170,7 +191,8 @@ def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
   for interpolationMode, IMSub in sampleCerPressNums.items():
     for blockSizeHoriz, BSHSub in IMSub.items():
       for blockSizeVert, BSVSub in BSHSub.items():
-        sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}))
+        inputHeaderDict = {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}
+        sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, inputHeaderDict))
 
 
 
@@ -196,6 +218,7 @@ def expandCERCSInputHeaderDict(inputHeaderDict, blockSize=None):
   else:
     if not isinstance(inputHeaderDict,dict):
       raise TypeError("input header dict can't be expanded because it is of invalid type {}.".format(repr(type(inputHeaderDict))))
+      
   if "space_definition" not in inputHeaderDict:
     inputHeaderDict["space_definition"] = dict()
   spaceDefinition = inputHeaderDict["space_definition"]
@@ -289,6 +312,8 @@ def compressFull(soundSrcStr, outputShortName, settings=None, blockSize=(256,256
         os.rename(scanFileFullName,scanFileFullName[:-8])
     plog("end of logging.")
   print("log file closed.")
+
+
 
 
 def decompressFull(srcFileName, settings=None, blockSize=(256,256), numberSeqCodec=None):

@@ -8,7 +8,7 @@ IntArrMath.py contains tools for analyzing or manipulating arrays, and must eith
 
 
 import IntSeqMath
-import IntMath
+import IntDomainMath
 import Curves
 
 from PyGenTools import makeArr, makeGen, zipGens
@@ -155,7 +155,7 @@ def applyIndexMapReversed(inputArr,inputMap):
 
 def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=None):
   #ruler interlacing is what I call the method of interlacing described in IntArrMath.genInterlacedIndices.
-  #ruler interlacing is used to add values to the array in a helpful order (no clusters). Interpolation is used to guess what a new value will be. The _Focused_ integer functions in IntMath are used to focus a new value around the prediction for it to make it easier to compress using a universal code.
+  #ruler interlacing is used to add values to the array in a helpful order (no clusters). Interpolation is used to guess what a new value will be. The _Focused_ integer functions in IntDomainMath are used to focus a new value around the prediction for it to make it easier to compress using a universal code.
   #the interpolationProvider should be something like Curves.Spline WITH INTEGER OUTPUTS, such as by enabling the rounding output filter for Curves.Spline.
   #the output could be made streamable.
   assert opMode in ["encode","decode"]
@@ -170,10 +170,10 @@ def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=No
     #print("(i,index,localFocus,inputIntArr[i]) is " + str((i,index,localFocus,inputIntArr[i])) + ".")
     if opMode == "encode":
       spline[index] = inputIntArr[index]
-      result.append(IntMath.unfocusedOP_to_focusedOP(spline[index],localFocus))
+      result.append(IntDomainMath.unfocusedOP_to_focusedOP(spline[index],localFocus))
       #print("result is " + str(result) + ".")
     else:
-      spline[index] = IntMath.focusedOP_to_unfocusedOP(inputIntArr[i],localFocus)
+      spline[index] = IntDomainMath.focusedOP_to_unfocusedOP(inputIntArr[i],localFocus)
       #print("spline is " + str([item for item in spline]) + ".")
   if opMode == "encode":
     return result
@@ -227,23 +227,23 @@ def headingMedianIntArrDecode(inputIntArr):
 def headingMedianStaggerIntArrEncode(inputIntArr):
   #like headingMedianIntArrEncode, but use staggering around the number line origin to format the output as an all-positive integer array.
   medianVal = int(median(inputIntArr))
-  return [medianVal] + [IntMath.NOP_to_OP(item-medianVal) for item in inputIntArr]
+  return [medianVal] + [IntDomainMath.NOP_to_OP(item-medianVal) for item in inputIntArr]
 
 def headingMedianStaggerIntArrDecode(inputIntArr):
   #the input and output could both be made streamable.
   medianVal = inputIntArr[0]
-  return [IntMath.OP_to_NOP(item)+medianVal for item in inputIntArr[1:]]
+  return [IntDomainMath.OP_to_NOP(item)+medianVal for item in inputIntArr[1:]]
 
 
 def headingMedianStaggerOPIntArrEncode(inputIntArr):
   #like headingMedianStaggerIntArrEncode, but takes advantage of an input array's limited value range [0,inf) to make the output consist of smaller values.
   medianVal = int(median(inputIntArr))
-  return [medianVal] + [IntMath.unfocusedOP_to_focusedOP(item,medianVal) for item in inputIntArr]
+  return [medianVal] + [IntDomainMath.unfocusedOP_to_focusedOP(item,medianVal) for item in inputIntArr]
 
 def headingMedianStaggerOPIntArrDecode(inputIntArr):
   #the input and output could both be made streamable.
   medianVal = inputIntArr[0]
-  return [IntMath.focusedOP_to_unfocusedOP(item,medianVal) for item in inputIntArr[1:]]
+  return [IntDomainMath.focusedOP_to_unfocusedOP(item,medianVal) for item in inputIntArr[1:]]
 
 
 
