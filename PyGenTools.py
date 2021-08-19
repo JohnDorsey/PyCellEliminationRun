@@ -232,9 +232,10 @@ def genChunksAsLists(inputGen, n=2, partialChunkHandling="warn partial"):
           return
         else:
           print("PyGenTools.genChunksAsLists: warning: partial chunk encountered, but the partialChunkHandling kwarg does not indicate what should be done (no \"partial\" and no \"discard\"). The chunk will be yielded.")
-    yield chunkAsList
+
     if len(chunkAsList) == 0:
       return
+    yield chunkAsList
   
 
 def allAreEqual(inputSeq):

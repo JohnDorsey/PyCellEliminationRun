@@ -102,15 +102,15 @@ Design notes:
   
     -external features:
       
-      -add 15-second 48kHz sample song. 
-      
       -add a sample image.
-    
-      -add more output file formats, including plaintext python integer lists.
 
       -inclusion of LZMA and/or GZIP.
       
     -internal features:
+    
+      -make a strict most-aligned-axes-first interpolation mode for higher dimensions.
+    
+      -add lower bound and upper bound shape hints for CER in higher dimensions (e.g. the minimum z for x=5 and y in range(size[1])).
         
       -make the cer block seq codec reuse a cercs.
         
@@ -162,8 +162,6 @@ Design notes:
     
       -increase testing.
       
-      -rename QuickTimers to QuickClocks.
-      
     -structure:
 
       -make a better way to make numberSeqCodecs from numberCodecs.
@@ -181,6 +179,13 @@ Design notes:
     
 
   Feature wish list (CR = compression ratio):
+  
+    -make a dynamically learning markov-model-like cell scoring tool.
+      -this might score cells based on their paired (x, y) displacement from each endpoint individually, as well as their absolute height, and an additional chart for approximate location scaled to the rectangle formed by the start and end points.
+      (complexity: medium, maintenance: high, CR impact: positive, performance impact: very negative).
+      
+    -make a parallel-grid variant Cell Elimination Run, where cell elimination runs are split between two or more grids representing a wave and its derivitive(s).
+      (complexity: nightmare, maintenance: high, CR impact: positive, performance impact: none).
 
     -for performance reasons, make a mode where the CellElimRun catalogue has a lower vertical resolution than the Spline and audio data.
       (complexity: medium, maintenance: medium, CR impact: negative, performance impact: very positive - dissociates time complexity from audio bit depth, maybe avoiding a 256x slowdown when jumping from 8bit to 16bit samples.).
@@ -188,18 +193,11 @@ Design notes:
     -make an integer-only or fraction-based linear interpolation mode for the Spline, to prove it can be done easily for better compatibility between different implementations of the codec.
       (complexity: low, maintenance: low, CR impact: slightly negative, performance impact: none).
 
-    -make a parallel-grid variant Cell Elimination Run, where cell elimination runs are split between two or more grids representing a wave and its derivitive(s).
-      (complexity: nightmare, maintenance: high, CR impact: positive, performance impact: none).
-
-    -make a dynamically learning markov-model-like cell scoring tool.
-      -this might score cells based on their paired (x, y) displacement from each endpoint individually, as well as their absolute height, and an additional chart for approximate location scaled to the rectangle formed by the start and end points.
-      (complexity: medium, maintenance: high, CR impact: positive, performance impact: very negative).
-
     -make a static AI interpolation mode for the spline.
       (complexity: high, maintenance: low, CR impact: positive, performance impact: very negative).
 
     -make a fourier interpolation mode for the Spline.
-      (complexity: medium, maintenance: zero, CR impact: positive, performance impact: very negative).
+      (complexity: medium, maintenance: zero, CR impact: positive, performance impact: negative).
       
   will not do:
     
@@ -267,3 +265,9 @@ Design notes:
     -add Shannon-Fano coding as a faster alternative to huffman coding.
     
     -add a full-length sample song.
+      
+    -add more output file formats, including plaintext python integer lists.
+    
+    -add 15-second 48kHz sample song.
+      
+    -rename QuickTimers to QuickClocks.

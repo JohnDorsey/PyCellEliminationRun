@@ -5,12 +5,12 @@ Testing.py by John Dorsey.
 Testing.py contains tools for testing compression of audio with PyCellElimRun.py's tools.
 No other files require Testing.py
 
+
 """
 
 
+import os
 
-
-import WaveIO
 import Codes
 import CodecTools
 import PyCellElimRun as pcer
@@ -19,12 +19,14 @@ import IntSeqStore
 
 import HeaderTools
 
-import QuickTimers
+import QuickClocks
 
 import PyGenTools
 from PyGenTools import makeArr, makeGen
 from PyArrTools import ljustedArr
 import HistTools
+
+import WaveIO
 
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 
@@ -54,7 +56,9 @@ def evalSoundSrcStr(soundSrcStr):
 def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
   #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
   #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
-  QuickTimers.startTimer("test")
+  QuickClocks.start("test")
+  QuickClocks.create("test-cer-encode")
+  QuickClocks.create("test-cer-decode")
   
   testSound = evalSoundSrcStr(soundSrcStr)[:soundLength]
   assert len(testSound) == soundLength, "testSound has an unacceptable length."
@@ -71,17 +75,20 @@ def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finit
       testCERCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
       testCellElimRunCodec(testCERCodec, testSound, testSoundSize=testSoundSize)
 
-  print("Testing.test: testing took " + str(QuickTimers.stopTimer("test")) + " seconds.")
+  print("Testing.test: testing took {} seconds. CER total={}, CER encode={}, CER decode={}.".format(QuickClocks.stop("test"),QuickClocks.peek("test-cer-encode")+QuickClocks.peek("test-cer-decode"),QuickClocks.stop("test-cer-encode"),QuickClocks.stop("test-cer-decode")))
 
 
 def testCellElimRunCodec(testCERCodec, testSound, testSoundSize=None, compressAgain=False):
-
+  QuickClocks.resume("test-cer-encode")
   pressDataNums = testCERCodec.encode(testSound)
+  QuickClocks.pause("test-cer-encode")
   printSimpleAnalysis(pressDataNums)
 
   testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=testSoundSize)
 
+  QuickClocks.resume("test-cer-decode")
   reconstPlainDataNums = testCERCodec.decode(pressDataNums)
+  QuickClocks.pause("test-cer-decode")
   if reconstPlainDataNums == testSound:
     print("Testing.testCellElimRunCodec: test passed.\n")
     for i in range(len(testSound)):
@@ -162,39 +169,91 @@ def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
         sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}))
 
 
-def compressFull(soundSrcStr, destFileName, inputHeaderDict, blockWidth, numberSeqCodec):
+
+def allocateDirectory(desiredName):
+  alternativeName = desiredName
+  i = 1
+  while os.path.exists(alternativeName+"/"):
+    i += 1
+    alternativeName = desiredName+"(session{})".format(i)
+  usedName = alternativeName
+  os.mkdir(usedName)
+  return usedName
+
+
+def compressFull(soundSrcStr, sessionName, inputHeaderDict, blockWidth, numberSeqCodec):
   #access the entire sound based on its name, and use the functionalTest method to compress each block of audio, and delimit blocks with newlines in the output file.
-  QuickTimers.startTimer("compressFull")
+  QuickClocks.start("compressFull")
+  QuickClocks.create("compressFull-cer")
   
   sound = evalSoundSrcStr(soundSrcStr)
-    
-  print("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
-  print("Testing.compressFull: the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
   
-  cerBlockCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
-  blockCount = len(sound)//blockWidth
-    
-  with open(destFileName+" "+str(blockWidth)+" listStr","w") as pressDataListStrDestFile, open(destFileName+" "+str(blockWidth)+" bitStr","w") as pressDataBitStrDestFile:
+  outputName = "testingOutputs/{}".format(sessionName)
+  outputName = allocateDirectory(outputName)
+ 
+  outputCommonName = outputName+"/out "+str(blockWidth)
+  logFileName = outputCommonName+" log.txt"
   
-    for currentBlockIndex, currentBlockData in enumerate(PyGenTools.genChunksAsLists(sound, n=blockWidth, partialChunkHandling="discard")):
-      if not len(currentBlockData) == blockWidth:
-        raise ValueError("for block of index {}, invalid currentBlockData length: {}.".format(currentBlockIndex, len(currentBlockData)))
-      print(str((100.0*currentBlockIndex)/float(blockCount))[:6]+"%...")
-      
-      pressDataNums = cerBlockCodec.encode(currentBlockData)
-      print("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
-      pressDataListStrDestFile.write(str(pressDataNums)+"\n")
-      
-      pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(numberSeqCodec.zeroSafeEncode(pressDataNums)) + "\n"
-      print("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
-      pressDataBitStrDestFile.write(pressDataBitStr)
+  with open(logFileName,"w") as logFile:
 
-  print("Testing.compressFull: compression took " + str(QuickTimers.stopTimer("compressFull")) + " seconds.")
+    def log(text,end="\n"):
+      logFile.write(text+end)
+      return "log passthrough: "+text
+    def plog(text,end="\n"):
+      print(text)
+      log(text,end=end)
+      
+    plog("writing to log file {}.".format(logFileName))
+    plog("\nTesting.compressFull: settings: " + str(inputHeaderDict)+".")
+      
+    plog("Testing.compressFull: starting compression on sound of length " + str(len(sound)) + "...")
+    plog("Testing.compressFull: the input data is length " + str(len(sound)) + " and has a range of " + str((min(sound),max(sound))) + " and the start of it looks like " + str(sound[:PEEEK])[:PEEEK] + ".")
+    
+    cerBlockCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
+    blockCount = len(sound)//blockWidth
+    plog("\nTesting.compressFull: block count will be {}.".format(blockCount))
+    
+    with open(outputCommonName+" listStr.partial","w") as pressDataListStrDestFile, open(outputCommonName+" bitStr.partial","w") as pressDataBitStrDestFile, open(outputCommonName+" bytes.partial","w") as pressDataBytesDestFile, open(outputCommonName+" raw.partial","wb") as rawDestFile:
+    
+      for currentBlockIndex, currentBlockData in enumerate(PyGenTools.genChunksAsLists(sound, n=blockWidth, partialChunkHandling="discard")):
+        if not len(currentBlockData) == blockWidth:
+          raise ValueError(log("for block of index {}, invalid currentBlockData length: {}.".format(currentBlockIndex, len(currentBlockData))))
+        plog(str((100.0*currentBlockIndex)/float(blockCount))[:6]+"%...")
+        
+        rawDestFile.write(bytearray(currentBlockData))
+        
+        QuickClocks.resume("compressFull-cer")
+        pressDataNums = cerBlockCodec.encode(currentBlockData)
+        QuickClocks.pause("compressFull-cer")
+        plog("Testing.compressFull: there are " + str(len(pressDataNums)) + " pressDataNums to store.")
+        pressDataListStrDestFile.write(str(pressDataNums)+"\n")
+        
+        pressDataBitArr = [item for item in numberSeqCodec.zeroSafeEncode(pressDataNums)]
+        pressDataBitStr = CodecTools.bitSeqToStrCodec.encode(pressDataBitArr) + "\n"
+        plog("Testing.compressFull: the resulting pressDataBitStr has length " + str(len(pressDataBitStr)) + ".")
+        pressDataBitStrDestFile.write(pressDataBitStr)
+        
+        pressDataBytes = CodecTools.bitSeqToBytearrayCodec.encode(pressDataBitArr)
+        assert len(pressDataBytes) > 0, log("pressDataBytes is empty, which should not be possible.")
+        pressDataBytesDestFile.write(pressDataBytes)
+
+    plog("Testing.compressFull: compression took {} seconds, of which {} was spent on the Cell Elimination Run codec.".format(QuickClocks.stop("compressFull"), QuickClocks.stop("compressFull-cer")))
+    
+    for scanFileName in os.listdir(outputName):
+      scanFileFullName = outputName+"/"+scanFileName
+      plog("Testing.compressFull: size of {} is {}".format(repr(scanFileName), os.path.getsize(scanFileFullName)))
+    
+    for scanFileName in os.listdir(outputName):
+      scanFileFullName = outputName+"/"+scanFileName
+      if scanFileFullName.endswith(".partial"):
+        os.rename(scanFileFullName,scanFileFullName[:-8])
+    plog("end of logging.")
+  print("log file closed.")
 
 
 def decompressFull(srcFileName, inputHeaderDict, blockWidth, numberSeqCodec):
   #inverse of compressFull.
-  QuickTimers.startTimer("decompressFull")
+  QuickClocks.start("decompressFull")
   print("Testing.decompressFull: remember that this method returns a huge array which must be stored to a variable, not displayed. It will fill the console output history if shown on screen.")
   print("Testing.decompressFull: starting decompression on file named " + str(srcFileName) + "...")
   
@@ -225,7 +284,7 @@ def decompressFull(srcFileName, inputHeaderDict, blockWidth, numberSeqCodec):
       result.extend(plainDataNums)
       
   print("Testing.decompressFull: result has length " + str(len(result)) + " and ends with " + str(result[-PEEK:])[-PEEK:] + ".")
-  print("Testing.decompressFull: decompression took " + str(QuickTimers.stopTimer("decompressFull")) + " seconds.")
+  print("Testing.decompressFull: decompression took " + str(QuickClock.stop("decompressFull")) + " seconds.")
   return result
 
 
@@ -304,3 +363,13 @@ assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fi
 assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).encode([5,6,7,6,5,5,6,7,6,5])] == [32,10,32,10]
 assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).decode([32,10,32,10])] == [5,6,7,6,5,5,6,7,6,5]
 
+
+
+"""
+
+Testing.compressFull("WaveIO.sounds[\"samples/worthwhile-uint8mono48000.txt\"][:48000*3]","testingOutputs/worthwhile_48000_3sec_0.625LLfib",{"interpolation_mode":{"method_name":"linear"},"space_definition":{"size":[1024,256]}},1024,\
+Testing\
+.... .IntSeqStore.havenBucketCodecs["0.625LL_fibonacci"])
+
+
+"""

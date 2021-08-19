@@ -7,7 +7,9 @@ CodecTools.py contains classes and other tools that might help make it easier to
 """
 import traceback
 import itertools
+import PyGenTools
 from PyGenTools import makeArr, isGen, makeGen, ExhaustionError, genAddInt, arrAddInt
+from PyArrTools import ljustedArr
 from PyDictTools import augmentedDict
 
 
@@ -169,13 +171,13 @@ class Codec:
       if domain not in simpleIntDomains.keys():
         raise ValueError("the domain string argument is not a valid key for CodecTools.simpleIntDomains.")
       domain = simpleIntDomains[domain]
-    self.private_domain = domain
+    self._domain = domain
     #self.zeroSafe = (0 in self.domain) #remove soon.
     
   def getDomain(self):
-    if self.private_domain == None:
+    if self._domain == None:
       raise AttributeError("No Codec domain was provided.")
-    return self.private_domain
+    return self._domain
     
   def isZeroSafe(self):
     #print("CodecTools.Codec.isZeroSafe: this method is deprecated.")
@@ -277,7 +279,7 @@ class Codec:
       print("CodecTools.Codec.clone: warning: some existing extraKwargs may not be cloned.")
     argsToUse = extraArgs if extraArgs else self.extraArgs
     kwargsToUse = augmentedDict(extraKwargs, self.extraKwargs)
-    return Codec(self.encodeFun,self.decodeFun,transcodeFun=self.transcodeFun,domain=self.private_domain,extraArgs=argsToUse,extraKwargs=kwargsToUse)
+    return Codec(self.encodeFun, self.decodeFun, transcodeFun=self.transcodeFun, domain=self._domain, extraArgs=argsToUse, extraKwargs=kwargsToUse)
 
 
 
@@ -289,13 +291,13 @@ class Codec:
 
 
 def makePlatformCodec(platCodec, mainCodec):
-  return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))),(lambda y: platCodec.encode(mainCodec.decode(platCodec.decode(y)))))
+  return Codec((lambda x: platCodec.encode(mainCodec.encode(platCodec.decode(x)))), (lambda y: platCodec.encode(mainCodec.decode(platCodec.decode(y)))))
 
 def makePlainDataNumOffsetClone(mainCodec, offset): #used in MarkovTools.
-  return Codec((lambda x: mainCodec.encode(x+offset)),(lambda y: mainCodec.decode(y)-offset))
+  return Codec((lambda x: mainCodec.encode(x+offset)), (lambda y: mainCodec.decode(y)-offset))
 
 def makeChainedPairCodec(codec1,codec2):
-  return Codec((lambda x: codec2.encode(codec1.encode(x))),(lambda y: codec1.decode(codec2.decode(y))))
+  return Codec((lambda x: codec2.encode(codec1.encode(x))), (lambda y: codec1.decode(codec2.decode(y))))
 
 
 def makeSeqCodec(inputCodec,demoPlainData,zeroSafe):
@@ -450,11 +452,13 @@ def makeUnlimitedNumCodecWithEscapeCode(inputLimitedNumCodec,inputUnlimitedNumCo
 
 bitSeqToStrCodec = Codec((lambda x: "".join(str(item) for item in x)),(lambda x: [int(char) for char in x]))
 
+def bitSeqToBytearray(inputBitSeq):
+  return bytearray(int("".join(str(bit) for bit in ljustedArr(subSeq,8,fillItem=0)), 2) for subSeq in PyGenTools.genChunksAsLists(inputBitSeq, n=8, partialChunkHandling="warn partial"))
 
-
-
-
-
+def bytearrayToBitSeq(inputBytearray):
+  raise NotImplementedError()
+  
+bitSeqToBytearrayCodec = Codec(bitSeqToBytearray, bytearrayToBitSeq, domain=range(0,256)) #@ might break in python3
 
 
 

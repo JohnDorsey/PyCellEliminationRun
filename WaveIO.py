@@ -181,6 +181,6 @@ def intSeqToStringInBase(inputSeq, base=None, delimiter=" "):
 """
 
 
-
+print("WaveIO: loading sounds...")
 loadSounds()
 

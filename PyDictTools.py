@@ -63,7 +63,7 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
   if dict0 == None:
-    print("PyDictTools.augmentDict: warning: received None for arg dict0 and will take no actions.")
+    print("PyDictTools.augmentDict: warning: received None for arg dict0 and will do nothing.")
   if dict1 == None:
     print("PyDictTools.augmentDict: warning: received None for arg dict1 and will make no changes to dict0.")
     return
