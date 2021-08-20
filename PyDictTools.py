@@ -16,8 +16,7 @@ except NameError:
   getDictKeys = (lambda inputDict: inputDict.keys())
 
 
-
-
+from warnings import warn
 
 from PyGenTools import makeGen, makeArr
 
@@ -63,7 +62,7 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
   if dict0 == None:
-    print("PyDictTools.augmentDict: warning: received None for arg dict0 and will do nothing.")
+    warn("PyDictTools.augmentDict: warning: received None for arg dict0 and will do nothing.")
   if dict1 == None:
     print("PyDictTools.augmentDict: warning: received None for arg dict1 and will make no changes to dict0.")
     return
@@ -154,12 +153,14 @@ def makeFromTemplateAndSeq(template, inputSeq, valueTriggerFun, sortDictKeys=Tru
       else:
         result[templateKey] = originalValue
   return result
+  
 
 def makeFromTemplateAndNextFun(template, inputNextFun, valueTriggerFun, sortDictKeys=True, recursive=True, recursiveTypes=None):
   if recursiveTypes == None:
     recursiveTypes = [list,dict]
   inputGen = (inputNextFun() for i in range(2**16))
   return makeFromTemplateAndSeq(template, inputGen, valueTriggerFun, sortDictKeys=sortDictKeys, recursive=recursive, recursiveTypes=recursiveTypes)
+  
   
 """
 def makeFromTemplateAndKeywiseOracle(template, keywiseOracleFun, valueTriggerFun, sortDictKeys=True, recursive=True):
@@ -235,6 +236,7 @@ def writeFromTemplateAndPathwiseOracle(destination, template, pathwiseOracleFun,
       else:
         pass
 
+
 def writeFromTemplateAndNextFun(destination, template, inputNextFun, valueTriggerFun, **kwargs):
   writeFromTemplateAndPathwiseOracle(destination, template, (lambda ignorePath, ignoreValue: inputNextFun()), valueTriggerFun, **kwargs)
 
@@ -251,7 +253,7 @@ def dictToList(inputDict,extractionFun=None): # -> list:
     maxKey = max(inputDict.keys())
     minKey = min(key for key in inputDict.keys() if type(key)==int)
   except ValueError as ve:
-    print("PyDictTools.dictToList: Warning: returning an empty list in order to ignore ValueError: " + str(ve) + ".")
+    warn("PyDictTools.dictToList: Warning: returning an empty list in order to ignore ValueError: " + str(ve) + ".")
     return []
   result = [None for i in range(maxKey+1)]
   assert len(result) >= maxKey

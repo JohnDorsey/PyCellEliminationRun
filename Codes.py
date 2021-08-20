@@ -205,9 +205,9 @@ def incrementEnbocode(inputBitArr, order=None):
   inputBitArr[0] += 1
   finishLTRBinAddition(inputBitArr)
   if originalLength > order: #because the following test is not valid for the lowest possible enbocode.
-    assert len(inputBitArr) == originalLength, "the length should not have changed yet. (inputBitArr,order)="+str((inputBitArr,order))
+    assert len(inputBitArr) == originalLength, "the length should not have changed yet. (inputBitArr,order)={}.".format((inputBitArr, order))
   if len(inputBitArr) > originalLength:
-    assert len(inputBitArr) == originalLength+1, "the length should not have changed so much. (inputBitArr,order)="+str((inputBitArr,order))
+    assert len(inputBitArr) == originalLength+1, "the length should not have changed so much. (inputBitArr,order)={}.".format((inputBitArr, order))
     clearEnbocode(inputBitArr,order=order) #the enbocode simply grew during incrementation. This ensures that it is a valid enbocode before returning.
     return
   while True:
@@ -252,12 +252,12 @@ def genEnbocodeBitArrs(order=None):
 testArr = arrTakeOnly(genEnbocodeBitArrs(order=2),12)
 testArrCorrect = [[1,1],[0,1,1],[0,0,1,1],[1,0,1,1],[0,0,0,1,1],[1,0,0,1,1],[0,1,0,1,1],[0,0,0,0,1,1],[1,0,0,0,1,1],[0,1,0,0,1,1], [0,0,1,0,1,1], [1,0,1,0,1,1]]
 if not testArr == testArrCorrect:
-  print("(testArr,testArrCorrect)="+str((testArr,testArrCorrect))+".")
+  print("testArr={}, testArrCorrect={}.".format(testArr,testArrCorrect))
   assert False
 testArr = arrTakeOnly(genEnbocodeBitArrs(order=3),14)
 testArrCorrect = [[1,1,1],[0,1,1,1],[0,0,1,1,1],[1,0,1,1,1],[0,0,0,1,1,1],[1,0,0,1,1,1],[0,1,0,1,1,1],[1,1,0,1,1,1],[0,0,0,0,1,1,1], [1,0,0,0,1,1,1], [0,1,0,0,1,1,1], [1,1,0,0,1,1,1], [0,0,1,0,1,1,1], [1,0,1,0,1,1,1]]
 if not testArr == testArrCorrect:
-  print("(testArr,testArrCorrect)="+str((testArr,testArrCorrect))+".")
+  print("testArr={}, testArrCorrect={}.".format(testArr,testArrCorrect))
   assert False
 del testArr
 del testArrCorrect
@@ -267,7 +267,7 @@ del testArrCorrect
 def genRoundEnbocodeValueOffsetsSlow(order=None):
   print("Codes.genRoundEnbocodeValueOffsetsSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
   print("Codes.genRoundEnbocodeValueOffsetsSlow: WARNING: not thoroughly tested!")
-  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True),genRoundEnbocodeValuesSlow(order=order)):
+  for expected,actual in itertools.izip(FibonacciMath.genEnbonacciNums(order=order,skipStart=True), genRoundEnbocodeValuesSlow(order=order)):
     yield expected-actual
 
 def genRoundEnbocodeValueOffsets(order=None):
@@ -367,7 +367,7 @@ def intToFibcodeBitArr(inputInt): #this is based on math that is a special case 
   assert inputInt >= 1
   result = []
   currentInt = inputInt
-  for index,fibNum in FibonacciMath.genEnboNumsDescendingFromValue(inputInt*2+10,order=2,includeIndices=True,indexStartArr=False):
+  for index,fibNum in FibonacciMath.genEnboNumsDescendingFromValue(inputInt*2+10, order=2, includeIndices=True, indexStartArr=False):
     #print("intToEnbocodeBitArr: before loop body: (inputInt,order,index,enboNum,result)=" + str((inputInt,order,index,enboNum,result)) + ".")
     assert fibNum > 0
     if fibNum <= currentInt:
@@ -463,7 +463,7 @@ def fibcodeBitSeqToInt(inputBitSeq): #this is based on math that is a special ca
   elif len(bitHistory) > 2:
     if not arrEndsWith(bitHistory,[0,1,1]):
       raise ParseError("Unlikely error: bitHistory is " + str(bitHistory) + " which does not end in [0,1,1].")
-  fibNumGen = genSkipFirst(FibonacciMath.genEnbonacciNums(order=2),2) #@ cleanup.
+  fibNumGen = genSkipFirst(FibonacciMath.genEnbonacciNums(order=2), 2) #@ cleanup.
   result = 0
   for i,currentFibNum in enumerate(fibNumGen): #this might generate one more fibNum than is needed.
     assert currentFibNum > 0
@@ -485,12 +485,12 @@ def higherEnbocodeBitSeqToInt(inputBitGen, order=None): #wastes memory with bitH
     except StopIteration:
       if len(bitHistory) == 0:
         raise ExhaustionError("higherEnbocodeBitSeqToInt received empty input data.")
-      raise ParseError("ran out of input bits midword. order={}, bitHistory was {}.".format(order,bitHistory))
+      raise ParseError("ran out of input bits midword. order={}, bitHistory was {}.".format(order, bitHistory))
   #print("Codes.higherEnbocodeBitSeqToInt: processing {}.".format(bitHistory))
   assert len(bitHistory) >= order
   if len(bitHistory) <= order + 1:
     return len(bitHistory) - order + 1
-  placeValueGen = FibonacciMath.genEnbonacciNums(order=order,includeStartArr=False)
+  placeValueGen = FibonacciMath.genEnbonacciNums(order=order, includeStartArr=False)
   #differenceGen = genPureEnbocodeValueOffsetsSlow(order=order)
   altPlaceValueGen = genRoundEnbocodeValues(order=order)
   result = 0
@@ -523,14 +523,14 @@ def enbocodeBitSeqToInt(inputBitSeq, order=None, maxInputInt=None):
   if order == 2:
     return fibcodeBitSeqToInt(inputBitSeq)
   else:
-    return higherEnbocodeBitSeqToInt(inputBitSeq,order=order)
+    return higherEnbocodeBitSeqToInt(inputBitSeq, order=order)
 
 
 def intSeqToEnbocodeBitSeq(inputIntSeq, order=None, maxInputInt=None):
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEnbocodeBitSeq(x, order=order, maxInputInt=maxInputInt)))
+  return intSeqToBitSeq(inputIntSeq, (lambda x: intToEnbocodeBitSeq(x, order=order, maxInputInt=maxInputInt)))
 
 def enbocodeBitSeqToIntSeq(inputBitSeq, order=None, maxInputInt=None):
-  return bitSeqToIntSeq(inputBitSeq,(lambda x: enbocodeBitSeqToInt(x, order=order, maxInputInt=maxInputInt)))
+  return bitSeqToIntSeq(inputBitSeq, (lambda x: enbocodeBitSeqToInt(x, order=order, maxInputInt=maxInputInt)))
 
 
 
@@ -577,16 +577,16 @@ def eliasGammaBitSeqToInt(inputBitSeq):
 
 
 def intSeqToEliasGammaBitSeq(inputIntSeq):
-  return intSeqToBitSeq(inputIntSeq,intToEliasGammaBitSeq)
+  return intSeqToBitSeq(inputIntSeq, intToEliasGammaBitSeq)
 
 def eliasGammaBitSeqToIntSeq(inputBitSeq):
-  return bitSeqToIntSeq(inputBitSeq,eliasGammaBitSeqToInt)
+  return bitSeqToIntSeq(inputBitSeq, eliasGammaBitSeqToInt)
 
 
 def intToEliasDeltaBitSeq(inputInt):
   assert inputInt >= 1
   payloadBits = intToBinaryBitArr(inputInt)[1:]
-  for outputBit in intToEliasGammaBitSeq(len(payloadBits)+1):
+  for outputBit in intToEliasGammaBitSeq(len(payloadBits) + 1):
     yield outputBit
   for outputBit in payloadBits:
     yield outputBit
@@ -604,10 +604,10 @@ def eliasDeltaBitSeqToInt(inputBitSeq):
 
 
 def intSeqToEliasDeltaBitSeq(inputIntSeq):
-  return intSeqToBitSeq(inputIntSeq,intToEliasDeltaBitSeq)
+  return intSeqToBitSeq(inputIntSeq, intToEliasDeltaBitSeq)
 
 def eliasDeltaBitSeqToIntSeq(inputBitSeq):
-  return bitSeqToIntSeq(inputBitSeq,eliasDeltaBitSeqToInt)
+  return bitSeqToIntSeq(inputBitSeq, eliasDeltaBitSeqToInt)
 
 
 
@@ -629,75 +629,81 @@ def intToEliasGammaIotaBitSeq(inputInt,maxInputInt):
   assert payloadLength <= maxPayloadLength
   #print("maxPayloadLength="+str(maxPayloadLength))
   #print("prefixLength="+str(prefixLength))
-  prefix = rjustedArr(intToBinaryBitArr(payloadLength),prefixLength)
+  prefix = rjustedArr(intToBinaryBitArr(payloadLength), prefixLength)
   assert len(prefix) == prefixLength
   result = prefix + intToBinaryBitArr(inputInt)[1:]
   for outputBit in result:
     yield outputBit
 
-def eliasGammaIotaBitSeqToInt(inputBitSeq,maxInputInt):
+def eliasGammaIotaBitSeqToInt(inputBitSeq, maxInputInt):
   inputBitSeq = makeGen(inputBitSeq)
   maxPayloadLength = len(bin(maxInputInt)[3:])
   prefixLength = len(bin(maxPayloadLength)[2:])
   prefixValue = binaryBitArrToInt(arrTakeOnly(inputBitSeq,prefixLength,onExhaustion=ExhaustionError("Codes.eliasGammaIotaBitSeqToInt didn't have enough bits for the prefix.")))
   assert prefixValue != None, "None-based termination is being phased out."
   try:
-    return extendIntByBits(1,inputBitSeq,prefixValue)
+    return extendIntByBits(1, inputBitSeq, prefixValue)
   except ExhaustionError:
     raise ParseError("Codes.eliasGammaIotaBitSeqToInt ran out of input bits before receiving as many as its prefix promised.")
   
 
-def intSeqToEliasGammaIotaBitSeq(inputIntSeq,maxInputInt):
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasGammaIotaBitSeq(x,maxInputInt)))
+def intSeqToEliasGammaIotaBitSeq(inputIntSeq, maxInputInt):
+  fun = (lambda x: intToEliasGammaIotaBitSeq(x,maxInputInt))
+  return intSeqToBitSeq(inputIntSeq, fun)
 
-def eliasGammaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
-  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt)))
+def eliasGammaIotaBitSeqToIntSeq(inputBitSeq, maxInputInt):
+  fun = (lambda x: eliasGammaIotaBitSeqToInt(x,maxInputInt))
+  return bitSeqToIntSeq(inputBitSeq, fun)
 
 
 
-def intToEliasDeltaIotaBitSeq(inputInt,maxInputInt):
+def intToEliasDeltaIotaBitSeq(inputInt, maxInputInt):
   assert inputInt > 0
   assert inputInt <= maxInputInt
   maxBodyLength = len(bin(maxInputInt)[3:])
-  result = intToHybridCodeBitSeq(inputInt,(lambda x: intToEliasGammaIotaBitSeq(x,maxBodyLength+1)),False)
+  fun = (lambda x: intToEliasGammaIotaBitSeq(x,maxBodyLength+1))
+  result = intToHybridCodeBitSeq(inputInt, fun, False)
   assert result != None
   return result
 
-def eliasDeltaIotaBitSeqToInt(inputBitSeq,maxInputInt):
+def eliasDeltaIotaBitSeqToInt(inputBitSeq, maxInputInt):
   assert maxInputInt > 0
   maxBodyLength = len(bin(maxInputInt)[3:])
-  result = hybridCodeBitSeqToInt(inputBitSeq,(lambda x: eliasGammaIotaBitSeqToInt(x,maxBodyLength+1)),False)
+  fun = (lambda x: eliasGammaIotaBitSeqToInt(x,maxBodyLength+1))
+  result = hybridCodeBitSeqToInt(inputBitSeq, fun, False)
   assert result != None
   return result
 
 
-def intSeqToEliasDeltaIotaBitSeq(inputIntSeq,maxInputInt):
-  return intSeqToBitSeq(inputIntSeq,(lambda x: intToEliasDeltaIotaBitSeq(x,maxInputInt)))
+def intSeqToEliasDeltaIotaBitSeq(inputIntSeq, maxInputInt):
+  fun = (lambda x: intToEliasDeltaIotaBitSeq(x,maxInputInt))
+  return intSeqToBitSeq(inputIntSeq, fun)
 
-def eliasDeltaIotaBitSeqToIntSeq(inputBitSeq,maxInputInt):
-  return bitSeqToIntSeq(inputBitSeq,(lambda x: eliasDeltaIotaBitSeqToInt(x,maxInputInt)))
+def eliasDeltaIotaBitSeqToIntSeq(inputBitSeq, maxInputInt):
+  fun = (lambda x: eliasDeltaIotaBitSeqToInt(x,maxInputInt))
+  return bitSeqToIntSeq(inputBitSeq, fun)
 
 
 
 #eliasGammaFib and eliasDeltaFib are two universal codes I created. They replace the normal unary prefix present in an Elias code with a fibonacci-coded prefix.
 
-def intToEliasGammaFibBitSeq(inputInt,addDbgChars=False):
+def intToEliasGammaFibBitSeq(inputInt, addDbgChars=False):
   assert inputInt > 0
-  result = intToHybridCodeBitSeq(inputInt,intToFibcodeBitSeq,False,addDbgChars=addDbgChars)
+  result = intToHybridCodeBitSeq(inputInt, intToFibcodeBitSeq, False, addDbgChars=addDbgChars)
   assert result != None
   return result
 
 def eliasGammaFibBitSeqToInt(inputBitSeq):
-  result = hybridCodeBitSeqToInt(inputBitSeq,fibcodeBitSeqToInt,False)
+  result = hybridCodeBitSeqToInt(inputBitSeq, fibcodeBitSeqToInt, False)
   assert result != None
   return result
 
 
 def intSeqToEliasGammaFibBitSeq(inputIntSeq):
-  return intSeqToBitSeq(inputIntSeq,intToEliasGammaFibBitSeq)
+  return intSeqToBitSeq(inputIntSeq, intToEliasGammaFibBitSeq)
 
 def eliasGammaFibBitSeqToIntSeq(inputBitSeq):
-  return bitSeqToIntSeq(inputBitSeq,eliasGammaFibBitSeqToInt)
+  return bitSeqToIntSeq(inputBitSeq, eliasGammaFibBitSeqToInt)
 
 
 
@@ -749,32 +755,32 @@ print("defining codecs...")
 codecs = {}
 
 
-codecs["binary"] = CodecTools.Codec(intToBinaryBitSeq,binaryBitSeqToInt,domain="UNSIGNED")
+codecs["binary"] = CodecTools.Codec(intToBinaryBitSeq, binaryBitSeqToInt, domain="UNSIGNED")
 
-codecs["enbonacci"] = CodecTools.Codec(intToEnbocodeBitSeq,enbocodeBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq,unaryBitSeqToInt,domain="UNSIGNED")
-codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq,eliasGammaBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq,eliasDeltaBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["eliasGammaFib"] = CodecTools.Codec(intToEliasGammaFibBitSeq,eliasGammaFibBitSeqToInt,domain="UNSIGNED_NONZERO")
-codecs["eliasDeltaFib"] = CodecTools.Codec(intToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToInt,domain="UNSIGNED_NONZERO")
+codecs["enbonacci"] = CodecTools.Codec(intToEnbocodeBitSeq, enbocodeBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["unary"] = CodecTools.Codec(intToUnaryBitSeq, unaryBitSeqToInt, domain="UNSIGNED")
+codecs["eliasGamma"] = CodecTools.Codec(intToEliasGammaBitSeq, eliasGammaBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["eliasDelta"] = CodecTools.Codec(intToEliasDeltaBitSeq, eliasDeltaBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["eliasGammaIota"] = CodecTools.Codec(intToEliasGammaIotaBitSeq, eliasGammaIotaBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["eliasDeltaIota"] = CodecTools.Codec(intToEliasDeltaIotaBitSeq, eliasDeltaIotaBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["eliasGammaFib"] = CodecTools.Codec(intToEliasGammaFibBitSeq, eliasGammaFibBitSeqToInt, domain="UNSIGNED_NONZERO")
+codecs["eliasDeltaFib"] = CodecTools.Codec(intToEliasDeltaFibBitSeq, eliasDeltaFibBitSeqToInt, domain="UNSIGNED_NONZERO")
 
 
-codecs["inSeq_enbonacci"] = CodecTools.Codec(intSeqToEnbocodeBitSeq,enbocodeBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq,eliasGammaBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq,eliasDeltaBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq,eliasGammaIotaBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq,eliasDeltaIotaBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasGammaFib"] = CodecTools.Codec(intSeqToEliasGammaFibBitSeq,eliasGammaFibBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
-codecs["inSeq_eliasDeltaFib"] = CodecTools.Codec(intSeqToEliasDeltaFibBitSeq,eliasDeltaFibBitSeqToIntSeq,domain="UNSIGNED_NONZERO")
+codecs["inSeq_enbonacci"] = CodecTools.Codec(intSeqToEnbocodeBitSeq, enbocodeBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasGamma"] = CodecTools.Codec(intSeqToEliasGammaBitSeq, eliasGammaBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasDelta"] = CodecTools.Codec(intSeqToEliasDeltaBitSeq, eliasDeltaBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasGammaIota"] = CodecTools.Codec(intSeqToEliasGammaIotaBitSeq, eliasGammaIotaBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasDeltaIota"] = CodecTools.Codec(intSeqToEliasDeltaIotaBitSeq, eliasDeltaIotaBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasGammaFib"] = CodecTools.Codec(intSeqToEliasGammaFibBitSeq, eliasGammaFibBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
+codecs["inSeq_eliasDeltaFib"] = CodecTools.Codec(intSeqToEliasDeltaFibBitSeq, eliasDeltaFibBitSeqToIntSeq, domain="UNSIGNED_NONZERO")
 
 codecs["fibonacci"] = codecs["enbonacci"].clone(extraKwargs={"order":2})
 codecs["inSeq_fibonacci"] = codecs["inSeq_enbonacci"].clone(extraKwargs={"order":2})
 
-FIBONACCI_ORDER_NICKNAMES = {"tribonacci":3,"tetranacci":4,"pentanacci":5,"hexanacci":6,"heptanacci":7,"octanacci":8,"enneanacci":9}
+FIBONACCI_ORDER_NICKNAMES = {"tribonacci":3, "tetranacci":4, "pentanacci":5, "hexanacci":6, "heptanacci":7, "octanacci":8, "enneanacci":9}
 
-for orderName,order in FIBONACCI_ORDER_NICKNAMES.items():
+for orderName, order in FIBONACCI_ORDER_NICKNAMES.items():
   codecs[orderName] = codecs["enbonacci"].clone(extraKwargs={"order":order})
   codecs["inSeq_"+orderName] = codecs["inSeq_enbonacci"].clone(extraKwargs={"order":order})
 
@@ -826,24 +832,24 @@ for testOrder in [3,4,5,8,14]:
 
 print("performing full codec tests...")
 
-testNumCodecNames = ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]
+testNumCodecNames = ["fibonacci", "eliasGamma", "eliasDelta", "eliasGammaFib", "eliasDeltaFib"] + [key for key in FIBONACCI_ORDER_NICKNAMES.keys()]
 
 for testCodecName in testNumCodecNames:
   print("testing " + testCodecName + "...")
-  for testNum in [1,5,10,255,257,65535,65537,999999]:
-    assert CodecTools.roundTripTest(codecs[testCodecName],testNum)
+  for testNum in [1, 5, 10, 255, 257, 65535, 65537, 999999]:
+    assert CodecTools.roundTripTest(codecs[testCodecName], testNum)
 
-testNumSeqCodecNames = ["inSeq_"+testNumCodecName for testNumCodecName in ["fibonacci","eliasGamma","eliasDelta","eliasGammaFib","eliasDeltaFib"]+[key for key in FIBONACCI_ORDER_NICKNAMES.keys()]] #no unary.
+testNumSeqCodecNames = ["inSeq_"+testNumCodecName for testNumCodecName in ["fibonacci", "eliasGamma", "eliasDelta", "eliasGammaFib", "eliasDeltaFib"] + [key for key in FIBONACCI_ORDER_NICKNAMES.keys()]] #no unary.
 
 for testCodecName in testNumSeqCodecNames:
   print("testing " + testCodecName + "...")
   testArr = [1,2,3,4,5,100,1000,1000000,1,1000,1,100,1,5,4,3,2,1]
-  assert CodecTools.roundTripTest(codecs[testCodecName],testArr)
+  assert CodecTools.roundTripTest(codecs[testCodecName], testArr)
   
 
 
 print("performing tests of Iota codings...")
 
-assert CodecTools.roundTripTest(codecs["inSeq_eliasGammaIota"].clone(extraKwargs={"maxInputInt":15}),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+assert CodecTools.roundTripTest(codecs["inSeq_eliasGammaIota"].clone(extraKwargs={"maxInputInt":15}), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
 
 

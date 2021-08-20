@@ -46,6 +46,7 @@ def patchListHist(inputListHist,holeMatchFun=None,patchFun=None,lowFix=None):
       assert holeEndY != None
       for indexToPatch in range(holeStartIndex+1,holeEndIndex):
         inputListHist[indexToPatch] = patchFun(holeStartIndex,holeEndIndex,holeStartY,holeEndY,indexToPatch)
+  
   assert None not in inputListHist
   noHoles = True
   for item in inputListHist:

@@ -36,6 +36,7 @@ VERBOSE = True
 
 defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
 defaultNumSeqCodecSrcStr = "Codes.codecs[\"inSeq_fibonacci\"]"
+defaultInterpolationModesToTest
 
 sampleCerPressNums = {
   "linear":{
@@ -57,7 +58,17 @@ def evalSoundSrcStr(soundSrcStr):
 
 
 
-def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finite_difference_cubic_hermite"}, {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}], scoreModesToTest=["vertical_distance"], soundSrcStr=defaultSampleSoundSrcStr, soundLength=1024):
+def test(
+    interpolationModesToTest=[
+      "linear",
+      "sinusoidal",
+      {"method_name":"finite_difference_cubic_hermite"},
+      {"method_name":"inverse_distance_weighted","power":2,"output_filters":["span_clip"]}
+    ],
+    scoreModesToTest=["vertical_distance"],
+    soundSrcStr=defaultSampleSoundSrcStr,
+    soundLength=1024
+  ):
   #This method tests that the round trip from raw audio to pressDataNums and back does not change the data.
   #print("Testing.test: make sure that the sample rate is correct.") #this is necessary because the sample rate of some files, like the moo file, might have been wrong at the time of their creation. moo8bmono44100.wav once had every sample appear twice in a row.
   QuickClocks.start("test")
@@ -70,16 +81,23 @@ def test(interpolationModesToTest=["linear", "sinusoidal", {"method_name":"finit
   assert max(testSound) < testSoundSize[1]
   assert min(testSound) >= 0
 
-  print("Testing.test: the input data is length " + str(len(testSound)) + " and has a value range of " + str((min(testSound),max(testSound))) + ((" and is equal to " + str(testSound)) if VERBOSE else (" and the start of it looks like " + str(testSound[:PEEK])[:PEEK])) + ".")
+  print("Testing.test: the input data is length " + str(len(testSound))
+    + " and has a value range of " + str((min(testSound),max(testSound)))
+    + ((" and is equal to " + str(testSound)) if VERBOSE else (" and the start of it looks like " + str(testSound[:PEEK])[:PEEK])) + ".")
 
   for interpolationMode in interpolationModesToTest: #test all specified interpolation modes.
     for scoreMode in scoreModesToTest:
-      inputHeaderDict = {"interpolation_mode":interpolationMode,"score_mode":scoreMode,"space_definition":{"size":testSoundSize}}
+      inputHeaderDict = {"interpolation_mode":interpolationMode, "score_mode":scoreMode, "space_definition":{"size":testSoundSize}}
       print("\nTesting.test: settings: " + str(inputHeaderDict)+".")
       testCERCodec = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict])
       testCellElimRunCodec(testCERCodec, testSound, testSoundSize=testSoundSize)
 
-  print("Testing.test: testing took {} seconds. CER total={}, CER encode={}, CER decode={}.".format(QuickClocks.stop("test"),QuickClocks.peek("test-cer-encode")+QuickClocks.peek("test-cer-decode"),QuickClocks.stop("test-cer-encode"),QuickClocks.stop("test-cer-decode")))
+  print("Testing.test: testing took {} seconds. CER total={}, CER encode={}, CER decode={}.".format(
+    QuickClocks.stop("test"),
+    QuickClocks.peek("test-cer-encode") + QuickClocks.peek("test-cer-decode"),
+    QuickClocks.stop("test-cer-encode"),
+    QuickClocks.stop("test-cer-decode")
+  ))
 
 
 def testCellElimRunCodec(testCERCodec, testSound, testSoundSize=None, compressAgain=False):
@@ -276,7 +294,10 @@ def compressFull(soundSrcStr, outputShortName, settings=None, blockSize=(256,256
     blockCount = len(sound)//blockWidth
     plog("\nTesting.compressFull: block count will be {}.".format(blockCount))
     
-    with open(outputCommonName+" listStr.partial","w") as pressDataListStrDestFile, open(outputCommonName+" bitStr.partial","w") as pressDataBitStrDestFile, open(outputCommonName+" bytes.partial","w") as pressDataBytesDestFile, open(outputCommonName+" raw.partial","wb") as rawDestFile:
+    with open(outputCommonName + " listStr.partial","w") as pressDataListStrDestFile, \
+         open(outputCommonName + " bitStr.partial","w") as pressDataBitStrDestFile, \
+         open(outputCommonName + " bytes.partial","w") as pressDataBytesDestFile, \
+         open(outputCommonName + " raw.partial","wb") as rawDestFile:
     
       for currentBlockIndex, currentBlockData in enumerate(PyGenTools.genChunksAsLists(sound, n=blockWidth, partialChunkHandling="discard")):
         if not len(currentBlockData) == blockWidth:
@@ -367,15 +388,27 @@ def decompressFull(srcFileName, settings=None, blockSize=(256,256), numberSeqCod
 
 
 class PressNumsAnalysis:
-  def __init__(self,plainDataSrcArr,numberSeqCodec,sliceLength,offsetSrcGen):
+  def __init__(self,plainDataSrcArr, numberSeqCodec, sliceLength, offsetSrcGen):
     self.plainDataSrcArr = plainDataSrcArr
     self.numberSeqCodec = numberSeqCodec
     self.sliceLength = sliceLength
     self.offsetSrcGen = makeGen(offsetSrcGen)
     histClass = HistTools.SimpleListHist
-    self.collectedData = {"all":histClass(), "all_notcol0":histClass(), "all_by_column":[histClass() for i in range(self.sliceLength)], "lengths":histClass(), "means_rounded":histClass(), "medians_rounded":histClass(), "maxima":histClass(), "means_rounded_notcol0":histClass(), "medians_rounded_notcol0":histClass(), "maxima_notcol0":histClass()}
+    self.collectedData = {
+      "all":histClass(),
+      "all_notcol0":histClass(),
+      "all_by_column":[histClass() for i in range(self.sliceLength)],
+      "lengths":histClass(),
+      "means_rounded":histClass(),
+      "medians_rounded":histClass(),
+      "maxima":histClass(),
+      "means_rounded_notcol0":histClass(),
+      "medians_rounded_notcol0":histClass(),
+      "maxima_notcol0":histClass()
+    }
     
     self.dbgLastOffset = None
+
 
   def run(self,blockCount,timeLimit=None):
     def endPhrase():
@@ -428,12 +461,12 @@ class PressNumsAnalysis:
 assert len(WaveIO.sounds["samples/moo8bmono44100.txt"]) > 0
 
 #fix these to use improved zero-safe design.
-assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256],"encode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]})]))],"decode","linear",{"size":[256,SAMPLE_VALUE_UPPER_BOUND]}) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
+assert pcer.cellElimRunBlockTranscode([item-1 for item in Codes.codecs["inSeq_fibonacci"].decode(Codes.codecs["inSeq_fibonacci"].encode([item+1 for item in pcer.cellElimRunBlockTranscode(WaveIO.sounds["samples/moo8bmono44100.txt"][:256], "encode", "linear", {"size":[256,SAMPLE_VALUE_UPPER_BOUND]})]))], "decode", "linear", {"size":[256,SAMPLE_VALUE_UPPER_BOUND]}) == WaveIO.sounds["samples/moo8bmono44100.txt"][:256]
 
 #test of streaming CER blocks:
 
-assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).encode([5,6,7,6,5,5,6,7,6,5])] == [32,10,32,10]
-assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear",{"size":(5,10),"endpoint_init_mode":"middle"}]).decode([32,10,32,10])] == [5,6,7,6,5,5,6,7,6,5]
+assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear", {"size":(5,10), "endpoint_init_mode":"middle"}]).encode([5,6,7,6,5,5,6,7,6,5])] == [32,10,32,10]
+assert [item for item in pcer.cellElimRunBlockSeqCodec.clone(extraArgs=["linear", {"size":(5,10), "endpoint_init_mode":"middle"}]).decode([32,10,32,10])] == [5,6,7,6,5,5,6,7,6,5]
 
 
 

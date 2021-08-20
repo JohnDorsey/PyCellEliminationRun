@@ -232,6 +232,7 @@ def genBleedSortedArrWithoutSearches(seedArr,noNegatives=False):
       del movingSpots[iDest]
   #after the above loop breaks, there are only movingSpots with directions equal to 1, so no more testing needs to be done.
   uniformlyMovingSpots = [spot[1] for spot in movingSpots]
+  assert len(uniformlyMovingSpots) == 1
   for offset in itertools.count(0):
     for value in uniformlyMovingSpots:
       yield value+offset

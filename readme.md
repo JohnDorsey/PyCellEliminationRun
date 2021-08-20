@@ -21,7 +21,13 @@ Usage:
 
   compress the demo file "samples/moo8bmono44100.txt":
 
-    Testing.compressFull("samples/moo8bmono44100.txt", "<your name for the output file>", settings=None, blockSize=[512,256], numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"])
+    Testing.compressFull(
+      "samples/moo8bmono44100.txt",
+      "<your name for the output file>",
+      settings=None,
+      blockSize=[512,256],
+      numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"]
+      )
     
   The output file(s) will be created in a new folder inside testingOutputs/.
     
@@ -35,7 +41,10 @@ Usage:
 
   verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
 
-    testLen = min(len(reconstructedSound),len(Testing.WaveIO.sounds["samples/moo8bmono44100.txt"]))
+    testLen = min(
+      len(reconstructedSound),
+      len(Testing.WaveIO.sounds["samples/moo8bmono44100.txt"])
+      )
 
     assert reconstructedSound[:testLen] == Testing.WaveIO.sounds["samples/moo8bmono44100.txt"][:testLen]
     
@@ -52,11 +61,14 @@ Usage:
 
     import WavePrep
 
-    WavePrep.convertAudio("<source file name>.wav", "<destination file name>", sourceFramerate=44100, resamplingInterval=1)
+    WavePrep.convertAudio(
+      "<source file name>.wav",
+      "<destination file name>",
+      sourceFramerate=44100,
+      resamplingInterval=1
+      )
 
-  The above takes an int16 44.1kHz stereo .wav source file and creates a uint8 44.1kHz mono destination file (in two formats: .wav, and .txt containing a python list literal). This is necessary because some parts of the project, particularly in Testing.py, assume that audio samples have values under 256 (although the Cell Elimination Run codec supports any integer as the maximum sample value).
-  
-  No parts of the project operate on more than one audio channel.
+  The above takes an int16 44.1kHz stereo .wav source file and creates a uint8 44.1kHz mono destination file (in two formats: .wav, and .txt containing a python list literal). Preparing a file is necessary because some parts of the project, particularly in Testing.py, assume that audio samples have values under 256 (although the Cell Elimination Run codec supports any integer as the maximum sample value), and also because no parts of the project operate on more than one audio channel.
 
 
     import Testing
