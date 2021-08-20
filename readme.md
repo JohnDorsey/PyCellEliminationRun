@@ -147,6 +147,8 @@ Design notes:
     
       -simplify the CellElimRunCodecState:
         
+        -separate everything but the header processing into functions outside of the class.
+        
         -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
       
         -separate experimental features from the headerDict and header routines.
