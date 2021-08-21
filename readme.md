@@ -16,8 +16,8 @@ Usage:
 
     Testing.test()
   
-  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute (for pypy). The saving rate should never be negative.
-
+  The printed output should include "test passed." after *most* of the tests, and the reported time taken should ideally be under a minute (for pypy). The saving rate should *never* be negative.
+  
 
   compress the demo file "samples/moo8bmono44100.txt":
 
@@ -36,7 +36,12 @@ Usage:
 
   decompress a compressed file:
 
-    reconstructedSound = Testing.decompressFull("<name of the compressed file>", settings=None, blockSize=[512,256], numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"])
+    reconstructedSound = Testing.decompressFull(
+      "<name of the compressed file>",
+      settings=None,
+      blockSize=[512,256],
+      numberSeqCodec=Testing.Codes.codecs["inSeq_fibonacci"]
+      )
   
 
   verify that the reconstructed file matches the original "samples/moo8bmono44100.txt":
@@ -69,11 +74,13 @@ Usage:
       )
 
   The above takes an int16 44.1kHz stereo .wav source file and creates a uint8 44.1kHz mono destination file (in two formats: .wav, and .txt containing a python list literal). Preparing a file is necessary because some parts of the project, particularly in Testing.py, assume that audio samples have values under 256 (although the Cell Elimination Run codec supports any integer as the maximum sample value), and also because no parts of the project operate on more than one audio channel.
+  
+  The .txt format for sample files is helpful because it means that sample file loading can be done in any version of python without regard for how python's wave module has changed between python 2 and python 3.
 
 
     import Testing
 
-    Testing.WaveIO.sounds["file name.wav"] = Testing.WaveIO.loadSound("file name.wav")
+    Testing.WaveIO.sounds["<file name>.wav"] = Testing.WaveIO.loadSound("<file name>.wav")
 
   The above loads the new sound into WaveIO. Also, WaveIO.py can be edited to add an empty entry to the sounds dictionary so that it will be loaded every time WaveIO.py is loaded.
 
@@ -81,10 +88,19 @@ Usage:
 
 Explanation of compression settings:
 
-  The interpolation mode chosen for the Spline affects how the Spline will estimate the values of the missing samples. Interpolation modes that are better at approximating audio signals generally result in better compression. Valid interpolationModes are "hold", "nearest_neighbor", "linear", "sinusoidal", "finite_difference_cubic_hermite", and "inverse_distance_weighted". Of these, "linear" seems to give the best compression for the sample file moo8bmono44100.txt.
+  The interpolation mode chosen for the Spline affects how the Spline will estimate the values of the missing samples. Interpolation modes that are better at approximating audio signals ought to result in better compression. Valid interpolationModes are "hold", "nearest_neighbor", "linear", "sinusoidal", "finite_difference_cubic_hermite", and "inverse_distance_weighted". Of these, "linear" seems to give the best compression for the sample file moo8bmono44100.txt.
 
-  The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 256 or 512 seems like a good balance.
+  The block size (in samples) has a slight effect on compression ratio, and huge impact on performance. Block boundaries reduce the information available to the interpolator, so reducing the number of boundaries similarly reduces waste... but the time complexity to compress a block is about O((number of samples^1.5)*(number of possible values per sample)). a block size of 512 seems like a good balance.
   
+  Other considerations for choosing block sizes:
+    -At 64 samples per block, at 44.1kHz, there are 689 blocks per second - blocks so small that a single wavelength of the note middle C can't fit within them, and a frequency-analyzing interpolation method would not be able to identify those frequencies and use them to improve its estimations.
+    -At 2205 samples per block, at 44.1kHz, a 20Hz wave can fit one cycle per block, so the saving rate might finally plateau there.
+    -in the future, interpolation may happen on a larger scale than Cell Elimination Run block space, making large block sizes less necessary for high saving rates.
+  
+  
+  
+Explanation of compression settings in higher than 2 dimensions:
+
   The block size may be a 2-element list where size[0] is the block length in plaindata values and size[-1] is greater than the largest plaindata value. The block size may be a 3-element list, allowing images to be compressed in the same way as sound. In this case, the last element of size is always the range of valid plaindata values. "inverse_distance_weighted" works with 3d (image) data, but most other methods don't yet.
 
 ---

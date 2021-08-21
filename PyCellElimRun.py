@@ -337,7 +337,7 @@ class ColumnCellCatalogue(CellCatalogue):
 
 
 class CellTargeter:
-  def __init__(self,size,spline,cellCatalogue,scoreFun,critCellCallbackMethod=None):
+  def __init__(self, size, spline, cellCatalogue, scoreFun, critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
     self.size = size
     self.spline = spline
