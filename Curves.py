@@ -10,6 +10,7 @@ import math
 import itertools
 
 import PyDeepArrTools
+from PyDeepArrTools import enumerateDeeply
 import SpiralMath
 import PyGenTools
 from PyGenTools import arrTakeOnly, seqsAreEqual, genTakeOnly
@@ -353,6 +354,21 @@ class Spline:
     return result
 
 
+  def interpolateMissingValues(self, data):
+    """
+    fill in missing values in another data structure using interpolation.
+    """
+    changeCounter = 0
+    for columnID,_ in enumerateDeeply(data):
+      newValue = self.get_value_using_path(columnID)
+      originalValue = PyDeepArrTools.setValueUsingPath(data, columnID, newValue)
+    if originalValue != newValue:
+      changeCounter += 1
+      assert originalValue == None, "a non-none value was changed."
+    if changeCounter > 0:
+      print("Curves.Spline.interpolateMissingValues changed {} values.".format(changeCounter))
+
+
   def getPointInDirection(self,location,direction,skipStart=True):
     assert len(self.size) == 2, "this is a 2d only method."
     #dbgPrint("Curves.Spline.getPointInDirection: "+str((location,direction,skipStart)))
@@ -679,7 +695,5 @@ class Spline:
     surHash = hash_point_list(sur,self.size)
     if surHash in self.value_cache_by_surroundings_hash:
       del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
-
-
 
 

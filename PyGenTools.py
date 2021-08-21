@@ -216,6 +216,9 @@ except AttributeError: #must be python2.
     for item in inputSeq:
       result = inputFun(result, item)
     return result
+    
+def product(inputSeq):
+  return accumulate(inputSeq, (lambda x,y:x*y))
 
 
 def genChunksAsLists(inputGen, n=2, partialChunkHandling="warn partial"):

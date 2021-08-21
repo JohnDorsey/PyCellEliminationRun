@@ -36,7 +36,6 @@ VERBOSE = True
 
 defaultSampleSoundSrcStr = "WaveIO.sounds[\"samples/moo8bmono44100.txt\"][15000:]"
 defaultNumSeqCodecSrcStr = "Codes.codecs[\"inSeq_fibonacci\"]"
-defaultInterpolationModesToTest
 
 sampleCerPressNums = {
   "linear":{

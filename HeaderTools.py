@@ -72,6 +72,10 @@ class HeaderManager:
     
   def __contains__(self, testValue):
     return self.headerDict.__contains__(testValue)
+    
+  def doPhases(self, phaseNames):
+    for phaseName in phaseNames:
+      self.doPhase(phaseName)
 
   def doPhase(self, phaseName):
     """
