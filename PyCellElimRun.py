@@ -8,6 +8,7 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 
 import math
 import itertools
+from warnings import warn
 
 from Testing import assertEqual
 
@@ -397,8 +398,8 @@ class CellTargeter:
         
       deletionCount = self.dbgCullRankings()
       if not deletionCount == 0:
-        print("PyCellElimRun.CellTargeter.refreshRankings: fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
-          
+        #print("PyCellElimRun.CellTargeter.refreshRankings: fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+        pass 
       self.rankings.sort(key=self.rankingsInsortKeyFun)
       
     else:
@@ -422,6 +423,7 @@ class CellTargeter:
         if len(self.rankings) == 0:
           print("PyCellElimRun.CellTargeter.refreshRankings: since self.rankings is now empty, we will attempt to build it again to avoid a crash.")
           self.buildRankings()
+          #pass
     #print("CellTargeter: doing slow check of refreshed rankings!")
     #assert self.rankings == self.newRankings() #@ slow
     
@@ -431,11 +433,12 @@ class CellTargeter:
     check for inconsistencies (slow)
     this will only become unnecessary when all ways that cellCatalogue and spline can be changed trigger an update of rankings here.
     """
+    warn("PyCellElimRun.CellTargeter.dbgCullRankings: warn: slow.")
     #stringifyEntry = (lambda entryToStringify: str((float(entryToStringify[0]),(float(entryToStringify[1][0]),float(entryToStringify[1][1])))))
     extremeUnknownCellStrs = set(stringifiedFloatified(item) for item in self.cellCatalogue.genExtremeUnknownCells())
-    for item in extremeUnknownCellStrs:
-      assert "(" not in item
-      assert ")" not in item
+    #for item in extremeUnknownCellStrs:
+    #  assert "(" not in item
+    #  assert ")" not in item
     #for item in self.rankings:
     #  assert "[" not in str(item[1]).replace("[","(").replace("]",")")
     #  assert "]" not in str(item[1]).replace("[","(").replace("]",")")
@@ -444,7 +447,7 @@ class CellTargeter:
     while i < len(self.rankings):
       currentItemStr = stringifiedFloatified(self.rankings[i][1])
       if currentItemStr not in extremeUnknownCellStrs:
-        print("PyCellElimRun.CellTargeter.refreshRankings: warning: deleting {} with currentItemStr={} at index {} for not being in extremeUnknownCellStrs {}....".format(self.rankings[i], repr(currentItemStr), i, repr(extremeUnknownCellStrs)[:64]))
+        #print("PyCellElimRun.CellTargeter.dbgCullRankings: warning: deleting {} with currentItemStr={} at index {} for not being in extremeUnknownCellStrs {}....".format(self.rankings[i], repr(currentItemStr), i, repr(extremeUnknownCellStrs)[:64]))
         self.rankings.__delitem__(i)
         deletionCount += 1
       else:
@@ -766,7 +769,7 @@ class CellElimRunCodecState:
     cellTargeter.refreshRankings()
     
     #debug:
-    self.dbgBuildRankings(cellTargeter)
+    #self.dbgBuildRankings(cellTargeter)
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self._input_pressdata_gen.
       return False #indicate that processing should stop.
@@ -807,10 +810,10 @@ class CellElimRunCodecState:
 
 
   def dbgBuildRankings(self, cellTargeter):
-    print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: warning: this method is slow and should not be used outside of tests."))
+    print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: warning: slow."))
     
-    print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: notice: for testing purposes, no actions taken."))
-    return
+    #print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: notice: for testing purposes, no actions taken."))
+    #return
     
     oldRankingStr = stringifiedFloatified(cellTargeter.rankings)
     cellTargeter.buildRankings()

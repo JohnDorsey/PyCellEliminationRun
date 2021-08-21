@@ -1238,8 +1238,11 @@ There was no CR loss in linear interp mode with self.rankingsInsortKeyFun = (lam
 
 
 
-run at 2048 after a run at 1024:
-  Testing.test: testing took 49.5992691517 seconds. CER total=48.2989051342, CER encode=24.1993591785, CER decode=24.0995459557.
+with non-resuable CellTargeter:
+  run at 2048 after a run at 1024:
+    Testing.test: testing took 49.5992691517 seconds. CER total=48.2989051342, CER encode=24.1993591785, CER decode=24.0995459557.
+with reused cell targeter in fast refresh mode:
+  Testing.test: testing took 65.2216010094 seconds. CER total=64.1391577721, CER encode=32.0421788692, CER decode=32.0969789028.
 
 
 
