@@ -1229,3 +1229,20 @@ The most extreme differences are 0 and 0.
 
 when changing from sorting by only cell score to sorting by cell score and then cell (using the whole pair as the key), there was a 1% drop in saving rate. This also happened when sorting by first cell score and then cell first value.
 There was no CR loss in linear interp mode with self.rankingsInsortKeyFun = (lambda item: (item[0], item[1][1])), but there was a slight drop when in finite difference cubic hermite mode.
+
+
+
+
+
+(20 Aug 2021)
+
+
+
+run at 2048 after a run at 1024:
+  Testing.test: testing took 49.5992691517 seconds. CER total=48.2989051342, CER encode=24.1993591785, CER decode=24.0995459557.
+
+
+
+
+
+

@@ -9,10 +9,12 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 import math
 import itertools
 
+from Testing import assertEqual
+
 import Curves
 import CodecTools
 
-from IntArrMath import intify
+from IntArrMath import intify, floatified
 
 import HeaderTools
 
@@ -46,7 +48,9 @@ def dbgPrint(text,end="\n"): #only print if DODBGPRINT.
 def clamp(value, minmax):
   return min(max(value, minmax[0]), minmax[1])
 
-
+def stringifiedFloatified(inputArr):
+  #used for debugging - check whether structures containing numbers are equal.
+  return str(floatified(inputArr, listifiedContainers=True))
 
 
 
@@ -116,18 +120,15 @@ class CellCatalogueColumn(CellCatalogue):
   def countUnknowns(self):
     print("CellCatalogueColumn.countUnknowns: warning: falling back to potentially slow method because the subclass does not have countUnknowns.")
     return sum((self.getCellStatus(i) == CellCatalogue.UNKVAL) for i in range(self.size))
-
-  def eliminateColumn(self,dbgCustomValue=-1):
-    raise NotImplementedError()
-
-  def eliminateCell(self,cellHeight):
-    raise NotImplementedError()
-
-  def genExtremeUnknownCells(self,sides=None):
-    raise NotImplementedError()
-
-  def clampCell(self,cellHeight):
-    raise NotImplementedError()
+    
+  def eliminateColumn(self, dbgCustomValue=-1):
+    raise NotImplementedError("CellCatalogueColumn feature eliminateColumn was not implemented.")
+  def eliminateCell(self, cellHeight):
+    raise NotImplementedError("CellCatalogueColumn feature eliminateCell was not implemented.")
+  def genExtremeUnknownCells(self, sides=None):
+    raise NotImplementedError("CellCatalogueColumn feature genExtremeUnknownCells was not implemented.")
+  def clampCell(self, cellHeight):
+    raise NotImplementedError("CellCatalogueColumn feature clampCell was not implemented.")
 
 
 
@@ -339,6 +340,9 @@ class ColumnCellCatalogue(CellCatalogue):
 
 
 class CellTargeter:
+  USE_STABLE_INSORT = False #set to False for old behavior. will affect output. shouldn't meaningfully affect CR.
+  USE_FAST_REFRESH = True #Attempt to reuse old cell order while recalculating scores and re-sorting? set to False for old behavior.
+
   def __init__(self, size, spline, cellCatalogue, scoreFun, critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
     self.size = size
@@ -376,19 +380,77 @@ class CellTargeter:
     else:
       assert type(scoreFun) == type(lambda x: x) #works in python3, untested in python2.
     self.scoreFun = scoreFun
+    
 
   def newRankings(self):
-    return sorted(([self.scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.genExtremeUnknownCells()),key=self.rankingsInsortKeyFun)
+    return sorted(([self.scoreFun(extremeCell), extremeCell] for extremeCell in self.cellCatalogue.genExtremeUnknownCells()), key=self.rankingsInsortKeyFun)
+    
     
   def buildRankings(self):
     self.rankings = self.newRankings()
     
+    
   def refreshRankings(self):
-    for i,rankingsEntry in enumerate(self.rankings):
-      self.rankings[i][0] = self.scoreFun(rankingsEntry[1])
-    self.rankings.sort(key=self.rankingsInsortKeyFun)
+    if CellTargeter.USE_FAST_REFRESH:
+      for i,rankingsEntry in enumerate(self.rankings):
+        self.rankings[i] = [self.scoreFun(rankingsEntry[1]), rankingsEntry[1]]
+        
+      deletionCount = self.dbgCullRankings()
+      if not deletionCount == 0:
+        print("PyCellElimRun.CellTargeter.refreshRankings: fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+          
+      self.rankings.sort(key=self.rankingsInsortKeyFun)
+      
+    else:
+      i = None
+      for i,extremeCell in enumerate(self.cellCatalogue.genExtremeUnknownCells()):
+        #assert type(extremeCell) in [list,tuple], repr(extremeCell)
+        newRankingsEntry = [self.scoreFun(extremeCell), extremeCell]
+        if i < len(self.rankings):
+          self.rankings[i] = newRankingsEntry
+        elif i == len(self.rankings):
+          self.rankings.append(newRankingsEntry)
+        else:
+          assert False, "unexpected self.rankings length."
+      
+      self.rankings.sort(key=self.rankingsInsortKeyFun)
+      if i is not None:
+        del self.rankings[i+1:]
+      deletionCount = self.dbgCullRankings()
+      if not deletionCount == 0:
+        print("PyCellElimRun.CellTargeter.refreshRankings: non-fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+        if len(self.rankings) == 0:
+          print("PyCellElimRun.CellTargeter.refreshRankings: since self.rankings is now empty, we will attempt to build it again to avoid a crash.")
+          self.buildRankings()
     #print("CellTargeter: doing slow check of refreshed rankings!")
     #assert self.rankings == self.newRankings() #@ slow
+    
+    
+  def dbgCullRankings(self):
+    """
+    check for inconsistencies (slow)
+    this will only become unnecessary when all ways that cellCatalogue and spline can be changed trigger an update of rankings here.
+    """
+    #stringifyEntry = (lambda entryToStringify: str((float(entryToStringify[0]),(float(entryToStringify[1][0]),float(entryToStringify[1][1])))))
+    extremeUnknownCellStrs = set(stringifiedFloatified(item) for item in self.cellCatalogue.genExtremeUnknownCells())
+    for item in extremeUnknownCellStrs:
+      assert "(" not in item
+      assert ")" not in item
+    #for item in self.rankings:
+    #  assert "[" not in str(item[1]).replace("[","(").replace("]",")")
+    #  assert "]" not in str(item[1]).replace("[","(").replace("]",")")
+    deletionCount = 0
+    i = 0
+    while i < len(self.rankings):
+      currentItemStr = stringifiedFloatified(self.rankings[i][1])
+      if currentItemStr not in extremeUnknownCellStrs:
+        print("PyCellElimRun.CellTargeter.refreshRankings: warning: deleting {} with currentItemStr={} at index {} for not being in extremeUnknownCellStrs {}....".format(self.rankings[i], repr(currentItemStr), i, repr(extremeUnknownCellStrs)[:64]))
+        self.rankings.__delitem__(i)
+        deletionCount += 1
+      else:
+        i += 1
+    return deletionCount
+    
     
   def optionsExist(self):
     return len(self.rankings) > 0
@@ -419,7 +481,7 @@ class CellTargeter:
         del self.rankings[0]
       else:
         del self.rankings[0]
-        insort(self.rankings, (self.scoreFun(replacementCell), replacementCell), keyFun=self.rankingsInsortKeyFun)
+        insort(self.rankings, (self.scoreFun(replacementCell), replacementCell), stable=CellTargeter.USE_STABLE_INSORT, keyFun=self.rankingsInsortKeyFun)
     assert False, "genCellCheckOrder has ended. This has never happened before."
 
 
@@ -672,9 +734,11 @@ class CellElimRunCodecState:
 
   def processAllRuns(self):
     self.runIndex = 0
+    cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerManager["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
+    cellTargeter.buildRankings()
     try:
       while self.runIndex < self.expectedLiveCellCount:
-        processAllRunsShouldContinue = self.processRun()
+        processAllRunsShouldContinue = self.processRun(cellTargeter)
         self.runIndex += 1 #moved here to make it reflect the number of successful runs and not include the last one if it fails.
         if not processAllRunsShouldContinue:
           return
@@ -696,11 +760,13 @@ class CellElimRunCodecState:
       assert False, "invalid opMode."
 
 
-  def processRun(self): #do one run, either encoding or decoding.
+  def processRun(self, cellTargeter): #do one run, either encoding or decoding.
     self.stepIndex = 0
     
-    cellTargeter = CellTargeter(self.size, self.spline, self.cellCatalogue, self.headerManager["score_mode"], critCellCallbackMethod=self.cellTargeterCritCellCallbackMethod)
-    cellTargeter.buildRankings() #this is probably slower than refreshing the rankings, but also simpler.
+    cellTargeter.refreshRankings()
+    
+    #debug:
+    self.dbgBuildRankings(cellTargeter)
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self._input_pressdata_gen.
       return False #indicate that processing should stop.
@@ -740,6 +806,19 @@ class CellElimRunCodecState:
     assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
 
 
+  def dbgBuildRankings(self, cellTargeter):
+    print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: warning: this method is slow and should not be used outside of tests."))
+    
+    print(self.log("PyCellElimRun.CellElimRunCodecState.dbgBuildRankings: notice: for testing purposes, no actions taken."))
+    return
+    
+    oldRankingStr = stringifiedFloatified(cellTargeter.rankings)
+    cellTargeter.buildRankings()
+    newRankingStr = stringifiedFloatified(cellTargeter.rankings)
+    if not newRankingStr == oldRankingStr:
+      print(self.log("PyCellElimRun.CellElimRunCodecState: warning: inconsistent: from scratch {}... vs refreshed {}....".format(newRankingStr[:64], oldRankingStr[:64])))
+
+
   def doHit(self, stepIndex, cell):
     if self.opMode == "encode":
       self._output_pressdata_list.append(self.stepIndex) #then a new run length is now known and should be added to the compressed data number list.
@@ -747,7 +826,7 @@ class CellElimRunCodecState:
       pass #nothing in this branch because it is instead handled by setPlaindataItem in a few lines.
     else:
       assert False, "Invalid opMode."
-    self.setPlaindataItem(cellToCheck, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
+    self.setPlaindataItem(cell, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
   
 
 
@@ -838,31 +917,37 @@ cellElimRunBlockSeqCodec = CodecTools.Codec(None, None, transcodeFun=genCellElim
 #tests:
 
 
-testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",{"size":[5,5]})
-assert testResult[0] == 20
-assert sum(testResult[1:]) == 0
-assert cellElimRunBlockTranscode([20],"decode","linear",{"size":[5,5]}) == [2,2,2,2,2]
 
-testResult = cellElimRunBlockTranscode([5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})
-assert testResult[:2] == [32,10]
-assert sum(testResult[2:]) == 0
-assert cellElimRunBlockTranscode([32,10,0,0,0], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}) == [5,6,7,6,5]
 
-testResult = makeArr(genCellElimRunBlockSeqTranscode([5,6,7,6,5,5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}))
-assert testResult == [32,10,32,10]
-assert makeArr(genCellElimRunBlockSeqTranscode([32,10,32,10], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})) == [5,6,7,6,5,5,6,7,6,5]
+def doLiteralTests():
+  testResult = cellElimRunBlockTranscode([2,2,2,2,2],"encode","linear",{"size":[5,5]})
+  assertEqual(testResult[0], 20)
+  assertEqual(sum(testResult[1:]), 0)
+  assertEqual(cellElimRunBlockTranscode([20],"decode","linear",{"size":[5,5]}), [2,2,2,2,2])
 
-testResult = cellElimRunBlockCodec.encode([5,6,7,8,9,8,7,6,5,4], {"space_definition":{"size":[10,10], "bounds":{"lower":"EMBED:AFTER_PREP_OP_MODE", "upper":"EMBED:AFTER_PREP_OP_MODE"}, "bound_touches":{"east":"EMBED:AFTER_PREP_OP_MODE:1", "north":"EMBED:AFTER_PREP_OP_MODE:1", "south":"EMBED:AFTER_PREP_OP_MODE:1",  "west":"EMBED:AFTER_PREP_OP_MODE:1"}}})
-assert testResult == [4,10,4,4,9,5,35]
+  testResult = cellElimRunBlockTranscode([5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})
+  assertEqual(testResult[:2], [32,10])
+  assertEqual(sum(testResult[2:]), 0)
+  assertEqual(cellElimRunBlockTranscode([32,10,0,0,0], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}), [5,6,7,6,5])
+
+  testResult = makeArr(genCellElimRunBlockSeqTranscode([5,6,7,6,5,5,6,7,6,5], "encode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"}))
+  assertEqual(testResult, [32,10,32,10])
+  assertEqual(makeArr(genCellElimRunBlockSeqTranscode([32,10,32,10], "decode", "linear", {"size":[5,10], "endpoint_init_mode":"middle"})), [5,6,7,6,5,5,6,7,6,5])
+
+  testResult = cellElimRunBlockCodec.encode([5,6,7,8,9,8,7,6,5,4], {"space_definition":{"size":[10,10], "bounds":{"lower":"EMBED:AFTER_PREP_OP_MODE", "upper":"EMBED:AFTER_PREP_OP_MODE"}, "bound_touches":{"east":"EMBED:AFTER_PREP_OP_MODE:1", "north":"EMBED:AFTER_PREP_OP_MODE:1", "south":"EMBED:AFTER_PREP_OP_MODE:1",  "west":"EMBED:AFTER_PREP_OP_MODE:1"}}})
+  assertEqual(testResult, [4,10,4,4,9,5,35])
+
+
+
+  testResult = cellElimRunBlockTranscode([[1,2,3,2,1],[2,3,5,3,2],[3,5,8,5,3],[2,3,5,3,2],[1,2,3,2,1]],"encode",{"interpolation_mode":{"method_name":"inverse_distance_weighted"},"space_definition":{"size":[5,5,10]}})
+
+  assertEqual(testResult, [25, 31, 9, 25, 14, 74, 8, 0, 0, 0], "it's actually {}.".format(testResult))
+  
+#doLiteralTests()
+print("PyCellElimRun: skipping literal tests.")
 
 
 for testEndpointInitMode in [["middle","middle"],["zero","maximum"],["zero","zero"]]:
   assert CodecTools.roundTripTest(cellElimRunBlockCodec.clone(extraArgs=["linear",{"size":(5,101),"endpoint_init_mode":testEndpointInitMode}]),[5,0,100,75,50])
-
-
-testResult = cellElimRunBlockTranscode([[1,2,3,2,1],[2,3,5,3,2],[3,5,8,5,3],[2,3,5,3,2],[1,2,3,2,1]],"encode",{"interpolation_mode":{"method_name":"inverse_distance_weighted"},"space_definition":{"size":[5,5,10]}})
-
-assert testResult == [25, 31, 9, 25, 14, 74, 8, 0, 0, 0]
-
 
 

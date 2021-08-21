@@ -138,3 +138,13 @@ def bubbleSortSingleItemRight(inputArr,startIndex):
   while (startIndex < inputArrLen - 1) and inputArr[startIndex] > inputArr[startIndex+1]:
     inputArr[startIndex], inputArr[startIndex+1] = (inputArr[startIndex+1], inputArr[startIndex])
     startIndex += 1
+
+
+
+
+
+
+#def stringifyForHash(thing):
+#  isEnterable = (isinstance(thing,list) or isinstance(thing,tuple) or isinstance(thing,set))
+#  if not isEnterable:
+#    return str(type(thing)) + str(thing)

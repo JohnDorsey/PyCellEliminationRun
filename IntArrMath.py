@@ -13,11 +13,11 @@ import Curves
 
 from PyGenTools import makeArr, makeGen, zipGens
 
-def intify(inputArr,roundNearest=False,weakly=False):
+def intify(inputArr, roundNearest=False, weakly=False):
   """
   recursively forces every number to be an int.
   when roundNearest=True, numbers will be rounded to the nearest integer instead of being rounded down.
-  when weak=True, numbers will only be converted if doing so does not change their value.
+  when weak=True, a number will only be converted if doing so does not change its value.
   """
   for i,item in enumerate(inputArr):
     if type(item) == list:
@@ -29,7 +29,7 @@ def intify(inputArr,roundNearest=False,weakly=False):
       else:
         inputArr[i] = int(round(item)) if roundNearest else int(item)
 
-def intified(inputArr,roundNearest=False,weakly=False):
+def intified(inputArr, roundNearest=False, weakly=False):
   result = [None for i in range(len(inputArr))]
   for i,item in enumerate(inputArr):
     if type(item) == list:
@@ -37,7 +37,32 @@ def intified(inputArr,roundNearest=False,weakly=False):
     elif item != None:
       result[i] = (int(item) if int(item) == item else item) if weakly else (int(round(item)) if roundNearest else int(item))
   return result
-
+  
+def floatify(inputArr):
+  for i,item in enumerate(inputArr):
+    if type(item) == list:
+      floatify(item)
+    elif item != None:
+      inputArr[i] = float(item)
+      
+def floatified(inputArr, listifiedContainers=False):
+  resultGen = (None for i in range(len(inputArr)))
+  if listifiedContainers or type(inputArr) == tuple:
+    result = list(resultGen)
+  else:
+    result = (type(inputArr))(resultGen)
+  if hasattr(inputArr, "__len__") and hasattr(result, "__len__"):
+    assert len(result) == len(inputArr)
+  for i,item in enumerate(inputArr):
+    if type(item) in {list, tuple, set}:
+      result[i] = floatified(item)
+    elif item is not None:
+      if type(item) not in [int, float]:
+        raise TypeError("won't convert item {} of type {} to float.".format(item, repr(type(item))))
+      result[i] = float(item)
+  return result
+  
+  
 
 def is_sorted(inputArr):
   #test whether the input array is sorted.
