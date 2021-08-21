@@ -6,6 +6,11 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 
 """
 
+
+class ParseError(Exception):
+  pass
+
+
 import itertools
 
 import CodecTools
@@ -16,8 +21,6 @@ from PyArrTools import rjustedArr, arrEndsWith
 import IntSeqMath
 
 
-class ParseError(Exception):
-  pass
 
 
 
@@ -280,7 +283,7 @@ def genRoundEnbocodeValueOffsets(order=None):
 def genRoundEnbocodeValuesSlow(order=None):
   print("Codes.genRoundEnbocodeValuesSlow: Warning: this method is unreasonably slow and should not be used outside of testing.")
   for index,bitArr in enumerate(genEnbocodeBitArrs(order=order)):
-    if isPureEnbocode(bitArr):
+    if isRoundEnbocode(bitArr):
       value = index+1
       #print("Codes.genPureEnbocodeValuesSlow: {} is pure, yielding {}.".format(bitArr,value))
       yield value

@@ -6,8 +6,6 @@ WavePrep.py provides tools to convert .wav files to new .wav files in a fixed fo
 
 """
 
-
-import wave
 import WaveIO
 
 #use a frame count of 88200 to replicate early sample files like moo.

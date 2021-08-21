@@ -11,7 +11,8 @@ import IntSeqMath
 import IntDomainMath
 import Curves
 
-from PyGenTools import makeArr, makeGen, zipGens
+from PyGenTools import makeArr, zipGens
+
 
 def intify(inputArr, roundNearest=False, weakly=False):
   """

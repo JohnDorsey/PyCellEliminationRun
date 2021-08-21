@@ -6,8 +6,6 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 
 """
 
-import math
-import itertools
 from warnings import warn
 
 from Testing import assertEqual
@@ -15,17 +13,16 @@ from Testing import assertEqual
 import Curves
 import CodecTools
 
-from IntArrMath import intify, floatified
+from IntArrMath import floatified
 
 import HeaderTools
 
 from Codes import ParseError
 import PyGenTools
-from PyGenTools import isGen, makeArr, makeGen, arrTakeOnly, ExhaustionError, countIn, allAreEqual
-from PyArrTools import ljustedArr, bubbleSortSingleItemRight, insort
+from PyGenTools import makeArr, makeGen, arrTakeOnly, ExhaustionError, countIn, allAreEqual
+from PyArrTools import ljustedArr, insort
 import PyDeepArrTools
 from PyDeepArrTools import shape, enumerateDeeply, iterateDeeply
-import PyDictTools
 from PyDictTools import augmentDict, augmentedDict, makeFlatKeySeq
 
 try:
@@ -154,7 +151,7 @@ class GridCellCatalogueColumn(CellCatalogueColumn):
     return self.grid[cellHeight]
 
   def eliminateColumn(self,dbgCustomValue=-1):
-    print("GridCellCatalogueColumn.eliminateColumn called for column " + str(columnIndex) + " and dbgCustomValue " + str(dbgCustomValue) + ". The dbgCustomValue will be ignored.")
+    print("GridCellCatalogueColumn.eliminateColumn called with dbgCustomValue {}. The dbgCustomValue will be ignored.".format(dbgCustomValue))
     for i in range(len(self.grid)):
       self.grid[i] = CellCatalogue.ELIMVAL
 

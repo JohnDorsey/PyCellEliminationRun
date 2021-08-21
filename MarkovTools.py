@@ -6,7 +6,7 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
-from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, makeArr, genDeduped, ExhaustionError, indexOfValueInGen, valueAtIndexInGen, genSkipFirst
+from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped, ExhaustionError, indexOfValueInGen, valueAtIndexInGen, genSkipFirst
 from PyArrTools import insort
 from HistTools import OrderlyHist
 import HuffmanMath
@@ -316,7 +316,7 @@ def getPredictedValuesFromHistory(history,singleUsageHist,maxContextLength,score
     extendWithoutDupes(predictedValues,singleUsageHist.keysInDescendingRelevanceOrder())
   elif scoreMode == "(max(l)*f(max(l)),max(x(max(l))),-y)":
     #the following code is a change towards including the search item in the search term, and it avoids needing to apply a singleUsageHist at the end, because the main search includes these items when its match length is 1.
-    assert False, "NOT FINISHED!"
+    raise NotImplementedError("Not finished!")
     allLengthSearchItemHist = OrderlyHist()
     for searchItem in singleUsageHist.keysInDescendingRelevanceOrder():
       for currentLength,matchesOfCurrentLength in getEndingIndicesOfShrinkingSubSequences(history,history[-maxContextLength:]+[searchItem]):
@@ -324,7 +324,7 @@ def getPredictedValuesFromHistory(history,singleUsageHist,maxContextLength,score
           assert history[matchEndLocation] == searchItem
           if history[matchEndLocation] not in predictedValues:
             allLengthSearchItemHist.registerMany(history[matchEndLocation],currentLength) #this currentLength is the "l" in "l*f", and the "f" is the result of repeatedly running this line.
-        extendWithoutDupes(predictedValues,contextualHist.keysInDescendingRelevanceOrder())
+        extendWithoutDupes(predictedValues,contextualHist.keysInDescendingRelevanceOrder()) # @ what is contextualHist? where is it supposed to come from? The old fixed-function markov tools should just be deleted.
   else:
     assert False, "invalid scoreMode."
   return predictedValues

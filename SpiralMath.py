@@ -1,9 +1,10 @@
 
-from PyGenTools import makeGen, arrTakeOnly
-from PyArrTools import insort
 import collections
-import itertools
 import math
+
+from PyGenTools import makeGen
+from PyArrTools import insort
+
 
 
 

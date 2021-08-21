@@ -7,10 +7,9 @@ FibonacciMath.py contains tools for generating different orders of Fibonacci seq
 """
 
 import collections
-import itertools
+
 import PyGenTools
-from PyGenTools import makeArr, arrTakeOnly, genTakeOnly, arrTakeLast, genSkipFirst
-from PyArrTools import rjustedArr
+from PyGenTools import arrTakeOnly, genTakeOnly, arrTakeLast
 
 
 

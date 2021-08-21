@@ -5,8 +5,8 @@ CodecTools.py by John Dorsey.
 CodecTools.py contains classes and other tools that might help make it easier to rapidly create and test codecs made from smaller codecs applied in stages.
 
 """
+
 import traceback
-import itertools
 
 import PyGenTools
 from PyGenTools import makeArr, isGen, makeGen, ExhaustionError, genAddInt, arrAddInt
@@ -14,6 +14,8 @@ from PyArrTools import ljustedArr
 from PyDictTools import augmentedDict
 
 from IntDomains import simpleIntDomains
+
+from Codes import ParseError
 
 
 def measureIntArray(inputIntArr):

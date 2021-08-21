@@ -87,7 +87,7 @@ def arrTakeOnly(inputGen,targetCount,onExhaustion="partial"):
 def genSkipFirst(inputGen,count):
   assert isGen(inputGen)
   for i in range(count):
-    forget = next(inputGen)
+    _ = next(inputGen)
   return inputGen
   
 def genTakeUntil(inputGen,stopFun,stopSignalsNeeded=1): #might be used in MarkovTools someday.

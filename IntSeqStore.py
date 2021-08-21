@@ -10,6 +10,7 @@ IntSeqStore.py contains tools for storing integer sequences with minimized stora
 import HeaderTools
 
 import Codes #for haven bucket.
+from Codes import ParseError
 from PyArrTools import rjustedArr
 from PyGenTools import arrTakeOnly, makeGen, isGen, makeArr, sentinelize, ExhaustionError
 import CodecTools
@@ -31,13 +32,13 @@ def lewisTrackedSumTruncationEncode(inputIntSeq, seqSum, addDbgCommas=False): #l
   #this method does not yet ignore trailing zeroes and will store them each as a bit "0" instead of stopping like it could.
   return lewisTrackedSumBoundedCodecEncode(inputIntSeq, seqSum, Codes.codecs["binary"], addDbgCommas=addDbgCommas)
 
+
 def lewisTrackedSumTruncationDecode(inputBitSeq, seqSum, addDbgCommas=False):
   return lewisTrackedSumBoundedCodecDecode(inputBitSeq, seqSum, Codes.codecs["binary"], addDbgCommas=addDbgCommas)
 
 
 def lewisTrackedSumBoundedCodecEncode(inputIntSeq, seqSum, boundedNumberCodec, addDbgCommas=False):
   justStarted = True
-  sumSoFar = 0
   for delayedRemainingSum,currentInt in genTrackDelayedRemainingSum(inputIntSeq,seqSum):
     store = boundedNumberCodec.encode(currentInt, maxInputInt=delayedRemainingSum)
     assert isGen(store) or type(store) == list
@@ -111,7 +112,7 @@ def genEncodeWithHavenBucket(inputIntSeq, numberCodec, havenBucketSizeFun, initi
     if addDbgCommas:
       yield ","
     seqSum = seqSumValueToEmbed
-  if not type(seqSum) in [int,NoneType]:
+  if not (type(seqSum) == int or seqSum is None):
     raise TypeError("seqSum must be an int or None, not {}.".format(repr(type(seqSum))))
       
   #parseFun must take only as many bits as it needs and return an integer.

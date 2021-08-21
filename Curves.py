@@ -107,7 +107,7 @@ def hash_point_list(point_list_to_hash, world_size):
 def lookup_if_str(lookup_dict, potential_key, default=None):
   if type(potential_key) == str:
     if default != None:
-      return lookup_dict.get(potential_key,default=defalut)
+      return lookup_dict.get(potential_key,default=default)
     else:
       return lookup_dict[potential_key]
   else:

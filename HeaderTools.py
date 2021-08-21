@@ -1,7 +1,8 @@
 
 import PyDictTools
-from PyDictTools import augmentDict, augmentedDict
+from PyDictTools import augmentDict
 
+from PyGenTools import ExhaustionError
 
 
 

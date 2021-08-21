@@ -8,6 +8,10 @@ No other files require Testing.py
 
 """
 
+def assertEqual(thing0, thing1):
+  if not thing0 == thing1:
+    raise AssertionError("{} is not equal to {}.".format(thing0,thing1))
+
 
 import os
 
@@ -42,10 +46,6 @@ sampleCerPressNums = {
     key:{256:None} for key in [1024,512,256,128,64,32,16,8]
   }
 }
-
-def assertEqual(thing0, thing1):
-  if not thing0 == thing1:
-    raise AssertionError("{} is not equal to {}.".format(thing0,thing1))
 
 
 def evalSoundSrcStr(soundSrcStr):
@@ -380,7 +380,7 @@ def decompressFull(srcFileName, settings=None, blockSize=(256,256), numberSeqCod
       result.extend(plainDataNums)
       
   print("Testing.decompressFull: result has length " + str(len(result)) + " and ends with " + str(result[-PEEK:])[-PEEK:] + ".")
-  print("Testing.decompressFull: decompression took " + str(QuickClock.stop("decompressFull")) + " seconds.")
+  print("Testing.decompressFull: decompression took " + str(QuickClocks.stop("decompressFull")) + " seconds.")
   return result
 
 
@@ -416,10 +416,10 @@ class PressNumsAnalysis:
   def run(self,blockCount,timeLimit=None):
     def endPhrase():
       return str("Testing.PressNumsAnalysis.run will stop after running just {} of " + str(blockCount) + " requested blocks.")
-    QuickTimers.startTimer("Testing.PressNumsAnalysis.run")
+    QuickClocks.start("Testing.PressNumsAnalysis.run")
     for blockIndex in range(blockCount):
       if timeLimit != None:
-        if QuickTimers.peekTimer("Testing.PressNumsAnalysis.run") >= timeLimit:
+        if QuickClocks.peek("Testing.PressNumsAnalysis.run") >= timeLimit:
           print("Time limit reached. " + endPhrase().format(blockIndex))
           break
       currentOffset = None
@@ -432,7 +432,7 @@ class PressNumsAnalysis:
       if not shouldContinue:
         print("Testing.PressNumsAnalysis.run: runOnce returned false, so " + endPhrase().format(blockIndex))
         break
-    QuickTimers.stopTimer("Testing.PressNumsAnalysis.run") #don't let it hang around uselessly.
+    QuickClocks.stop("Testing.PressNumsAnalysis.run") #don't let it hang around uselessly.
     print("Testing.PressNumsAnalysis.run: Done.")
 
 

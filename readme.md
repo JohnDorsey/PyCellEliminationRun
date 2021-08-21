@@ -144,6 +144,12 @@ Design notes:
       -inclusion of LZMA and/or GZIP.
       
     -internal features:
+    
+      -isolate enbocode code.
+    
+      -fix potential bugs related to rankings not being updated by crit cell callback in CER.
+      
+      -move ParseError to CodecTools.
         
       -store CellTargeter rankings as a heap for performance reasons.
     
