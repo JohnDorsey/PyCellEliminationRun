@@ -13,7 +13,7 @@ from TestingTools import assertEqual
 import Curves
 import CodecTools
 
-from IntArrMath import floatified
+from IntArrMath import intify, floatified
 
 import HeaderTools
 
@@ -51,7 +51,8 @@ def stringifiedFloatified(inputArr):
   return str(floatified(inputArr, listifiedContainers=True))
 
 
-
+class NoChangeError(Exception):
+  pass
 
 
 
@@ -167,19 +168,23 @@ class GridCellCatalogueColumn(CellCatalogueColumn):
 class LimitsCellCatalogueColumn(CellCatalogueColumn):
 
   def __init__(self, size=0): #size might be off by one.
-    self.size = size #first component is sample index range end; the range currently must start at zero. second component is sample value range; the range currently must start at zero.
+    self.size = size
     self.limits = [-1,self.size]
     
-  def imposeMinimum(self,newMinimum):
-    self.limits[0] = max(self.limits[0],newMinimum-1)
+    
+  def imposeMinimum(self, newMinimum):
+    self.limits[0] = max(self.limits[0], newMinimum-1)
     assert self.limits[1]-self.limits[0] > 4, "this could cause critical column routine problems."
   
-  def imposeMaximum(self,newMaximum):
-    self.limits[1] = min(self.limits[1],newMaximum+1)
+  
+  def imposeMaximum(self, newMaximum):
+    self.limits[1] = min(self.limits[1], newMaximum+1)
     assert self.limits[1]-self.limits[0] > 4, "this could cause critical column routine problems."
 
-  def getCellStatus(self,cellHeight):
+
+  def getCellStatus(self, cellHeight):
     return CellCatalogue.UNKVAL if (self.limits[0] < cellHeight) and (cellHeight < self.limits[1]) else CellCatalogue.ELIMVAL
+    
     
   def toPrettyStr(self):
     alignmentError = False
@@ -192,29 +197,36 @@ class LimitsCellCatalogueColumn(CellCatalogueColumn):
     result += ",alignmentError="+str(alignmentError)
     return result
 
-  def countUnknowns(self):
-    return max(0,self.limits[1]-self.limits[0]-1)
 
-  def eliminateColumn(self,dbgCustomValue=-1):
+  def countUnknowns(self):
+    return max(0, self.limits[1]-self.limits[0]-1)
+
+
+  def eliminateColumn(self, dbgCustomValue=-1):
     self.limits[0] = dbgCustomValue
     self.limits[1] = dbgCustomValue
 
-  def eliminateCell(self,cellHeight):
+
+  def eliminateCell(self, cellHeight):
     if self.getCellStatus(cellHeight) == CellCatalogue.ELIMVAL:
-      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} is already eliminated. eliminateCell should not be called on cells that are already eliminated (the limits for this column are {})! But let's see what happens if the program continues to run.".format(cellHeight,self.limits))
+      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} is already eliminated. eliminateCell should not be called on cells that are already eliminated (the limits for this column are {})! But let's see what happens if the program continues to run.".format(cellHeight, self.limits))
     if cellHeight == self.limits[0]+1:
       self.limits[0] += 1
     elif cellHeight == self.limits[1]-1:
       self.limits[1] -= 1
     else:
-      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} can't be eliminated, because it is not at the edge of the area of eliminated cells (the limits for this column are {})! but let's see what happens if the program continues to run.".format(cellHeight,self.limits))
+      print("PyCellElimRun.LimitsCellCatalogueColumn.eliminateCell: The cell {} can't be eliminated, because it is not at the edge of the area of eliminated cells (the limits for this column are {})! but let's see what happens if the program continues to run.".format(cellHeight, self.limits))
     if self.limits[0] + 2 == self.limits[1]:
+      assert self.countUnknowns() == 1
       return True #indicate that the column is critical.
-    return False #indicate that the column is not critical.
+    else:
+      assert self.countUnknowns() > 1
+      return False #indicate that the column is not critical.
 
-  def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
+
+  def genExtremeUnknownCells(self, sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
     if sides == None:
-      sides = [True,True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
+      sides = [True, True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
     if self.limits[1]-self.limits[0] < 2: #if there is no space between the floor and ceiling of what has not been eliminated...
       if self.limits[1]-self.limits[0] == 1:
         print("PyCellElimRun.LimitsCellCatalogueColumn.genExtremeUnknownCells: warning: column was improperly eliminated! does this have something to do with imposeMinimum?")
@@ -229,14 +241,14 @@ class LimitsCellCatalogueColumn(CellCatalogueColumn):
         yield self.limits[1]-1
     return
 
-  def clampCell(self,cellHeight): #move a cell's value to make it comply with the catalogue of eliminated cells.
-    assert self.limits[1]-self.limits[0] > 1, "This column can no longer clamp cells, because it has no unknown space! Its limits are {}.".format(self.limits)
+  print("PyCellElimRun.LimitsCellCatalogueColumn: warning at definition time: slow: the clampCell method has redundant tests and should be fixed.")
+  def clampCell(self, cellHeight): #move a cell's value to make it comply with the catalogue of eliminated cells.
+    assert self.countUnknowns() >= 1, "This column can no longer clamp cells, because it has no unknown space! Its limits are {}.".format(self.limits)
+    assert self.limits[1]-self.limits[0] > 1, "Impossible to fail this test after passing the previous one. limits are {}.".format(self.limits)
     result = clamp(cellHeight,(self.limits[0]+1,self.limits[1]-1))
-    assert result != cellHeight, "this function failed."
+    if result == cellHeight:
+      raise NoChangeError("this method failed.")
     return result
-
-
-
 
 
 
@@ -312,9 +324,9 @@ class ColumnCellCatalogue(CellCatalogue):
     relevantColumn = self.getColumn(cell[:-1])
     return relevantColumn.eliminateCell(cell[-1])
 
-  def genExtremeUnknownCells(self,sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
+  def genExtremeUnknownCells(self, sides=None): #a function to get a list of all cells at the edges of the area of cells that have not been eliminated (hopefully totalling two cells per column (sample)).
     if sides == None:
-      sides = [True,True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
+      sides = [True, True] #sides[0] = include bottom cells?, sides[1] = include top cells?. if both are false, a cell can only be part of the output if it is the lone unknown cell in its column.
     #result = []
     for columnID, column in self.iterColumnsAndIDs():
       for extremeUnknownCell in column.genExtremeUnknownCells(sides=sides):
@@ -324,7 +336,28 @@ class ColumnCellCatalogue(CellCatalogue):
   def clampCell(self,cell): #move a cell's value to make it comply with the catalogue of eliminated cells.
     return cell[:-1] + [self.getColumn(cell[:-1]).clampCell(cell[-1])]
 
-
+  def clampValues(self, data):
+    #similar to Curves.Spline.interpolateMissingValues.
+    #this method wasn't necessary before tests involving exciting cer cell targeting because of rankings running out because of new rankings filtering for eliminated columns.
+    clampCapableCounter = 0
+    changeCounter = 0
+    for columnID,valueInDataColumn in enumerateDeeply(data):
+      column = self.getColumn(columnID)
+      if column.countUnknowns() == 0:
+        continue
+      else:
+        assert column.countUnknowns() != 1
+        clampCapableCounter += 1
+      try:
+        newValue = column.clampCell(valueInDataColumn)
+      except NoChangeError:
+        continue
+      originalValue = PyDeepArrTools.setValueUsingPath(data, columnID, newValue)
+      if originalValue != newValue:
+        changeCounter += 1
+        assert originalValue == None, "a non-none value ({}) was changed.".format(originalValue)
+    if changeCounter > 0:
+      print("PyCellElimRun.ColumnCellCatalogue.clampValues changed {} values. {} columns were capable of clamping.".format(changeCounter, clampCapableCounter))
 
 
 
@@ -339,6 +372,7 @@ class ColumnCellCatalogue(CellCatalogue):
 
 class CellTargeter:
   USE_STABLE_INSORT = False #set to False for old behavior. will affect output. shouldn't meaningfully affect CR.
+  DO_FILTER_RANKINGS_IN_GEN = False #set to True to filter items taken from the left of rankings and discard cells whose columns have been eliminated.
 
   def __init__(self, size, spline, cellCatalogue, scoreFun, critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
@@ -397,14 +431,14 @@ class CellTargeter:
     else:
       raise ValueError("unknown refresh type {}.".format(repr(refreshType)))
     
-    
+  print("PyCellElimRun.CellTargeter.softRefreshRankings is defined with a slow call to dbgCullRankings. If this method culls any rankings, then the compressed output may change when the filter is later removed.")
   def softRefreshRankings(self):
     for i,rankingsEntry in enumerate(self.rankings):
       self.rankings[i] = [self.scoreFun(rankingsEntry[1]), rankingsEntry[1]]
       
     deletionCount = self.dbgCullRankings()
     if not deletionCount == 0:
-      warn("PyCellElimRun.CellTargeter.softRefreshRankings: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+      #warn("PyCellElimRun.CellTargeter.softRefreshRankings: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
       pass
     self.rankings.sort(key=self.rankingsInsortKeyFun)
     
@@ -487,11 +521,28 @@ class CellTargeter:
       #during the generator loop, no test is done for whether self.rankings has been depleted, because if it is possible for this to happen, an index error would be more noticable. Also, performance reasons.
       
       outputCell = self.rankings[0][1]
+      
+      if CellTargeter.DO_FILTER_RANKINGS_IN_GEN:
+        currentColumnUnknownCount = self.cellCatalogue.getColumn(outputCell[:-1]).countUnknowns()
+        if currentColumnUnknownCount == 0:
+          del self.rankings[0]
+          if len(self.rankings) == 0:
+            print("PyCellElimRun.CellTargeter.genCellCheckOrder: warning: ran out of entries in rankings! This never happened before, but filtering for eliminated columns makes it possible.")
+            return
+          continue
+        elif currentColumnUnknownCount == 1:
+          assert False, "It seems like this column was improperly eliminated!"
+        if self.cellCatalogue.getCellStatus(outputCell) != CellCatalogue.UNKVAL:
+          #NOTE that this may cause duplicates in rankings!
+          outputCell = self.cellCatalogue.clampCell(outputCell)
+          print("PyCellElimRun.CellTargeter.genCellCheckOrder: warning: This routine isn't finished yet. The output cell being yielded now will not be in the right order, which hurts CR. This cell might also be duplicated!")
+          self.rankings[0] = (self.scoreFun(outputCell), outputCell)
+      
       yield outputCell
       
       columnCritical = self.cellCatalogue.eliminateCell(outputCell)
       replacementCell = self.cellCatalogue.clampCell(outputCell)
-      assert str(outputCell) != str(replacementCell) #debug.
+      assert str(outputCell) != str(replacementCell) #@ debug.
       
       if columnCritical and CellElimRunCodecState.DO_CRITICAL_COLUMN_ROUTINE:
         #print("column is critical for " + str(outputCell) + ". column limits are " + str(self.cellCatalogue.limits[outputCell[0]]) + ".")
@@ -747,6 +798,9 @@ class CellElimRunCodecState:
     self.processAllRuns()
     if self.opMode == "decode" and not allowMissingValues:
       self.spline.interpolateMissingValues(self._output_plaindata_matrix)
+      self.cellCatalogue.clampValues(self._output_plaindata_matrix)
+      print("PyCellElimRun.CellElimRunCodecState.processBlock: using intify! this is not as reliable as transcoding correctly to begin with.")
+      intify(self._output_plaindata_matrix, roundNearest=True)
     
     self.headerManager.doPhase("AFTER_PROCESS_BLOCK")
     return
@@ -770,12 +824,12 @@ class CellElimRunCodecState:
   def handleRunExhaustionError(self, ee, runIndex):
     self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: an ExhaustionError was thrown by processRun. This is not supposed to happen while processing a lone block. While processing blocks in a stream, it is only supposed to happen when the stream ends.")
     if self.opMode == "encode":
-      print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is never supposed to happen while encoding."))
+      print(self.log("PyCellElimRun.CellElimRunCodecState.processAllRuns: this ExhaustionError is probably never supposed to happen while encoding. The error was {}.".format(ee)))
     elif self.opMode == "decode":
       if allAreEqual(countIn(iterateDeeply(self._output_plaindata_matrix),None,includeDenominator=True)):
         raise ExhaustionError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs. Maybe the input data was empty to begin with. The error was {}.".format(runIndex, repr(ee)))
       else:
-        raise ParseError("CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self._output_plaindata_matrix is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(runIndex, repr(ee)))
+        print(self.log("Potential parse error: CellElimRunCodecState.processRun threw an exhaustion error after {} runs, but self._output_plaindata_matrix is not empty, so it is unlikely that the codec state was initialized with empty input data. The error was {}.".format(runIndex, repr(ee))))
     else:
       assert False, "invalid opMode."
 
@@ -817,13 +871,16 @@ class CellElimRunCodecState:
     for cellToCheck in targetGen:
       assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex, self.size)
       
+      if cellTargeter.DO_FILTER_RANKINGS_IN_GEN:
+        assert not self.dbgCellIsInBadColumn(cellToCheck)
+      
       if not hitTest():
         self.stepIndex += 1
       else:
         self.doHit(self.stepIndex, cellToCheck)
         return True #indicate that processing should continue.
         
-    assert False, "this statement should no longer be reachable, now that cellTargeter.optionsExist test is performed before the loop. Running out of options should be handled within the loop or generator, not here."
+    raise ExhaustionError("The targetGen ran out of items. maybe it is filtering its own output.")
 
 
   def dbgBuildRankings(self, cellTargeter):
@@ -848,7 +905,13 @@ class CellElimRunCodecState:
       assert False, "Invalid opMode."
     self.setPlaindataItem(cell, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
   
-
+  
+  def dbgCellIsInBadColumn(self, cell):
+    """
+    test whether a cell is in a column that should not even have any cells in the cellTargeter rankings. This is a test to see what kinds of consequences there are for neither updating cellTargeter.rankings upon crit cell callback nor filtering out invalid rankings entries as they are encountered.
+    """
+    warn("PyCellElimRun.CellElimRunCodecState.dbgCellIsInBadColumn: SLOW: this method should NOT be used outside of testing! It runs once per cell visited!")
+    return (self.cellCatalogue.getColumn(cell[:-1]).countUnknowns() <= 1)
 
 
 

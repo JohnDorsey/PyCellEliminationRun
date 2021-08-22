@@ -127,6 +127,9 @@ Project terminology and naming rules:
 
 Design notes:
 
+  misc:
+    When critical cell or critical column routines handle the resolution of the last few cells in a board, there is no hit. So what is stored as a last pressnum or expected as one?
+
   possible file format:
 
     -A plaintext header which includes:

@@ -364,7 +364,7 @@ class Spline:
       originalValue = PyDeepArrTools.setValueUsingPath(data, columnID, newValue)
     if originalValue != newValue:
       changeCounter += 1
-      assert originalValue == None, "a non-none value was changed."
+      assert originalValue == None, "a non-none value ({}) was changed.".format(originalValue)
     if changeCounter > 0:
       print("Curves.Spline.interpolateMissingValues changed {} values.".format(changeCounter))
 

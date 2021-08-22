@@ -1,7 +1,24 @@
 
+
+
+
 def assertEqual(thing0, thing1):
   if not thing0 == thing1:
-    raise AssertionError("{} is not equal to {}.".format(thing0,thing1))
+    if type(thing0) == list and type(thing1) == list:
+      message = "The two lists are not equal: \n{}\n{}\n.".format(thing0,thing1)
+      if len(thing0) == 0 or len(thing1) == 0:
+        message += " One of them is empty."
+      else:
+        leftSimilarLength = 0
+        while thing0[leftSimilarLength] == thing1[leftSimilarLength]:
+          leftSimilarLength += 1
+        rightSimilarLength = 0
+        while thing0[-rightSimilarLength-1] == thing1[-rightSimilarLength-1]:
+          rightSimilarLength += 1
+        message += " They share {} left end items and {} right end items.".format(leftSimilarLength, rightSimilarLength)
+    else:
+      message = "{} is not equal to {}.".format(thing0,thing1)
+    raise AssertionError(message)
 
 
 
