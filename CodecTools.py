@@ -6,6 +6,8 @@ CodecTools.py contains classes and other tools that might help make it easier to
 
 """
 
+
+
 import traceback
 
 import PyGenTools
@@ -15,27 +17,13 @@ from PyDictTools import augmentedDict
 
 from IntDomains import simpleIntDomains
 
-from Codes import ParseError
+from TestingTools import printComparison
 
 
-def measureIntArray(inputIntArr):
-  rectBitSize = (len(inputIntArr),len(bin(max(inputIntArr))[2:]))
-  return {"len":rectBitSize[0],"bit_depth":rectBitSize[1],"bit_area":rectBitSize[0]*rectBitSize[1]}
 
-def printComparison(plainData,pressData):
-  plainDataMeasures, pressDataMeasures = (measureIntArray(plainData), measureIntArray(pressData))
-  estimatedCR = float(plainDataMeasures["bit_area"])/float(pressDataMeasures["bit_area"])
-  estimatedSaving = 1.0 - 1.0/estimatedCR
-  print("CT.printComp: plain meas: " + str(plainDataMeasures) + ". press meas: " + str(pressDataMeasures) + ". Est CR: " + str(estimatedCR)[:8] + ". Est SR: " + str(estimatedSaving*100.0)[:8] + "%.")
+class ParseError(Exception):
+  pass
 
-def countTrailingMatches(inputArr, matchFun):
-  i = 0
-  while matchFun(inputArr[-1-i]):
-    i += 1
-  return i
-  
-def countTrailingZeroes(inputArr):
-  return countTrailingMatches(inputArr, (lambda x: x==0))
 
 
 def roundTripTest(testCodec, plainData, useZeroSafeMethods=False, showDetails=False):

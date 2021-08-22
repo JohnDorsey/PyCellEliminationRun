@@ -8,7 +8,7 @@ PyCellElimRun.py contains tools for converting audio samples into a sequence of 
 
 from warnings import warn
 
-from Testing import assertEqual
+from TestingTools import assertEqual
 
 import Curves
 import CodecTools
@@ -339,7 +339,6 @@ class ColumnCellCatalogue(CellCatalogue):
 
 class CellTargeter:
   USE_STABLE_INSORT = False #set to False for old behavior. will affect output. shouldn't meaningfully affect CR.
-  USE_FAST_REFRESH = True #Attempt to reuse old cell order while recalculating scores and re-sorting? set to False for old behavior.
 
   def __init__(self, size, spline, cellCatalogue, scoreFun, critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
@@ -388,41 +387,60 @@ class CellTargeter:
     self.rankings = self.newRankings()
     
     
-  def refreshRankings(self):
-    if CellTargeter.USE_FAST_REFRESH:
-      for i,rankingsEntry in enumerate(self.rankings):
-        self.rankings[i] = [self.scoreFun(rankingsEntry[1]), rankingsEntry[1]]
-        
-      deletionCount = self.dbgCullRankings()
-      if not deletionCount == 0:
-        #print("PyCellElimRun.CellTargeter.refreshRankings: fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
-        pass 
-      self.rankings.sort(key=self.rankingsInsortKeyFun)
-      
+  def refreshRankings(self, refreshType):
+    if refreshType == "soft":
+      self.softRefreshRankings()  
+    elif refreshType == "hard":
+      self.hardRefreshRankings()
+    elif refreshType == "build":
+      self.buildRankings()
     else:
-      i = None
-      for i,extremeCell in enumerate(self.cellCatalogue.genExtremeUnknownCells()):
-        #assert type(extremeCell) in [list,tuple], repr(extremeCell)
-        newRankingsEntry = [self.scoreFun(extremeCell), extremeCell]
-        if i < len(self.rankings):
-          self.rankings[i] = newRankingsEntry
-        elif i == len(self.rankings):
-          self.rankings.append(newRankingsEntry)
-        else:
-          assert False, "unexpected self.rankings length."
+      raise ValueError("unknown refresh type {}.".format(repr(refreshType)))
+    
+    
+  def softRefreshRankings(self):
+    for i,rankingsEntry in enumerate(self.rankings):
+      self.rankings[i] = [self.scoreFun(rankingsEntry[1]), rankingsEntry[1]]
       
-      self.rankings.sort(key=self.rankingsInsortKeyFun)
-      if i is not None:
-        del self.rankings[i+1:]
-      deletionCount = self.dbgCullRankings()
-      if not deletionCount == 0:
-        print("PyCellElimRun.CellTargeter.refreshRankings: non-fast refresh: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
-        if len(self.rankings) == 0:
-          print("PyCellElimRun.CellTargeter.refreshRankings: since self.rankings is now empty, we will attempt to build it again to avoid a crash.")
-          self.buildRankings()
-          #pass
-    #print("CellTargeter: doing slow check of refreshed rankings!")
-    #assert self.rankings == self.newRankings() #@ slow
+    deletionCount = self.dbgCullRankings()
+    if not deletionCount == 0:
+      warn("PyCellElimRun.CellTargeter.softRefreshRankings: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+      pass
+    self.rankings.sort(key=self.rankingsInsortKeyFun)
+    
+    
+  def hardRefreshRankings(self):
+    i = None
+    for i,extremeCell in enumerate(self.cellCatalogue.genExtremeUnknownCells()):
+      #assert type(extremeCell) in [list,tuple], repr(extremeCell)
+      newRankingsEntry = [self.scoreFun(extremeCell), extremeCell]
+      if i < len(self.rankings):
+        self.rankings[i] = newRankingsEntry
+      elif i == len(self.rankings):
+        self.rankings.append(newRankingsEntry)
+        assert len(self.rankings) == i+1
+      else:
+        assert False, "unexpected self.rankings length."
+    
+    if i is not None:
+      assert len(self.rankings) >= i+1
+      del self.rankings[i+1:]
+      assert len(self.rankings) == i+1
+      
+    self.rankings.sort(key=self.rankingsInsortKeyFun)
+      
+    deletionCount = self.dbgCullRankings()
+    if not deletionCount == 0:
+      print("PyCellElimRun.CellTargeter.hardRefreshRankings: warning: deletion count due to extremeUnknownCell changes was {}, so removing this filtering step during refresh _may_ change compressed output.".format(deletionCount))
+      
+    if len(self.rankings) == 0:
+      print("PyCellElimRun.CellTargeter.hardRefreshRankings: deletionCount={}. self.rankings is now empty, so we will attempt to build it again to avoid a crash.".format(deletionCount))
+      self.buildRankings()
+      if len(self.rankings) != 0:
+        print("PyCellElimRun.CellTargeter.refreshRankings: WARNING: after buildRankings ran, length increased to {}. This means that the refresh is not working correctly.".format(len(self.rankings)))
+        #pass
+    print("PyCellElimRun.CellTargeter.hardRefreshRankings: SLOW: doing slow check of refreshed rankings!")
+    assertEqual(self.rankings, self.newRankings()) #@ slow
     
     
   def dbgCullRankings(self):
@@ -454,6 +472,7 @@ class CellTargeter:
     
   def optionsExist(self):
     return len(self.rankings) > 0
+    
   
   def genCellCheckOrder(self):
     #assert hasattr(self,"scoreFun")
@@ -500,7 +519,8 @@ class CellElimRunCodecState:
   
   DEFAULT_HEADER_DICT_TEMPLATE = {"interpolation_mode":"linear", "score_mode":"vertical_distance", "space_definition":{"size":[256, 256], "bounds":{}, "bound_touches":{}, "endpoint_init_mode":"middle"}}
   ALLOW_BOUND_ASSUMPTIONS = False #allow bound touch locations to be specified in the header without also providing the locations of bounaries in the header info - in this case, the bounaries are assumed based on "size". In case bounds were excluded from the header on accident, this assumption is incorrect, the plaindata values that are set based on the bound touch parameters will be set incorrectly, and the transcoding process will either crash or produce garbage.
-
+  
+  CELL_TARGETER_REFRESH_TYPE = "soft" #"soft" changes rankings order by basing it on the previous rankings order. "hard" is slower than "soft". "hard" and "build" should have identical results.
 
 
   def __init__(self, inputData, opMode, inputHeaderDictTemplate):
@@ -763,7 +783,7 @@ class CellElimRunCodecState:
   def processRun(self, cellTargeter): #do one run, either encoding or decoding.
     self.stepIndex = 0
     
-    cellTargeter.refreshRankings()
+    cellTargeter.refreshRankings(CellElimRunCodecState.CELL_TARGETER_REFRESH_TYPE)
     
     #debug:
     #self.dbgBuildRankings(cellTargeter)

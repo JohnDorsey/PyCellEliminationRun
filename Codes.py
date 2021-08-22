@@ -7,13 +7,13 @@ Codes.py contains tools for encoding and decoding universal codes like fibonacci
 """
 
 
-class ParseError(Exception):
-  pass
 
 
 import itertools
 
 import CodecTools
+from CodecTools import ParseError
+
 import FibonacciMath
 import PyGenTools
 from PyGenTools import isGen, makeGen, makeArr, arrTakeOnly, genTakeOnly, genSkipFirst, ExhaustionError, IterationFailure
