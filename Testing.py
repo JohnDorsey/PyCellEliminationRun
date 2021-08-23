@@ -9,6 +9,9 @@ No other files require Testing.py
 """
 
 
+
+
+
 import os
 
 import CodecTools
@@ -32,6 +35,8 @@ import HistTools
 
 import WaveIO
 
+
+
 SAMPLE_VALUE_UPPER_BOUND = 256 #exclusive.
 
 PEEK = 64 #these control how much information is shown in previews in the console.
@@ -46,6 +51,15 @@ sampleCerPressNums = {
     key:{256:None} for key in [1024,512,256,128,64,32,16,8]
   }
 }
+
+
+def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
+  soundToCompress = eval(soundSrcStr)
+  for interpolationMode, IMSub in sampleCerPressNums.items():
+    for blockSizeHoriz, BSHSub in IMSub.items():
+      for blockSizeVert, BSVSub in BSHSub.items():
+        inputHeaderDict = {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}
+        sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, inputHeaderDict))
 
 
 def evalSoundSrcStr(soundSrcStr):
@@ -107,7 +121,7 @@ def testCellElimRunCodec(testCERCodec, testSound, testSoundSize=None, compressAg
   QuickClocks.resume("test-cer-encode")
   pressDataNums = testCERCodec.encode(testSound)
   QuickClocks.pause("test-cer-encode")
-  printSimpleAnalysis(pressDataNums)
+  TestingTools.printSimpleIntArrAnalysis(pressDataNums, argName="pressDataNums", verbose=VERBOSE)
 
   testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=testSoundSize)
 
@@ -130,7 +144,7 @@ def testCellElimRunCodecAgain(testSound, testData, testSoundSize=None): #compres
   print("\nTesting.testCellElimRunCodecAgain: settings: " + str(inputHeaderDict2)+".")
   testCERCodec2 = pcer.cellElimRunBlockCodec.clone(extraArgs=[inputHeaderDict2])
   pressNums2 = testCERCodec2.encode(testData)
-  printSimpleAnalysis(pressNums2)
+  TestingTools.printSimpleIntArrAnalysis(pressNums2, argName="pressNums2", verbose=VERBOSE)
   testVariousUniversalCodings(testSound, pressNums2, testSoundSize=testSoundSize)
       
       
@@ -187,33 +201,11 @@ def testVariousUniversalCodings(testSound, pressDataNums, testSoundSize=None):
       assert CodecTools.roundTripTest(numberSeqCodec,pressDataNums,useZeroSafeMethods=True)
       
       
-def printSimpleAnalysis(pressDataNums):
-  resultText = ""
-  
-  resultText += "Testing.printSimpleAnalysis: The sum of the pressDataNums is " + str(sum(pressDataNums)) + ". They include " + str(pressDataNums.count(0)) + " zeroes, of which " + str(TestingTools.countTrailingZeroes(pressDataNums)) + " are trailing."
-  
-  #resultText += "The last " + str(TestingTools.countTrailingMatches(pressDataNums, (lambda x: x in [0,1]))) + " nums fall in 0..1. The last " + str(TestingTools.countTrailingMatches(pressDataNums, (lambda x: x in [0,1,2]))) + " nums fall in 0..2."
-  includePercentage = lambda inputInt: (inputInt, str(inputInt*100.0/len(pressDataNums))[:6] + "%")
-  resultText += " Where f(a) gives greatest b such that max(pressDataNums[-b:]) <= a, the start of f(a) looks like {}.".format([(testUpperBound, includePercentage(TestingTools.countTrailingMatches(pressDataNums, (lambda x: x <= testUpperBound)))) for testUpperBound in [1,2,4,8,16,32,64,128,256,512,1024]])
-  
-  resultText += " The median of the nonzero numbers is " + str(IntArrMath.median([item for item in pressDataNums if item != 0])) + " and the maximum is " + str(max(pressDataNums)) + " at index " + str(pressDataNums.index(max(pressDataNums))) + "."
-  
-  if VERBOSE:
-    resultText += "The pressDataNums are " + str(pressDataNums) + "."
-  else:
-    resultText += "The start of the pressDataNums look like " + str(pressDataNums[:PEEK])[:PEEK] + "..."
-  print(resultText)
+
       
       
       
 
-def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
-  soundToCompress = eval(soundSrcStr)
-  for interpolationMode, IMSub in sampleCerPressNums.items():
-    for blockSizeHoriz, BSHSub in IMSub.items():
-      for blockSizeVert, BSVSub in BSHSub.items():
-        inputHeaderDict = {"interpolation_mode": interpolationMode, "space_definition": {"size": [blockSizeHoriz,blockSizeVert]}}
-        sampleCerPressNums[interpolationMode][blockSizeHoriz][blockSizeVert] = makeArr(pcer.cellElimRunBlockCodec.encode(soundToCompress, inputHeaderDict))
 
 
 
@@ -280,12 +272,7 @@ def compressFull(soundSrcStr, outputShortName, settings=None, blockSize=(256,256
   
   with open(logFileName,"w") as logFile:
 
-    def log(text,end="\n"):
-      logFile.write(text+end)
-      return "log passthrough: "+text
-    def plog(text,end="\n"):
-      print(text)
-      log(text,end=end)
+    log, plog = TestingTools.logplog(logFile)
       
     plog("writing to log file {}.".format(logFileName))
     plog("\nTesting.compressFull: settings: " + str(inputHeaderDict)+".")

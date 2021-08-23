@@ -8,6 +8,8 @@ QuickClocks.py offers very simple low-overhead clocks to track the time taken be
 
 import time
 
+
+
 class Clock:
   def __init__(self, name=None, start=False):
     self.memory = 0.0

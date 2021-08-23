@@ -372,7 +372,8 @@ class ColumnCellCatalogue(CellCatalogue):
 
 class CellTargeter:
   USE_STABLE_INSORT = False #set to False for old behavior. will affect output. shouldn't meaningfully affect CR.
-  DO_FILTER_RANKINGS_IN_GEN = False #set to True to filter items taken from the left of rankings and discard cells whose columns have been eliminated.
+  DO_FILTER_LOITERING_RANKINGS_IN_GENERATOR = False #set to True to filter items taken from the left of rankings and discard cells whose columns have been eliminated.
+  #DO_CULL_LOITERING_RANKINGS_IN_OPTIONS_EXIST = True #there might be no point to this, and it can be removed.
 
   def __init__(self, size, spline, cellCatalogue, scoreFun, critCellCallbackMethod=None):
     #print("CellTargeter initialized.")
@@ -431,6 +432,7 @@ class CellTargeter:
     else:
       raise ValueError("unknown refresh type {}.".format(repr(refreshType)))
     
+  
   print("PyCellElimRun.CellTargeter.softRefreshRankings is defined with a slow call to dbgCullRankings. If this method culls any rankings, then the compressed output may change when the filter is later removed.")
   def softRefreshRankings(self):
     for i,rankingsEntry in enumerate(self.rankings):
@@ -505,7 +507,17 @@ class CellTargeter:
     
     
   def optionsExist(self):
+    #if CellTargeter.DO_CULL_LOITERING_RANKINGS_IN_OPTIONS_EXIST:
+    #  oldLength = len(self.rankings)
+    #  self.rankings = [entry for entry in self.rankings if self.cellLoiteringReport(entry[1])[1] > 1] # @ could be faster.
+    #  if len(self.rankings) != oldLength:
+    #    raise AssertionError("rankings length should not have changed!")
     return len(self.rankings) > 0
+    
+  
+  def cellLoiteringReport(self, cellToCheck):
+    column = self.cellCatalogue.getColumn(cellToCheck[:-1])
+    return (column.getCellStatus(cellToCheck[-1]), column.countUnknowns())
     
   
   def genCellCheckOrder(self):
@@ -522,8 +534,8 @@ class CellTargeter:
       
       outputCell = self.rankings[0][1]
       
-      if CellTargeter.DO_FILTER_RANKINGS_IN_GEN:
-        currentColumnUnknownCount = self.cellCatalogue.getColumn(outputCell[:-1]).countUnknowns()
+      if CellTargeter.DO_FILTER_LOITERING_RANKINGS_IN_GENERATOR:
+        outputCellStatus, currentColumnUnknownCount = self.cellLoiteringReport(outputCell)
         if currentColumnUnknownCount == 0:
           del self.rankings[0]
           if len(self.rankings) == 0:
@@ -532,7 +544,7 @@ class CellTargeter:
           continue
         elif currentColumnUnknownCount == 1:
           assert False, "It seems like this column was improperly eliminated!"
-        if self.cellCatalogue.getCellStatus(outputCell) != CellCatalogue.UNKVAL:
+        if outputCellStatus != CellCatalogue.UNKVAL:
           #NOTE that this may cause duplicates in rankings!
           outputCell = self.cellCatalogue.clampCell(outputCell)
           print("PyCellElimRun.CellTargeter.genCellCheckOrder: warning: This routine isn't finished yet. The output cell being yielded now will not be in the right order, which hurts CR. This cell might also be duplicated!")
@@ -871,7 +883,7 @@ class CellElimRunCodecState:
     for cellToCheck in targetGen:
       assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex, self.size)
       
-      if cellTargeter.DO_FILTER_RANKINGS_IN_GEN:
+      if cellTargeter.DO_FILTER_LOITERING_RANKINGS_IN_GENERATOR:
         assert not self.dbgCellIsInBadColumn(cellToCheck)
       
       if not hitTest():

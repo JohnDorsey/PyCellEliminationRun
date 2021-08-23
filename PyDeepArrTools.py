@@ -1,4 +1,11 @@
+
+
+
+
+
 import itertools
+
+
 
 def shape(data):
   if not isinstance(data,list):

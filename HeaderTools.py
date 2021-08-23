@@ -7,7 +7,6 @@ from PyGenTools import ExhaustionError
 
 
 
-
 class Log:
   def __init__(self):
     pass

@@ -735,19 +735,19 @@ def eliasDeltaFibBitSeqToIntSeq(inputBitSeq):
 
 
 
+"""
+def getCodec(name):
+  if name in codecs:
+    return codecs[name]
+  elif name in IntSeqStore.havenBucketCodecs:
+    return IntSeqStore.havenBucketCodecs[name]
+  else:
+    raise KeyError("num codec or num seq codec {} not found.".format(repr(name)))
+"""
 
 
 
 
-
-
-
-
-
-  
-for testOrder in [2,3,5,8]:
-  for testNum in range(1,32):
-    assert predictEnbocodeTotalLength(testNum, order=testOrder) == len(intToEnbocodeBitArr(testNum, order=testOrder))
 
 
 
@@ -794,6 +794,12 @@ for orderName, order in FIBONACCI_ORDER_NICKNAMES.items():
 
 
 
+
+print("testing enbocode length prediction...")
+  
+for testOrder in [2,3,5,8]:
+  for testNum in range(1,32):
+    assert predictEnbocodeTotalLength(testNum, order=testOrder) == len(intToEnbocodeBitArr(testNum, order=testOrder))
 
 
 
