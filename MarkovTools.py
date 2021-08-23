@@ -162,7 +162,66 @@ def genBleedSortedArrWithSearches(inputArr,noNegatives=False):
       
       
       
-      
+class ListInternalTranscriptionHelperPipe:
+  def __init__(self, iSrc, iDest, dataRef):
+    self.iSrc, self.iDest, self.data = iSrc, iDest, dataRef
+    
+  def reset(self):
+    self.iSrc, self.iDest = 0, 0
+    
+  def writeIncD(self, valueToPut):
+    self.data[self.iDest] = valueToPut
+    self.iDest += 1
+    
+  def writeIncDS(self, valueToPut):
+    self.data[self.iDest] = valueToPut
+    self.iDest += 1
+    self.iSrc += 1
+    
+  def writeIncS(self, valueToPut):
+    self.data[self.iDest] = valueToPut
+    self.iSrc += 1
+    
+  def peek(self):
+    return self.data[self.iSrc]
+    
+  def read(self):
+    result = self.data[self.iSrc]
+    self.iSrc += 1
+    return result
+  
+  def trim(self):
+    del self.data[self.iDest:]
+    
+  def skip(self):
+    self.iSrc += 1
+    
+  def canRead(self):
+    return self.iSrc < len(self.data)
+
+ 
+class Spot:
+  def __init__(self, motion, position):
+    self.motion, self.position = motion, position
+  
+  def isMovingLeft(testSpot):
+    return testSpot.motion == -1
+    
+  def isMovingRight(testSpot):
+    return testSpot.motion == 1
+    
+  def isStationary(testSpot):
+    return testSpot.motion == 0
+    
+  def overlaps(self, other):
+    return self.position == other.position
+    
+  def moved(inputSpot):
+    return Spot(inputSpot.motion, inputSpot.motion + inputSpot.position)
+    
+  def stopped(inputSpot):
+    return Spot(0, inputSpot.position)
+    
 
 def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisingSeedTail=False):
   #futher optimization is possible, but not necessary. movingSpots beyond all others and moving outwards could be removed from collision detection.
@@ -177,90 +236,68 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
   #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[-1,spot-1],[1,spot+1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
   
   #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[direction,spot+direction] for direction in [-1,1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
-  genLocalNeighborsWithMutualErasure = (lambda calcSpotIndex,calcSpot,calcArr: (localNeighbor for localNeighbor in [[-1,calcSpot-1],[1,calcSpot+1]] if localNeighbor[1] != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)]))
-
-  genLocalNeighborsWithCollisions = (lambda calcSpotIndex,calcSpot,calcArr: (nonNoneLocalNeighbor for nonNoneLocalNeighbor in ((localNeighbor if sum(localNeighbor) != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)] else ([0,localNeighbor[1]] if localNeighbor[0]>0 else None)) for localNeighbor in genLocalNeighborsWithMutualErasure(calcSpotIndex,calcSpot,calcArr)) if nonNoneLocalNeighbor != None))
   
-  movingSpots = [neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genLocalNeighborsWithCollisions(spotIndex,spot,seedArr)]
+  primitiveNeighborsOfInt = (lambda calcSpot: [[-1,calcSpot-1],[1,calcSpot+1]])
   
-  #iDest = 0 #set to 0 later.
-  #iSrc = 0 #set to 0 later.
+  genLocalNeighborsWithMutualErasure = (lambda calcSpotIndex,calcSpot,calcArr: (localNeighbor for localNeighbor in primitiveNeighborsOfInt(calcSpot) if localNeighbor[1] != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)]))
+  
+  genLocalNeighborsWithCollisionsAndNones = (lambda calcSpotIndex,calcSpot,calcArr: ((localNeighbor if sum(localNeighbor) != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)] else ([0,localNeighbor[1]] if localNeighbor[0]>0 else None)) for localNeighbor in genLocalNeighborsWithMutualErasure(calcSpotIndex,calcSpot,calcArr)))
 
-  class Pipe:
-    def __init__(self, iSrc, iDest, movingSpotsRef):
-      self.iSrc, self.iDest, self.movingSpots = iSrc, iDest, movingSpotsRef
-      
-    def write(self, spotToPut):
-      self.movingSpots[self.iDest] = spotToPut
-      self.iDest += 1
+  #genLocalNeighborsWithCollisions = (lambda calcSpotIndex,calcSpot,calcArr: (nonNoneLocalNeighbor for nonNoneLocalNeighbor in genLocalNeighborsWithCollisionsAndNones if nonNoneLocalNeighbor != None))
+  genNoneless = (lambda genToEdit: (item for item in genToEdit if item != None))
+  
+  movingSpotArgs = (neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genNoneless(genLocalNeighborsWithCollisionsAndNones(spotIndex,spot,seedArr)))
+  
+  movingSpots = [Spot(pair[0], pair[1]) for pair in movingSpotArgs]
     
-  pipe = Pipe(None, None, movingSpots)
-
-  #def putTransferred(spotToPut):
-  #  iDestPut(spotToPut)
-  #  iSrc += 1
-    
-  def isMovingLeft(testSpot):
-    return testSpot[0] == -1
-  def isMovingRight(testSpot):
-    return testSpot[0] == 1
-  #def isMoving(testSpot):
-  #  return testSpot[0] != 0
-  def isStationary(testSpot):
-    return testSpot[0] == 0
-  def moved(inputSpot):
-    return [inputSpot[0], sum(inputSpot)]
+  pipe = ListInternalTranscriptionHelperPipe(None, None, movingSpots)
+  
+  def isInBounds(testSpot):
+    if not noNegatives:
+      return True
+    return testSpot[1] >= 0
     
   while True:
-    
-    if noNegatives:
-      if movingSpots[0][1] < 0:
-        del movingSpots[0] #it is possible to do this at a better time.
-        if all(spot[0] == 1 for spot in movingSpots):
-          break
-    i = 0
-    while i < len(movingSpots):
-      currentSpot = movingSpots[i]
-      yield currentSpot[1]
-      i += 1
+          
+    for currentSpot in movingSpots:
+      yield currentSpot.position
       
-    pipe.iSrc, pipe.iDest = 0, 0
+    pipe.reset()
     
-    while pipe.iSrc < len(movingSpots):
-      oldSpot = movingSpots[pipe.iSrc]
-      if isStationary(oldSpot): #if it's a collision spot:
-        pipe.iSrc += 1 #nothing will be done with the spot, so it will be overwritten at some point, and not yielded more than once.
+    while pipe.canRead():
+      oldSpot = pipe.peek()
+      if oldSpot.isStationary(): #if it's a collision spot:
+        pipe.skip() #nothing will be done with the spot, so it will be overwritten at some point, and not yielded more than once.
         continue
-      newSpot = moved(oldSpot) #what oldSpot wants to be.
-      assert not isStationary(newSpot)
-      if isMovingLeft(oldSpot):
+      newSpot = oldSpot.moved() #what oldSpot wants to be. This is never stationary.
+      if not isInBounds(newSpot):
+        pipe.skip()
+        continue
+      if oldSpot.isMovingLeft():
         if pipe.iDest == 0: #if there's nothing to the left of this spot, so no collision can happen:
-          pipe.write(newSpot)
-          pipe.iSrc += 1
-          continue
-        assert pipe.iDest > 0
-        assert pipe.iSrc > 0
-        spotLeftOfDest = movingSpots[pipe.iDest-1]
-        if isMovingRight(spotLeftOfDest): #if left spot is collidable because it is moving in the opposite direction:
-          if spotLeftOfDest[1] == newSpot[1]: #if collision:
-            movingSpots[pipe.iDest-1] = [0, spotLeftOfDest[1]] #merge
-            pipe.iSrc += 1
-            continue
-          if spotLeftOfDest[1] == oldSpot[1]: #if slip (needs mutual erasure):
-            pipe.iDest -= 1
-            pipe.iSrc += 1
-            continue
-          pipe.write(newSpot)
-          pipe.iSrc += 1
-          continue
-        #assert not isStationary(spotLeftOfDest)
-        assert isMovingLeft(spotLeftOfDest)
-      assert isMovingRight(oldSpot)
-      pipe.write(newSpot)
-      pipe.iSrc += 1
-      continue
-    while len(movingSpots) > pipe.iDest: #trim.
-      del movingSpots[pipe.iDest]
+          pipe.writeIncDS(newSpot)
+        else: # a collision should be tested for.
+          assert pipe.iSrc > 0
+          iLeftOfDest = pipe.iDest - 1
+          assert iLeftOfDest >= 0
+          spotLeftOfIDest = movingSpots[iLeftOfDest]
+          if spotLeftOfIDest.isMovingRight(): #if left spot is collidable (or slippable) because it is moving in the opposite direction:
+            if spotLeftOfIDest.overlaps(newSpot): #if collision:
+              movingSpots[iLeftOfDest] = spotLeftOfIDest.stopped() #merge
+              pipe.skip()
+            elif spotLeftOfIDest.overlaps(oldSpot): #if slip (needs mutual erasure):
+              pipe.iDest = iLeftOfDest #iDest is now index of spotLeftOfDest, allowing it to be rewritten too. same as -= 1
+              pipe.skip()
+            else: #no collision or skip. This point is fine.
+              pipe.writeIncDS(newSpot)
+          else:
+            assert spotLeftOfDest.isMovingLeft()
+      else: #spot is moving right.
+        #don't check for anything. checks are only done by points moving left.
+        pipe.writeIncDS(newSpot)
+      
+    pipe.trim()
+  
   #after the above loop breaks, there are only movingSpots with directions equal to 1, so no more testing needs to be done.
   assert all(spot[0] == 1 for spot in movingSpots)
   uniformlyMovingSpots = [spot[1] for spot in movingSpots]
