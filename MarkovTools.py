@@ -6,6 +6,8 @@ MarkovTools.py contains tools for transforming sequences using markov models.
 
 """
 
+import itertools
+
 from PyGenTools import genTakeOnly, arrTakeOnly, makeGen, genDeduped, ExhaustionError, indexOfValueInGen, valueAtIndexInGen, genSkipFirst
 from PyArrTools import insort
 from HistTools import OrderlyHist
@@ -13,7 +15,6 @@ import HuffmanMath
 import CodecTools
 from CodecTools import remapToValueArrCodec, remapToValueArrTranscode
 import Codes
-import itertools
 
 
 def getStartingIndicesOfSubSequence(inputArr,subSequence):
@@ -83,13 +84,16 @@ def genBleedSortedArr(inputArr,noNegatives=False):
   return genBleedSortedArrWithoutSearches(inputArr,noNegatives=noNegatives)
 
 
+def validateSeedArrNoNegatives(seedArr, noNegatives):
+  if noNegatives:
+    if inputArr[0] < 0:
+      raise ValueError("called with noNegatives=True and an seedArr starting with a negative value.")
+
 def genBleedSortedArrWithSearches(inputArr,noNegatives=False):
   """
   This is the original version of genBleedSortedArr. It involves lots of list searches. A much faster version involving no list searches exists and should usually be used instead.
   """
-  if noNegatives:
-    if inputArr[0] < 0:
-      raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
+  validateSeedArrNoNegatives(inputArr, noNegatives)
   for item in inputArr:
     yield item
   lowerSpots = [item for item in inputArr] #these move down.
@@ -160,11 +164,12 @@ def genBleedSortedArrWithSearches(inputArr,noNegatives=False):
       
       
 
-def genBleedSortedArrWithoutSearches(seedArr,noNegatives=False):
+def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisingSeedTail=False):
   #futher optimization is possible, but not necessary. movingSpots beyond all others and moving outwards could be removed from collision detection.
-  if noNegatives:
-    if seedArr[0] < 0:
-      raise ValueError("MarkovTools.genBleedSortedArr was called with noNegatives=True and an inputArr starting with a negative value.")
+  validateSeedArrNoNegatives(seedArr, noNegatives)
+  if stopSingleRisingSeedTail and not noNegatives:
+    print("MarkovTools.genBleedSortedArrWithoutSearches: stopSingleTail=True policy won't be used because with noNegatives=False a single seed tail can't exist.")
+  
   for item in seedArr:
     yield item
   #assume there are no duplicate values in inputArr.
@@ -178,8 +183,36 @@ def genBleedSortedArrWithoutSearches(seedArr,noNegatives=False):
   
   movingSpots = [neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genLocalNeighborsWithCollisions(spotIndex,spot,seedArr)]
   
+  #iDest = 0 #set to 0 later.
+  #iSrc = 0 #set to 0 later.
+
+  class Pipe:
+    def __init__(self, iSrc, iDest, movingSpotsRef):
+      self.iSrc, self.iDest, self.movingSpots = iSrc, iDest, movingSpotsRef
+      
+    def write(self, spotToPut):
+      self.movingSpots[self.iDest] = spotToPut
+      self.iDest += 1
+    
+  pipe = Pipe(None, None, movingSpots)
+
+  #def putTransferred(spotToPut):
+  #  iDestPut(spotToPut)
+  #  iSrc += 1
+    
+  def isMovingLeft(testSpot):
+    return testSpot[0] == -1
+  def isMovingRight(testSpot):
+    return testSpot[0] == 1
+  #def isMoving(testSpot):
+  #  return testSpot[0] != 0
+  def isStationary(testSpot):
+    return testSpot[0] == 0
+  def moved(inputSpot):
+    return [inputSpot[0], sum(inputSpot)]
+    
   while True:
-    #print(movingSpots)
+    
     if noNegatives:
       if movingSpots[0][1] < 0:
         del movingSpots[0] #it is possible to do this at a better time.
@@ -190,60 +223,129 @@ def genBleedSortedArrWithoutSearches(seedArr,noNegatives=False):
       currentSpot = movingSpots[i]
       yield currentSpot[1]
       i += 1
-    iSrc = 0
-    iDest = 0
-    while iSrc < len(movingSpots):
-      oldSpot = movingSpots[iSrc]
-      if oldSpot[0] == 0: #if it's a collision spot:
-        iSrc += 1
+      
+    pipe.iSrc, pipe.iDest = 0, 0
+    
+    while pipe.iSrc < len(movingSpots):
+      oldSpot = movingSpots[pipe.iSrc]
+      if isStationary(oldSpot): #if it's a collision spot:
+        pipe.iSrc += 1 #nothing will be done with the spot, so it will be overwritten at some point, and not yielded more than once.
         continue
-      newSpot = [oldSpot[0],sum(oldSpot)] #what oldSpot wants to be.
-      assert newSpot[0] != 0
-      if oldSpot[0] == -1:
-        if iDest == 0: #if there's nothing to the left of this spot, so no collision can happen:
-          movingSpots[0] = newSpot
-          iDest = 1 #iDest += 1
-          iSrc += 1
+      newSpot = moved(oldSpot) #what oldSpot wants to be.
+      assert not isStationary(newSpot)
+      if isMovingLeft(oldSpot):
+        if pipe.iDest == 0: #if there's nothing to the left of this spot, so no collision can happen:
+          pipe.write(newSpot)
+          pipe.iSrc += 1
           continue
-        assert iDest > 0
-        assert iSrc > 0
-        spotLeftOfDest = movingSpots[iDest-1]
-        if spotLeftOfDest[0] == 1: #if left spot is collidable because it is moving in the opposite direction:
+        assert pipe.iDest > 0
+        assert pipe.iSrc > 0
+        spotLeftOfDest = movingSpots[pipe.iDest-1]
+        if isMovingRight(spotLeftOfDest): #if left spot is collidable because it is moving in the opposite direction:
           if spotLeftOfDest[1] == newSpot[1]: #if collision:
-            movingSpots[iDest-1] = [0,spotLeftOfDest[1]] #merge
-            iSrc += 1
+            movingSpots[pipe.iDest-1] = [0, spotLeftOfDest[1]] #merge
+            pipe.iSrc += 1
             continue
           if spotLeftOfDest[1] == oldSpot[1]: #if slip (needs mutual erasure):
-            iDest -= 1
-            iSrc += 1
+            pipe.iDest -= 1
+            pipe.iSrc += 1
             continue
-          movingSpots[iDest] = newSpot
-          iDest += 1
-          iSrc += 1
+          pipe.write(newSpot)
+          pipe.iSrc += 1
           continue
-        assert spotLeftOfDest[0] != 0
-        assert spotLeftOfDest[0] == -1
-      assert oldSpot[0] == 1
-      movingSpots[iDest] = newSpot
-      iSrc += 1
-      iDest += 1
+        #assert not isStationary(spotLeftOfDest)
+        assert isMovingLeft(spotLeftOfDest)
+      assert isMovingRight(oldSpot)
+      pipe.write(newSpot)
+      pipe.iSrc += 1
       continue
-    while len(movingSpots) > iDest: #trim.
-      del movingSpots[iDest]
+    while len(movingSpots) > pipe.iDest: #trim.
+      del movingSpots[pipe.iDest]
   #after the above loop breaks, there are only movingSpots with directions equal to 1, so no more testing needs to be done.
+  assert all(spot[0] == 1 for spot in movingSpots)
   uniformlyMovingSpots = [spot[1] for spot in movingSpots]
   assert len(uniformlyMovingSpots) == 1
+  if stopSingleRisingSeedTail:
+    return
   for offset in itertools.count(0):
     for value in uniformlyMovingSpots:
       yield value+offset
       
       
-      
+def genBleedSortedArrDownOnly(seedArr, noNegatives=False):
+  if not len(seedArr) > 0:
+    raise ValueError("seedArr can't be empty.")
+  validateSeedArrNoNegatives(seedArr, noNegatives)
+  
+  activeSeedEntries = [(None, seedArr[0])] + [(seedArr[i-1], seedArr[i]) for i in range(1,len(seedArr))]
+  for seedEntry in activeSeedEntries:
+    yield seedEntry[1]
+  for offset in itertools.count(1): #don't yield seeds again - start at 1.
+    currentSeedEntry = activeSeedEntries[0] #yield lowest item now instead of processing it along with the others and testing for a collision where one is impossible.
+    currentValue = currentSeedEntry[1] - offset
+    if noNegatives:
+      if currentValue < 0:
+        del activeSeedEntries[0]
+        if len(activeSeedEntries) == 0:
+          return
+        continue
+    yield currentValue
+    i = 1 #don't yield lowest item again - start at 1.
+    while i < len(activeSeedEntries):
+      currentSeedEntry = activeSeedEntries[i]
+      currentValue = currentSeedEntry[1] - offset
+      if currentValue == currentSeedEntry[0]:
+        del activeSeedEntries[i]
+      else:
+        yield currentValue
+        i += 1
+  #finished.
+
+
+def remapToReorderedPositiveIntsTranscode(mainItem, opMode, inputSeq, startIndex=0):
+  if mainItem == None:
+    print("MarkovTools.remapToReorderedPositiveIntsTranscode: decode: warning: can't use None as an index. Will return None immediately.")
+    return None
+  assert mainItem >= 0
+  assert startIndex >= 0
+  if startIndex != 0:
+    raise NotImplementedError("nonzero startIndex")
+  
+  #attempt shortcut:
+  if opMode == "decode":
+    if hasattr(inputSeq, "__getitem__") and not isinstance(inputSeq, dict):
+      if hasattr(inputSeq, "__len__"):
+        if mainItem + startIndex < len(inputSeq):
+          return inputSeq[mainItem + startIndex]
+        else:
+          return mainItem
+      else:
+        try:
+          return inputGen[mainItem + startIndex]
+        except IndexError:
+          print("MarkovTools.remapToReorderedPositiveIntsTranscode: slow: shortcut failed due to index error. Falling back to linear search, which is slow and might have no chance of succeeding depending on the inputGen type ({}).".format(repr(type(inputGen))))
+          pass
+    
+  workingGen = genSkipFirst(inputGen, startIndex)
+  if opMode == "encode":
+    result = indexOfValueInGen(mainItem, workingGen)
+  elif opMode == "decode":
+    result = valueAtIndexInGen(mainItem, workingGen)
+  else:
+    raise ValueError("invalid opMode.")
+  if result is None:
+    if startIndex != 0:
+      raise NotImplementedError("passing through the mainItem with a nonzero startIndex is not yet allowed because startIndex might not be correctly applied to this returned value.")
+    return mainItem + startIndex
+  else:
+    assert result >= 0
+    return result
       
 
-def remapToGeneratedValuesTranscode(mainItem,opMode,inputGen,startIndex=0,timeout=2**20):
+def remapToGeneratedValuesTranscode(mainItem, opMode, inputGen, startIndex=0, timeout=2**20):
+  workingGen = genTakeOnly(genSkipFirst(inputGen, startIndex), timeout, onExhaustion="warn")
   if opMode == "encode":
-    foundIndex = indexOfValueInGen(mainItem,genTakeOnly(genSkipFirst(inputGen,startIndex),timeout,onExhaustion="warn"))
+    foundIndex = indexOfValueInGen(mainItem, workingGen)
     if foundIndex == None:
       print("MarkovTools.remapToGeneratedValuesTranscode: encode: warning: couldn't find it. returning None.")
     return foundIndex
@@ -251,14 +353,15 @@ def remapToGeneratedValuesTranscode(mainItem,opMode,inputGen,startIndex=0,timeou
     if mainItem == None:
       print("MarkovTools.remapToGeneratedValuesTranscode: decode: warning: can't use None as an index. Will return None immediately.")
       return None
-    foundValue = valueAtIndexInGen(mainItem,genTakeOnly(genSkipFirst(inputGen,startIndex),timeout,onExhaustion="warn"))
+    foundValue = valueAtIndexInGen(mainItem, workingGen)
     if foundValue == None:
       print("MarkovTools.remapToGeneratedValuesTranscode: decode: warning: foundValue is None. returning None.")
     return foundValue
   else:
     raise ValueError("invalid opMode.")
     
-def remapToBleedingSortedArrTranscode(mainItem,opMode,seedArr,noNegatives=True,skipSeedArr=False,timeout=2**20):
+    
+def remapToBleedingSortedArrTranscode(mainItem, opMode, seedArr, noNegatives=True, skipSeedArr=False, timeout=2**20):
   assert type(seedArr) in [list,set]
   if type(seedArr) == set:
     print("MarkovTools.remapToBleedingSortedArrTranscode: warning: converting set to list is slow!")
