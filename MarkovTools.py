@@ -231,20 +231,13 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
   
   for item in seedArr:
     yield item
-  #assume there are no duplicate values in inputArr.
-  #this works, but doesn't handle collisions:
-  #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[-1,spot-1],[1,spot+1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
-  
-  #movingSpots = [neighbor for spotIndex,spot in enumerate(inputArr) for neighbor in [[direction,spot+direction] for direction in [-1,1]] if neighbor[1] != inputArr[spotIndex+neighbor[0]]]
   
   primitiveNeighborsOfInt = (lambda calcSpot: [[-1,calcSpot-1],[1,calcSpot+1]])
+  genNoneless = (lambda genToEdit: (item for item in genToEdit if item != None))
   
   genLocalNeighborsWithMutualErasure = (lambda calcSpotIndex,calcSpot,calcArr: (localNeighbor for localNeighbor in primitiveNeighborsOfInt(calcSpot) if localNeighbor[1] != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)]))
   
   genLocalNeighborsWithCollisionsAndNones = (lambda calcSpotIndex,calcSpot,calcArr: ((localNeighbor if sum(localNeighbor) != calcArr[(calcSpotIndex+localNeighbor[0])%len(calcArr)] else ([0,localNeighbor[1]] if localNeighbor[0]>0 else None)) for localNeighbor in genLocalNeighborsWithMutualErasure(calcSpotIndex,calcSpot,calcArr)))
-
-  #genLocalNeighborsWithCollisions = (lambda calcSpotIndex,calcSpot,calcArr: (nonNoneLocalNeighbor for nonNoneLocalNeighbor in genLocalNeighborsWithCollisionsAndNones if nonNoneLocalNeighbor != None))
-  genNoneless = (lambda genToEdit: (item for item in genToEdit if item != None))
   
   movingSpotArgs = (neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genNoneless(genLocalNeighborsWithCollisionsAndNones(spotIndex,spot,seedArr)))
   
@@ -258,10 +251,8 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
     return testSpot[1] >= 0
     
   while True:
-          
     for currentSpot in movingSpots:
       yield currentSpot.position
-      
     pipe.reset()
     
     while pipe.canRead():
@@ -297,6 +288,8 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
         pipe.writeIncDS(newSpot)
       
     pipe.trim()
+    if all(testSpot.isMovingRight() for testSpot in movingSpots):
+      break
   
   #after the above loop breaks, there are only movingSpots with directions equal to 1, so no more testing needs to be done.
   assert all(spot[0] == 1 for spot in movingSpots)
