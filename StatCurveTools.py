@@ -92,30 +92,31 @@ def genMergeParallelSeqsUsingSetTool(inputSeqSeq,mergeTool):
     yield mergeTool(currentSet)
 
 
-def makeAutoBlurredListHist(inputListHist,overdoLevel=2):
+def makeAutoBlurredListHist(inputListHist, overdoLevel=2):
   assert type(inputListHist) == list
   assert overdoLevel >= 1
   #this might just be a faster, more complicated way of finding the mean hole width.
   #population = 1.0-(inputListHist.count(None)/float(len(inputListHist)))
   #populationBasedHillWidth = int(round(1.0/population))
   #populationBasedHillWidth += 1-(populationBasedHillWidth%2)
-  holeWidths = makeArr(genMatchRunLengths(inputListHist,(lambda x: x in [None,0,0.0])))
+  def blurredUsingWidth(widthToUse):
+    gaussHillToUse = getGaussianBlurHillShape(medianHoleWidth*overdoLevel+1+2, 3*overdoLevel, cutoffOps="cut_to_ground") #the +1 makes the width odd as is necessary, the +2 makes up for cutting to ground.
+    result = convolved1d(inputListHist, gaussHillToUse)
+    return result
+    
+  holeWidths = makeArr(genMatchRunLengths(inputListHist, (lambda x: x in [None, 0, 0.0])))
   medianHoleWidth = 0
   if len(holeWidths) > 0:
     medianHoleWidth = int(round(IntArrMath.median(holeWidths)))
-  medGaussHill = getGaussianBlurHillShape(medianHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground") #the +1 makes the width odd as is necessary, the +2 makes up for cutting to ground.
+  
   meanHoleWidth = 0
   if len(holeWidths) > 0:
     meanHoleWidth = int(round(IntArrMath.mean(holeWidths)))
-  meanGaussHill = getGaussianBlurHillShape(meanHoleWidth*overdoLevel+1+2,3*overdoLevel,cutoffOps="cut_to_ground")
   #print((medianHoleWidth,meanHoleWidth))
-  patchedInput = patchedListHist(inputListHist,holeMatchFun=(lambda xx: xx in [None,0,0.0]))
-  medGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
-  meanGaussBlurredInput = convolved1d(inputListHist,medGaussHill)
-  result = makeArr(genMergeParallelSeqsUsingSetTool([patchedInput,medGaussBlurredInput,meanGaussBlurredInput],IntArrMath.mean))
-  #print(patchedInput)
-  #print(medGaussBlurredInput)
-  #print(result)
+  patchedInput = patchedListHist(inputListHist, holeMatchFun=(lambda xx: xx in [None,0,0.0]))
+  medGaussBlurredInput = blurredUsingWidth(medianHoleWidth)
+  meanGaussBlurredInput = blurredUsingWidth(meanHoleWidth)
+  result = makeArr(genMergeParallelSeqsUsingSetTool([patchedInput, medGaussBlurredInput, meanGaussBlurredInput], IntArrMath.mean))
   return result
   
   
@@ -124,15 +125,15 @@ def extendListHistMinimally(inputList, targetLength, valueSuggestion=1):
   if len(inputList) >= targetLength:
     return
   minNonZeroValue = min(item for item in inputList if item > 0)
-  extensionValue = float(min(valueSuggestion,minNonZeroValue))
+  extensionValue = float(min(valueSuggestion, minNonZeroValue))
   inputList.extend((extensionValue for i in range(len(inputList),targetLength)))
 
 
-def normalDistribution(x,smallSigma,smallMu):
+def normalDistribution(x, smallSigma, smallMu):
   return (1.0/(smallSigma*((2*pi)**0.5)))*(e**(-0.5*(((x-smallMu)/smallSigma)**2)))
 
 
-def getGaussianBlurHillShape(shapeWidth,maxSmallSigma,cutoffOps="scale_to_1"):
+def getGaussianBlurHillShape(shapeWidth, maxSmallSigma, cutoffOps="scale_to_1"):
   """
   scale_to_1 means the hill shape will be scaled until its sum is 1.
   add_to_1 means the hill shape will have the same amount added to every column until its sum is 1. This means multiplying by something like dx first. it might not be implemented because there is little need for it.
@@ -168,14 +169,14 @@ def getGaussianBlurHillShape(shapeWidth,maxSmallSigma,cutoffOps="scale_to_1"):
 def convolved1d(inputArr,shapeArr):
   assert len(shapeArr)%2
   isInArr = (lambda srcArr, srcArrIndex: not (srcArrIndex < 0 or srcArrIndex >= len(srcArr)))
-  getInArr = (lambda srcArr, srcArrIndex: 0 if not isInArr(srcArr,srcArrIndex) else srcArr[srcArrIndex])
-  getShapeOverlapAmountCentered = (lambda mainArr, mainArrIndex, testShape: sum(testShape[testShapeIndex]*isInArr(mainArr,mainArrIndex+testShapeIndex-(len(testShape)>>1)) for testShapeIndex in range(len(testShape))))
-  basicMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: sum(mulShape[mulShapeIndex]*getInArr(mainArr,mainArrIndex+mulShapeIndex-(len(mulShape)>>1)) for mulShapeIndex in range(len(mulShape))))
-  fairMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: basicMultiplyCentered(mainArr,mainArrIndex,mulShape)/float(getShapeOverlapAmountCentered(mainArr,mainArrIndex,mulShape)))
+  getInArr = (lambda srcArr, srcArrIndex: 0 if not isInArr(srcArr, srcArrIndex) else srcArr[srcArrIndex])
+  getShapeOverlapAmountCentered = (lambda mainArr, mainArrIndex, testShape: sum(testShape[testShapeIndex]*isInArr(mainArr, mainArrIndex+testShapeIndex-(len(testShape)>>1)) for testShapeIndex in range(len(testShape))))
+  basicMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: sum(mulShape[mulShapeIndex]*getInArr(mainArr, mainArrIndex+mulShapeIndex-(len(mulShape)>>1)) for mulShapeIndex in range(len(mulShape))))
+  fairMultiplyCentered = (lambda mainArr, mainArrIndex, mulShape: basicMultiplyCentered(mainArr, mainArrIndex, mulShape)/float(getShapeOverlapAmountCentered(mainArr, mainArrIndex, mulShape)))
 
   result = [0 for i in range(len(inputArr))]
   for i in range(len(result)):
-    result[i] = fairMultiplyCentered(inputArr,i,shapeArr)
+    result[i] = fairMultiplyCentered(inputArr, i, shapeArr)
   return result
 
 

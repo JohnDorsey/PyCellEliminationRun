@@ -18,7 +18,6 @@ from IntArrMath import intify, floatified
 
 import HeaderTools
 
-from Codes import ParseError
 import PyGenTools
 from PyGenTools import makeArr, makeGen, arrTakeOnly, ExhaustionError, countIn, allAreEqual
 from PyArrTools import ljustedArr, insort
@@ -231,7 +230,7 @@ class CellTargeter:
           continue
         elif currentColumnUnknownCount == 1:
           assert False, "It seems like this column was improperly eliminated!"
-        if outputCellStatus != CellCatalogue.UNKVAL:
+        if outputCellStatus != CellCatalogues.CellCatalogue.UNKVAL:
           #NOTE that this may cause duplicates in rankings!
           outputCell = self.cellCatalogue.clampCell(outputCell)
           print("PyCellElimRun.CellTargeter.genCellCheckOrder: warning: This routine isn't finished yet. The output cell being yielded now will not be in the right order, which hurts CR. This cell might also be duplicated!")

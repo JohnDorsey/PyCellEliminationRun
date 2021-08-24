@@ -1,3 +1,3 @@
 radon cc *.py -s
 (radon mi *.py -s)
-pyflakes ./*.py
+flake8 --select=F ./*.py

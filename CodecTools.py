@@ -214,8 +214,8 @@ def makeSeqCodec(inputCodec,demoPlainData,zeroSafe):
   demoEncodeInputType = type(demoPlainData)
   demoPressData = inputCodec.encode(demoPlainData)
   demoEncodeOutputType = type(demoPressData)
-  demoReconstPlainData = inputCodec.decode(demoPressData)
-  demoDecodeOutputType = type(demoReconstPlainData)
+  #demoReconstPlainData = inputCodec.decode(demoPressData)
+  #demoDecodeOutputType = type(demoReconstPlainData)
 
   newEncodeFun = None
   if demoEncodeInputType == int:

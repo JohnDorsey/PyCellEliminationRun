@@ -21,13 +21,13 @@ import PresetData
 limitedCerNumCodecs = dict()
 
 try:
-  preserveLen = len(limitedCerBlockCodecs)
+  preserveLen = len(limitedCerBlockCodecs) # noqa
   print("The dictionary PresetTools.limitedCerBlockCodecs with {} items has been preserved.".format(preserveLen))
 except:
   limitedCerBlockCodecs = dict()
   
 try:
-  preserveLen = len(unlimitedCerBlockCodecs)
+  preserveLen = len(unlimitedCerBlockCodecs) # noqa
   print("The dictionary PresetTools.unlimitedCerBlockCodecs with {} items has been preserved.".format(preserveLen))
 except:
   unlimitedCerBlockCodecs = dict()
@@ -70,6 +70,7 @@ def makeSubdividedCodec(zeroSafe=None, domain=None): # -> CodecTools.Codec:
   newCodec.decodeFun = newDecodeFun
   return newCodec
   
+  
 def makeColumnAwareSeqCodec(baseSubdividedCodec, zeroSafe=None, domain=None): # -> CodecTools.Codec:
   newCodec = CodecTools.Codec(None, None, zeroSafe=zeroSafe, domain=domain)
   newCodec.extraDataDict = dict()
@@ -86,6 +87,7 @@ def makeColumnAwareSeqCodec(baseSubdividedCodec, zeroSafe=None, domain=None): # 
   newCodec.encodeFun = newEncodeFun
   newCodec.decodeFun = newDecodeFun
   return newCodec
+  
   
 def makeCerBlockTreeBasedCodec(inputData, treeType=None, extendToHeight=0, cutToHeight=None, subCodecTransformerFun=None, dbgPrintInterval=8): # -> CodecTools.Codec:
   print("making new cerBlockTreeBasedCodec: started.")
@@ -104,7 +106,7 @@ def makeCerBlockTreeBasedCodec(inputData, treeType=None, extendToHeight=0, cutTo
     assert type(columnData) == list
     strongColumnData = StatCurveTools.scaledVector(columnData, len(inputData)) #this should make the columnData expressed about as strongly as the rest of the data combined.
     backedColumnData = StatCurveTools.vectorSum([backgroundData,strongColumnData])
-    newSubCodec = makeCerNumHuffmanCodec(backedColumnData, treeType=treeType, extendToHeight=extendToHeight, cutToHeight=cutToHeight)
+    newSubCodec = makeCerNumTreeBasedCodec(backedColumnData, treeType=treeType, extendToHeight=extendToHeight, cutToHeight=cutToHeight)
     newSubCodec = subCodecTransformerFun(newSubCodec)
     subdividedCodec.extraDataDict["subCodecs"].append(newSubCodec)
   newCodec = makeColumnAwareSeqCodec(subdividedCodec, zeroSafe=True)
@@ -119,10 +121,9 @@ limitedCerNumCodecs["linear_1024x256_moo_short_sub4096_Huffman"] = makeCerNumTre
 limitedCerNumCodecs["linear_512x256_moo_sub4096_Huffman"] = makeCerNumTreeBasedCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all", treeType="huffman", extendToHeight=1, cutToHeight=4096)
 
 
-quickUnlockers = dict()
-quickUnlockers["selectionBit"] = lambda codecToUnlock: CodecTools.makeUnlimitedNumCodecWithSelectionBit(codecToUnlock, Codes.codecs["fibonacci"])
-quickUnlockers["escapeCode"] = lambda codecToUnlock: CodecTools.makeUnlimitedNumCodecWithEscapeCode(codecToUnlock, Codes.codecs["fibonacci"], max(codecToUnlock.getDomain()))
-
+quickSelectionBitUnlock = lambda codecToUnlock: CodecTools.makeUnlimitedNumCodecWithSelectionBit(codecToUnlock, Codes.codecs["fibonacci"])
+quickEscapeCodeUnlock = lambda codecToUnlock: CodecTools.makeUnlimitedNumCodecWithEscapeCode(codecToUnlock, Codes.codecs["fibonacci"], max(codecToUnlock.getDomain()))
+quickUnlockers = {"selectionBit":quickSelectionBitUnlock, "escapeCode":quickEscapeCodeUnlock}
 
 unlimitedCerNumCodecs = dict()
 for key in limitedCerNumCodecs:
@@ -134,8 +135,8 @@ for key in limitedCerNumCodecs:
 
 
 def prepareLimitedCerBlockCodecs():
-  limitedCerBlockHuffmanCodecs["linear_1024x256_moo_short_sub256_Huffman"] = makeCerBlockHuffmanCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_by_column", extendToHeight=256, cutToHeight=256)
-  limitedCerBlockHuffmanCodecs["linear_512x256_moo_short_sub256_Huffman"] = makeCerBlockHuffmanCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all_by_column", extendToHeight=256, cutToHeight=256)
+  limitedCerBlockCodecs["linear_1024x256_moo_short_sub256_Huffman"] = makeCerBlockTreeBasedCodec("CER_linear_1024_moo8bmono44100_id0_short_collectedData_by_column", extendToHeight=256, cutToHeight=256)
+  limitedCerBlockCodecs["linear_512x256_moo_short_sub256_Huffman"] = makeCerBlockTreeBasedCodec("CER_linear_512_moo8bmono44100_id0_complete_every16_collectedData_all_by_column", extendToHeight=256, cutToHeight=256)
 
 def prepareUnlimitedCerBlockCodecsFromScratch(keepOld,transitionHeight):
   for blockSizeHoriz in [1024,512,256]:
@@ -145,7 +146,7 @@ def prepareUnlimitedCerBlockCodecsFromScratch(keepOld,transitionHeight):
       if keepOld and destinationName in unlimitedCerBlockCodecs:
         pass #keep the old value.
       else:
-        unlimitedCerBlockCodecs[destinationName] = makeCerBlockHuffmanCodec(sourceName, extendToHeight=transitionHeight, cutToHeight=transitionHeight, subCodecTransformerFun=quickUnlockers[switchMode])
+        unlimitedCerBlockCodecs[destinationName] = makeCerBlockTreeBasedCodec(sourceName, extendToHeight=transitionHeight, cutToHeight=transitionHeight, subCodecTransformerFun=quickUnlockers[switchMode])
 
 def prepareUnlimitedCerBlockCodecs():
   for key in limitedCerBlockCodecs:

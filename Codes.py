@@ -30,7 +30,7 @@ from PyArrTools import rjustedArr, arrEndsWith
 
 
 def isInt(x):
-  return type(x) in [int,long]
+  return type(x) in [int, long] # noqa
 try:
   assert isInt(2**128)
 except NameError:
