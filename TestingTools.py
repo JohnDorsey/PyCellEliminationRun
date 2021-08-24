@@ -1,18 +1,5 @@
 
-import IntArrMath
 
-
-PEEK = 64
-
-
-def logplog(logFile):
-  def log(text, end="\n"):
-    logFile.write(text + end)
-    return "log passthrough: " + text
-  def plog(text, end="\n"):
-    print(text)
-    log(text, end=end)
-  return (log, plog)
 
 
 def assertEqual(thing0, thing1):
@@ -37,6 +24,16 @@ def assertSame(thing0, thing1):
   if thing0 is not thing1:
     message = "{} is not {}.".format(repr(thing0), repr(thing1))
     raise AssertionError(message)
+
+
+
+
+
+import IntArrMath
+
+PEEK = 64
+
+
 
 
 
@@ -83,7 +80,14 @@ def printSimpleIntArrAnalysis(pressDataNums, argName="inputIntSeq", verbose=True
   
   
   
-  
+def logplog(logFile):
+  def log(text, end="\n"):
+    logFile.write(text + end)
+    return "log passthrough: " + text
+  def plog(text, end="\n"):
+    print(text)
+    log(text, end=end)
+  return (log, plog)
   
   
   

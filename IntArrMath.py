@@ -179,16 +179,16 @@ def applyIndexMapReversed(inputArr,inputMap):
   return result
 
 
-def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=None):
+def rulerOPIntArrTranscode(inputIntArr, opMode, spline=None, interlacingProvider=None):
   #ruler interlacing is what I call the method of interlacing described in IntArrMath.genInterlacedIndices.
   #ruler interlacing is used to add values to the array in a helpful order (no clusters). Interpolation is used to guess what a new value will be. The _Focused_ integer functions in IntDomainMath are used to focus a new value around the prediction for it to make it easier to compress using a universal code.
   #the interpolationProvider should be something like Curves.Spline WITH INTEGER OUTPUTS, such as by enabling the rounding output filter for Curves.Spline.
   #the output could be made streamable.
   assert opMode in ["encode","decode"]
   if spline == None:
-    spline = Curves.Spline(interpolationMode="linear&round",size=[len(inputIntArr),None])
+    spline = Curves.Spline(interpolationMode="linear&round", size=[len(inputIntArr),None])
   if interlacingProvider == None:
-    interlacingProvider = genInterlacedIndices((0,len(inputIntArr)-1),midpointMode="round_down")
+    interlacingProvider = genInterlacedIndices((0, len(inputIntArr)-1), midpointMode="round_down")
   result = []
   for i,index in enumerate(interlacingProvider):
     localFocus = spline[index]
@@ -196,10 +196,10 @@ def rulerOPIntArrTranscode(inputIntArr,opMode,spline=None,interlacingProvider=No
     #print("(i,index,localFocus,inputIntArr[i]) is " + str((i,index,localFocus,inputIntArr[i])) + ".")
     if opMode == "encode":
       spline[index] = inputIntArr[index]
-      result.append(IntDomainMath.unfocusedOP_to_focusedOP(spline[index],localFocus))
+      result.append(IntDomainMath.unfocusedOP_to_focusedOP(spline[index], localFocus))
       #print("result is " + str(result) + ".")
     else:
-      spline[index] = IntDomainMath.focusedOP_to_unfocusedOP(inputIntArr[i],localFocus)
+      spline[index] = IntDomainMath.focusedOP_to_unfocusedOP(inputIntArr[i], localFocus)
       #print("spline is " + str([item for item in spline]) + ".")
   if opMode == "encode":
     return result
