@@ -15,6 +15,8 @@ import SpiralMath
 import PyGenTools
 from PyGenTools import arrTakeOnly, seqsAreEqual, genTakeOnly
 
+from TestingTools import assertEqual, assertSame
+
 try:
   range = xrange
 except NameError:
@@ -130,6 +132,118 @@ def genFindNearest2d(startPoint,triggerFun,shape="circular",timeout=None):
   else:
     assert False
     
+    
+    
+    
+class SparseList(list):
+
+  def __init__(self, data, useNearbyBoneLocationCache, useBoneDistanceAbsCache):
+    self.data = data
+    assert isinstance(self.data, list)
+    assert not isinstance(self.data, SparseList)
+    #print("SparseList input arg data is {} of type {}.".format(repr(data), repr(type(data))))
+    self.useNearbyBoneLocationCache, self.useBoneDistanceAbsCache = useNearbyBoneLocationCache, useBoneDistanceAbsCache
+    self.initializeCaches()
+    #print("SparseList.data is {} of type {}.".format(repr(self.data), repr(type(self.data))))
+    
+    
+  def initializeCaches(self):
+    if self.useBoneDistanceAbsCache:
+      self.boneDistanceAbs = [None for i in range(len(self.data))]
+    if self.useNearbyBoneLocationCache:
+      assert not self.useBoneDistanceAbsCache, "these caching modes can't be used simultaneously!"
+      self.nearbyBoneLocation = [None for i in range(len(self.data))]
+      
+    
+  def getPointInDirection(self, location, direction, skipStart=True):
+    assert isinstance(direction, int)
+    assert direction in [-1,1]
+    assert 0 <= location < len(self.data)
+    if self.useNearbyBoneLocationCache:
+      location += skipStart*direction
+      while 0 <= location < len(self.data):
+        nearbyBoneLocation = self.nearbyBoneLocation[location]
+        if nearbyBoneLocation == location:
+          return (location, self.data[location])
+        nearbyBoneDisplacement = nearbyBoneLocation - location
+        if nearbyBoneDisplacement*direction > 0: #if they have the same sign:
+          return (nearbyBoneLocation, self.data[nearbyBoneLocation])
+        location -= nearbyBoneDisplacement
+      return None
+    elif self.useBoneDistanceAbsCache:
+      location += skipStart*direction
+      while 0 <= location < len(self.data):
+        if self.data[location] != None:
+          return (location,self.data[location])
+        location += direction * self.boneDistanceAbs[location]
+      return None
+    else:
+      location += skipStart*direction
+      if not 0 <= location < len(self.data):
+        return None
+      for i in range(len(self.data)*2):
+        if self.data[location] != None:
+          return (location,self.data[location])
+        location += direction
+        if location < 0 or location >= len(self.data):
+          return None
+    assert False
+    
+
+  def __setitem__(self, index, value):
+    if self.useNearbyBoneLocationCache:
+      assert value != None, "None values can't be set while bone location caching is enabled."
+      self.nearbyBoneLocation[index] = index
+      for direction in [-1,1]:
+        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1, len(self.data))):
+          oldNearestBoneLocation = self.nearbyBoneLocation[x]
+          if oldNearestBoneLocation == None:
+            self.nearbyBoneLocation[x] = index
+          else:
+            oldDist = abs(x-oldNearestBoneLocation)
+            newDist = abs(x - index)
+            if newDist >= oldDist:
+              break
+            self.nearbyBoneLocation[x] = index
+    elif self.useBoneDistanceAbsCache:
+      assert value != None, "None values can't be set while bone distance abs caching is enabled."
+      self.boneDistanceAbs[index] = 0
+      for direction in [-1,1]:
+        #x = index + direction
+        #while x < len(self.data):
+        for x in (range(index-1,-1,-1) if direction==-1 else range(index+1, len(self.data))):
+          oldDist = self.boneDistanceAbs[x]
+          newDist = abs(x - index)
+          if oldDist != None:
+            if newDist >= oldDist:
+              break
+          self.boneDistanceAbs[x] = newDist
+          
+    self.data[index] = value
+    
+  def __str__(self):
+    #print("SparseList.__str__ called.")
+    return str(self.data)
+    
+  def __repr__(self):
+    #print("SparseList.__repr__ called.")
+    return "SparseList({})".format(repr(self.data))
+    
+  def __len__(self):
+    #print("SparseList.__len__ called.")
+    return len(self.data)
+    
+  def __getitem__(self, index):
+    return self.data[index]
+    
+  def __iter__(self):
+    return iter(self.data)
+    
+
+
+
+    
+    
 
 
 class Spline:
@@ -171,16 +285,16 @@ class Spline:
     "round":"int(round({}))"
   }
 
+
   def __init__(self, interpolation_mode="unspecified", size=None, endpointInitMode=None, default_value="zero"):
     
     self.initializeByDefault()
     
     self.setInterpolationMode(interpolation_mode)
-    self.setSizeAndEndpoints(size,endpointInitMode)
+    self.setSizeAndEndpoints(size, endpointInitMode)
     self.setDefaultValue(default_value)
 
-    self.data = PyDeepArrTools.noneInitializer(self.size[:-1])
-
+    self.initializeData()
     self.initializeCaches()
       
     self.finalizeEndpoints()
@@ -189,18 +303,21 @@ class Spline:
     #print("spline init finished")
 
 
+  def initializeByDefault(self):
+    self.forceMonotonicSlopes = forceMonotonicSlopes
+    self.hermite_h00 = hermite_h00
+    self.hermite_h10 = hermite_h10
+    self.hermite_h01 = hermite_h01
+    self.hermite_h11 = hermite_h11
+
+
+  def initializeData(self):
+    self.data = PyDeepArrTools.noneInitializer(self.size[:-1])
+    if self.dimensions == 2:
+      self.data = SparseList(self.data, useNearbyBoneLocationCache=Spline.CACHE_NEARBY_BONE_LOCATION, useBoneDistanceAbsCache=Spline.CACHE_BONE_DISTANCE_ABS)
+
+
   def initializeCaches(self):
-    if Spline.CACHE_BONE_DISTANCE_ABS:
-      if self.dimensions != 2:
-        print("Curves.Spline.initializeCaches: warning: caching bone distance abs is disabled because self.dimensions != 2.")
-      else:
-        self.boneDistanceAbs = [None for i in range(len(self.data))]
-    if Spline.CACHE_NEARBY_BONE_LOCATION:
-      assert not Spline.CACHE_BONE_DISTANCE_ABS, "these caching modes can't be used simultaneously!"
-      if self.dimensions != 2:
-        print("Curves.Spline.initializeCaches: warning: caching nearby bone location is disabled because self.dimensions != 2.")
-      else:
-        self.nearbyBoneLocation = [None for i in range(len(self.data))]
     if Spline.CACHE_VALUES_BY_SUR_HASH:
       self.value_cache_by_surroundings_hash = dict()
     if Spline.CACHE_VALUES_2D:
@@ -210,17 +327,6 @@ class Spline:
       else:
         self.valueCache = [None for i in range(len(self.data))]
 
-  def initializeByDefault(self):
-    self.forceMonotonicSlopes = forceMonotonicSlopes
-    self.hermite_h00 = hermite_h00
-    self.hermite_h10 = hermite_h10
-    self.hermite_h01 = hermite_h01
-    self.hermite_h11 = hermite_h11
-    
-  def finalizeEndpoints(self):
-    if self.dimensions == 2:
-      self.__setitem__(0,self.endpoints[0][1])
-      self.__setitem__(-1,self.endpoints[1][1])
 
   def setSizeAndEndpoints(self,size,endpointInitMode):
     self.size = size
@@ -259,20 +365,26 @@ class Spline:
       self.default_value = default_value
     if self.default_value == None:
       print("Curves.Spline.set_default_value: warning: default value is now None! this may cause problems!")
-      
+
+    
+  def finalizeEndpoints(self):
+    if self.dimensions == 2:
+      self.__setitem__(0,self.endpoints[0][1])
+      self.__setitem__(-1,self.endpoints[1][1])
+    
     
   def resolveInitValueKeyword(self, keyword):
-      if keyword == "middle":
-        return self.size[1]>>1
-      elif keyword == "zero":
-        return 0
-      elif keyword == "maximum":
-        return self.size[1]-1
-      else:
-        raise KeyError("The init value keyword is invalid!")
+    if keyword == "middle":
+      return self.size[1]>>1
+    elif keyword == "zero":
+      return 0
+    elif keyword == "maximum":
+      return self.size[1]-1
+    else:
+      raise KeyError("The init value keyword is invalid!")
 
 
-  def setInterpolationMode(self,interpolationMode):
+  def setInterpolationMode(self, interpolationMode):
     if type(interpolationMode) == str:
       self.interpolation_method_name = interpolationMode.split("&")[0]
       self.output_filters = []
@@ -369,43 +481,10 @@ class Spline:
       print("Curves.Spline.interpolateMissingValues changed {} values.".format(changeCounter))
 
 
-  def getPointInDirection(self,location,direction,skipStart=True):
+  def getPointInDirection(self, location, direction, skipStart=True):
     assert len(self.size) == 2, "this is a 2d only method."
-    #dbgPrint("Curves.Spline.getPointInDirection: "+str((location,direction,skipStart)))
-    #assert type(direction) == int
-    #assert direction in [-1,1]
-    #assert 0 <= location < len(self.data)
-    #print(direction)
-    if Spline.CACHE_NEARBY_BONE_LOCATION:
-      location += skipStart*direction
-      while 0 <= location < len(self.data):
-        nearbyBoneLocation = self.nearbyBoneLocation[location]
-        if nearbyBoneLocation == location:
-          return (location,self.data[location])
-        nearbyBoneDisplacement = nearbyBoneLocation - location
-        if nearbyBoneDisplacement*direction > 0: #if they have the same sign:
-          return (nearbyBoneLocation,self.data[nearbyBoneLocation])
-        location -= nearbyBoneDisplacement
-      return None
-    elif Spline.CACHE_BONE_DISTANCE_ABS:
-      location += skipStart*direction
-      while 0 <= location < len(self.data):
-        if self.data[location] != None:
-          return (location,self.data[location])
-        location += direction * self.boneDistanceAbs[location]
-      return None
-    else:
-      location += skipStart*direction
-      if not 0 <= location < len(self.data):
-        return None
-      for i in range(len(self.data)*2):
-        if self.data[location] != None:
-          return (location,self.data[location])
-        location += direction
-        if location < 0 or location >= len(self.data):
-          return None
-    assert False
-    
+    result = self.data.getPointInDirection(location, direction, skipStart=skipStart)
+    return result
     
   def get_enclosing_surroundings(self,location):
     assert isinstance(location,list) or isinstance(location,tuple)
@@ -426,29 +505,29 @@ class Spline:
     """
     creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values needed by the current interpolation mode. Values not needed will be None.
     """
-    surroundings_request = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolation_method_name]
-    return self.get_surroundings_2d(index,surroundings_request)
+    surroundingsRequest = Spline.SURROUNDINGS_REQUIREMENTS[self.interpolation_method_name]
+    return self.get_surroundings_2d(index, surroundingsRequest)
     
 
-  def get_surroundings_2d(self,index,surroundings_request):
+  def get_surroundings_2d(self, index, surroundingsRequest):
     """
     creates a surroundings list [second item to left, item to left, item to right, second item to right] populated with only the values requested. Values not requested will be None.
     """
-    surroundings = [None,None,None,None]
-    if surroundings_request[1]:
+    surroundings = [None, None, None, None]
+    if surroundingsRequest[1]:
       surroundings[1] = self.getPointInDirection(index,-1)
-      if surroundings_request[0]:
+      if surroundingsRequest[0]:
         if surroundings[1] == None:
-          print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[1] was empty, and surroundings[0] won't be filled in.".format(index))
+          print("Curves.Spline.get_surroundings_2d: at index {}, surroundings[1] was empty, and surroundings[0] won't be filled in.".format(index))
         else:
-          surroundings[0] = self.getPointInDirection(surroundings[1][0],-1)
-    if surroundings_request[2]:
+          surroundings[0] = self.getPointInDirection(surroundings[1][0], -1)
+    if surroundingsRequest[2]:
       surroundings[2] = self.getPointInDirection(index,1)
-      if surroundings_request[3]:
+      if surroundingsRequest[3]:
         if surroundings[2] == None:
-          print("Curves.Spline.get_necessary_surroundings_2d: at index {}, surroundings[2] was empty, and surroundings[3] won't be filled in.".format(index))
+          print("Curves.Spline.get_surroundings_2d: at index {}, surroundings[2] was empty, and surroundings[3] won't be filled in.".format(index))
         else:
-          surroundings[3] = self.getPointInDirection(surroundings[2][0],1)
+          surroundings[3] = self.getPointInDirection(surroundings[2][0], 1)
     return surroundings
     
 
@@ -458,35 +537,35 @@ class Spline:
     return self.size[0]
 
   
-  def __getitem__(self,index):
+  def __getitem__(self, index):
     assert self.dimensions == 2, "this is a 2d only method."
     index = index%len(self.data)
     location = (index,)
     return self.get_at_location_cached(location)
       
   
-  def __setitem__(self,index,value):
+  def __setitem__(self, index, value):
     assert self.dimensions == 2, "this is a 2d only method."
-    index = index%len(self.data)
+    index = index % len(self)
     location = (index,)
-    self.set_at_location_cached(location,value)
+    self.set_at_location_cached(location, value)
     
       
-  def get_value_using_path(self,path):
+  def get_value_using_path(self, path):
     assert len(path) + 1 == self.dimensions
     result = self.get_at_location_cached(path)
     assert result != None, "result should never be None!" #@ slow
     return result
       
       
-  def set_value_using_cell(self,cell):
+  def set_value_using_cell(self, cell):
     assert len(cell) == self.dimensions
     self.set_at_location_cached(cell[:-1],cell[-1])
       
 
     
       
-  def get_at_location_cached(self,location):
+  def get_at_location_cached(self, location):
     assert len(location) + 1 == self.dimensions
     
     if self.dimensions == 2:
@@ -535,12 +614,14 @@ class Spline:
         #assert result != None, "result should never be None!" #@ slow
         return result
 
-    return self.solve_location(location,sur) #this will give a name error someday. When it does, sur calculation should be made more centralized.
+    return self.solve_location(location, sur) #this will give a name error someday. When it does, sur calculation should be made more centralized.
       
         
-  def solve_location(self,location,sur):
+  def solve_location(self, location, sur):
     #print("solve_location: location is {}. sur is {}.".format(location,sur))
-    assert isinstance(location,list) or isinstance(location,tuple)
+    assert isinstance(location, list) or isinstance(location, tuple)
+    assert sur is not None
+    
     result = None
     interpolation_method_name = self.interpolation_method_name
     
@@ -601,7 +682,7 @@ class Spline:
     return result
     
     
-  def set_at_location_cached(self,location,value):
+  def set_at_location_cached(self, location, value):
     assert len(location) + 1 == self.dimensions
       
     if Spline.CACHE_VALUES_BY_SUR_HASH:
@@ -619,34 +700,6 @@ class Spline:
       index = location[0]
       
       self.data[index] = value
-      
-      if Spline.CACHE_NEARBY_BONE_LOCATION:
-        assert value != None, "None values can't be set while bone location caching is enabled."
-        self.nearbyBoneLocation[index] = index
-        for direction in [-1,1]:
-          for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
-            oldNearestBoneLocation = self.nearbyBoneLocation[x]
-            if oldNearestBoneLocation == None:
-              self.nearbyBoneLocation[x] = index
-            else:
-              oldDist = abs(x-oldNearestBoneLocation)
-              newDist = abs(x - index)
-              if newDist >= oldDist:
-                break
-              self.nearbyBoneLocation[x] = index
-      elif Spline.CACHE_BONE_DISTANCE_ABS:
-        assert value != None, "None values can't be set while bone distance abs caching is enabled."
-        self.boneDistanceAbs[index] = 0
-        for direction in [-1,1]:
-          #x = index + direction
-          #while x < len(self.data):
-          for x in (range(index-1,-1,-1) if direction==-1 else range(index+1,len(self.data))):
-            oldDist = self.boneDistanceAbs[x]
-            newDist = abs(x - index)
-            if oldDist != None:
-              if newDist >= oldDist:
-                break
-            self.boneDistanceAbs[x] = newDist
 
       if Spline.CACHE_VALUES_2D:
         #the following fast update version works by processing runs of non-None values. It is too simple to handle clearing a far region without a closer one first. The benefit of doing it this way is that bone distances don't need to be determined before work starts.
@@ -692,8 +745,31 @@ class Spline:
 
   def clear_cache_entry_for_surroundings(self, sur):
     assert all(len(item) == len(self.size) for item in sur if item != None)
-    surHash = hash_point_list(sur,self.size)
+    surHash = hash_point_list(sur, self.size)
     if surHash in self.value_cache_by_surroundings_hash:
       del self.value_cache_by_surroundings_hash[surHash] #the old surroundings are now not a valid thing to search by. Any points who used to have values chached in the dict stored here now need to be regenerated.
 
 
+
+
+
+print("testing Curves.SparseList...")
+testSparseList = SparseList([5,6,7], False, False)
+#print("analyzing testSparseList...")
+#print("testSparseList is {}, repr is {}, type is {}.".format(testSparseList, repr(testSparseList), repr(type(testSparseList))))
+#print("analyzing testSparseList.data..")
+#print("testSparseList.data is {}, repr is {}, type is {}.".format(testSparseList.data, repr(testSparseList.data), repr(type(testSparseList.data))))
+#print("analyzing testSparseList type...")
+assert isinstance(testSparseList, SparseList)
+#print("still analyzing testSparseList type...")
+assert isinstance(testSparseList, list)
+#print("analyzing testSparseList.data type...")
+assert isinstance(testSparseList.data, list)
+#print("still analyzing testSparseList.data type...")
+assert not isinstance(testSparseList.data, SparseList)
+#assertSame(testSparseList.__len__, testSparseList.data.__len__)
+#print("testSparseList.__len__ call test...")
+assertEqual(testSparseList.__len__(), 3)
+#print("len(testSparseList) test...")
+assertEqual(len(testSparseList), 3)
+assertEqual(testSparseList[1], 6)

@@ -33,7 +33,10 @@ def assertEqual(thing0, thing1):
       message = "{} is not equal to {}.".format(thing0,thing1)
     raise AssertionError(message)
 
-
+def assertSame(thing0, thing1):
+  if thing0 is not thing1:
+    message = "{} is not {}.".format(repr(thing0), repr(thing1))
+    raise AssertionError(message)
 
 
 

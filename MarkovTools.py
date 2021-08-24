@@ -86,7 +86,7 @@ def genBleedSortedArr(inputArr,noNegatives=False):
 
 def validateSeedArrNoNegatives(seedArr, noNegatives):
   if noNegatives:
-    if inputArr[0] < 0:
+    if seedArr[0] < 0:
       raise ValueError("called with noNegatives=True and an seedArr starting with a negative value.")
 
 def genBleedSortedArrWithSearches(inputArr,noNegatives=False):
@@ -223,15 +223,7 @@ class Spot:
     return Spot(0, inputSpot.position)
     
 
-def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisingSeedTail=False):
-  #futher optimization is possible, but not necessary. movingSpots beyond all others and moving outwards could be removed from collision detection.
-  validateSeedArrNoNegatives(seedArr, noNegatives)
-  if stopSingleRisingSeedTail and not noNegatives:
-    print("MarkovTools.genBleedSortedArrWithoutSearches: stopSingleTail=True policy won't be used because with noNegatives=False a single seed tail can't exist.")
-  
-  for item in seedArr:
-    yield item
-  
+def _get_gen_bleed_sorted_arr_starting_spots(seedArr, noNegatives):
   primitiveNeighborsOfInt = (lambda calcSpot: [[-1,calcSpot-1],[1,calcSpot+1]])
   genNoneless = (lambda genToEdit: (item for item in genToEdit if item != None))
   
@@ -241,7 +233,19 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
   
   movingSpotArgs = (neighbor for spotIndex,spot in enumerate(seedArr) for neighbor in genNoneless(genLocalNeighborsWithCollisionsAndNones(spotIndex,spot,seedArr)))
   
-  movingSpots = [Spot(pair[0], pair[1]) for pair in movingSpotArgs]
+  return [Spot(pair[0], pair[1]) for pair in movingSpotArgs]
+  
+
+def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisingSeedTail=False):
+  #futher optimization is possible, but not necessary. movingSpots beyond all others and moving outwards could be removed from collision detection.
+  validateSeedArrNoNegatives(seedArr, noNegatives)
+  if stopSingleRisingSeedTail and not noNegatives:
+    print("MarkovTools.genBleedSortedArrWithoutSearches: stopSingleTail=True policy won't be used because with noNegatives=False a single seed tail can't exist.")
+  
+  for item in seedArr:
+    yield item
+  
+  movingSpots = _get_gen_bleed_sorted_arr_starting_spots(seedArr, noNegatives)
     
   pipe = ListInternalTranscriptionHelperPipe(None, None, movingSpots)
   
@@ -282,7 +286,7 @@ def genBleedSortedArrWithoutSearches(seedArr, noNegatives=False, stopSingleRisin
             else: #no collision or skip. This point is fine.
               pipe.writeIncDS(newSpot)
           else:
-            assert spotLeftOfDest.isMovingLeft()
+            assert spotLeftOfIDest.isMovingLeft()
       else: #spot is moving right.
         #don't check for anything. checks are only done by points moving left.
         pipe.writeIncDS(newSpot)
@@ -351,12 +355,12 @@ def remapToReorderedPositiveIntsTranscode(mainItem, opMode, inputSeq, startIndex
           return mainItem
       else:
         try:
-          return inputGen[mainItem + startIndex]
+          return inputSeq[mainItem + startIndex]
         except IndexError:
-          print("MarkovTools.remapToReorderedPositiveIntsTranscode: slow: shortcut failed due to index error. Falling back to linear search, which is slow and might have no chance of succeeding depending on the inputGen type ({}).".format(repr(type(inputGen))))
+          print("MarkovTools.remapToReorderedPositiveIntsTranscode: slow: shortcut failed due to index error. Falling back to linear search, which is slow and might have no chance of succeeding depending on the inputSeq type ({}).".format(repr(type(inputSeq))))
           pass
     
-  workingGen = genSkipFirst(inputGen, startIndex)
+  workingGen = genSkipFirst(inputSeq, startIndex)
   if opMode == "encode":
     result = indexOfValueInGen(mainItem, workingGen)
   elif opMode == "decode":
@@ -542,30 +546,6 @@ class Escape:
 
 
 
-
-"""
-class History:
-  def __init__(self,inputList):
-    self.data = []
-    self.uniqueValues = set()
-    for item in inputList:
-      self.append(item)
-      
-  def __iter__(self):
-    return self.data
-      
-  def extend(self,extension):
-    for item in extension:
-      self.append(item)
-
-  def append(self,item):
-    self.data.append(item)
-    if not item in self.uniqueValues:
-      self.uniqueValues.add(item)
-      
-  def __contains__(self,item):
-    return item in self.uniqueValues
-"""
 
 
 def genFunctionalDynamicMarkovTranscode(inputSeq, opMode, maxContextLength=16, noveltyCodec=None, noveltyIndexRemapCodec="linear", scoreFun=None, redundantEscapesInHistory=False, addDbgChars=False, addDbgWords=False):
