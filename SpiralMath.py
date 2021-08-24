@@ -353,7 +353,7 @@ def genDezigged(inputSeq, forbidLocalMinimaDecrease=True, forbidLocalMaximaDecre
   
   sortKeyFun = (lambda itemA: itemA[0])
   
-  getStatus = (lambda: "status:(history={}, rlmn={}, rlmx={}, triplet={}, canOutputNow()={})".format(history, rememberedLocalMinima, rememberedLocalMaxima, currentTriplet, canOutputNow()))
+  #getStatus = (lambda: "status:(history={}, rlmn={}, rlmx={}, triplet={}, canOutputNow()={})".format(history, rememberedLocalMinima, rememberedLocalMaxima, currentTriplet, canOutputNow()))
   
   if forbidLocalMinimaDecrease and forbidLocalMaximaDecrease:
     def localExtremaAllowOutputNow():
@@ -378,17 +378,17 @@ def genDezigged(inputSeq, forbidLocalMinimaDecrease=True, forbidLocalMaximaDecre
         if len(rememberedLocalMinima) > 0:
           if not sortKeyFun(rememberedLocalMinima[-1]) <= sortKeyFun(currentTriplet[1]):
             raise ValueError("forbidLocalMinimaDecrease violated by inputSeq!")
-      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. before registering, {}.".format(currentTriplet[1], getStatus()))
       rememberedLocalMinima.append(currentTriplet[1])
-      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local minimum {}. after registering, {}.\n".format(currentTriplet[1], getStatus()))
     if sortKeyFun(max(currentTriplet, key=sortKeyFun)) == sortKeyFun(currentTriplet[1]):
       if forbidLocalMaximaDecrease and not suspendRules:
         if len(rememberedLocalMaxima) > 0:
           if not sortKeyFun(rememberedLocalMaxima[-1]) <= sortKeyFun(currentTriplet[1]):
             raise ValueError("forbidLocalMaximaDecrease violated by inputSeq!")
-      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. before registering, {}.".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. before registering, {}.".format(currentTriplet[1], getStatus()))
       rememberedLocalMaxima.append(currentTriplet[1])
-      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. after registering, {}.\n".format(currentTriplet[1],getStatus()))
+      #print("SpiralMath.genDezigged.detectLocalExtrema: detected local maximum {}. after registering, {}.\n".format(currentTriplet[1], getStatus()))
     
   currentTripletFilledBefore = False
   inputItemsExhausted = False

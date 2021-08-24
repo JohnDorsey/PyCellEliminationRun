@@ -15,7 +15,7 @@ import SpiralMath
 import PyGenTools
 from PyGenTools import arrTakeOnly, seqsAreEqual, genTakeOnly
 
-from TestingTools import assertEqual, assertSame
+import TestingTools
 
 try:
   range = xrange
@@ -633,28 +633,30 @@ class Spline:
       t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
       resultPoint = sur[1] if (t <= 0.5) else sur[2]
       result = resultPoint[1]
-    elif interpolation_method_name in ["linear","sinusoidal"]:
+    elif interpolation_method_name in ["linear", "sinusoidal"]:
       t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
-      leftBone,rightBone = sur[1], sur[2]
+      leftBone, rightBone = sur[1], sur[2]
+      riseScale = rightBone[1] - leftBone[1]
       if interpolation_method_name == "linear":
-        result = leftBone[1]+((rightBone[1]-leftBone[1])*t)
+        rise = riseScale * t
       elif interpolation_method_name == "sinusoidal":
-        result = leftBone[1]+((rightBone[1]-leftBone[1])*0.5*(1-math.cos(math.pi*t)))
+        rise = riseScale * 0.5 * (1-math.cos(math.pi*t))
+      result = leftBone[1] + rise
     elif interpolation_method_name == "finite_difference_cubic_hermite":
       t = float(location[0]-sur[1][0])/float(sur[2][0]-sur[1][0])
       if None in sur[1:3]:
         assert False, "an important (inner) item is missing from the surroundings."
       slopes = [None,None]
-      if sur[0] == None:
+      if sur[0] is None:
         slopes[0] = float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])
       else:
         slopes[0] = 0.5*(float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0])+float(sur[1][1]-sur[0][1])/float(sur[1][0]-sur[0][0]))
-      if sur[3] == None:
+      if sur[3] is None:
         slopes[1] = (sur[2][1]-sur[1][1])/(sur[2][0]-sur[1][0])
       else:
         slopes[1] = 0.5*(float(sur[3][1]-sur[2][1])/float(sur[3][0]-sur[2][0])+float(sur[2][1]-sur[1][1])/float(sur[2][0]-sur[1][0]))
       if "monotonic" in self.output_filters:
-        self.forceMonotonicSlopes(sur,slopes) #might not have any effect anyway.
+        self.forceMonotonicSlopes(sur, slopes) #might not have any effect anyway.
       result = self.hermite_h00(t)*sur[1][1]+self.hermite_h10(t)*slopes[0]+self.hermite_h01(t)*sur[2][1]+self.hermite_h11(t)*slopes[1]
     elif interpolation_method_name == "inverse_distance_weighted":
       weightSum = 0.0
@@ -667,7 +669,7 @@ class Spline:
         surPointDistance = self.interpolation_point_distance_nd_fun(location, surPoint)
         assert surPointDistance > 0, "this should have been detected earlier!"
         surPointWeight = surPointDistance**(-self.interpolation_power)
-        workingResult += surPointValue*surPointWeight
+        workingResult += surPointValue * surPointWeight
         weightSum += surPointWeight
       if weightSum > 0: #avoid zero division error.
         workingResult /= weightSum
@@ -677,7 +679,7 @@ class Spline:
     else:
       raise KeyError("The interpolation_method_name {} isn't supported.".format(interpolation_method_name))
     
-    result = self._output_filter_fun(result,sur)
+    result = self._output_filter_fun(result, sur)
     assert result != None, "result should never be None!" #@ slow
     return result
     
@@ -767,9 +769,9 @@ assert isinstance(testSparseList, list)
 assert isinstance(testSparseList.data, list)
 #print("still analyzing testSparseList.data type...")
 assert not isinstance(testSparseList.data, SparseList)
-#assertSame(testSparseList.__len__, testSparseList.data.__len__)
+#TestingTools.assertSame(testSparseList.__len__, testSparseList.data.__len__)
 #print("testSparseList.__len__ call test...")
-assertEqual(testSparseList.__len__(), 3)
+TestingTools.assertEqual(testSparseList.__len__(), 3)
 #print("len(testSparseList) test...")
-assertEqual(len(testSparseList), 3)
-assertEqual(testSparseList[1], 6)
+TestingTools.assertEqual(len(testSparseList), 3)
+TestingTools.assertEqual(testSparseList[1], 6)
