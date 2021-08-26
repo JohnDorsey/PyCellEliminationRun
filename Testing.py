@@ -13,6 +13,7 @@ No other files require Testing.py
 
 
 import os
+import sys
 
 import CodecTools
 import TestingTools
@@ -51,6 +52,8 @@ sampleCerPressNums = {
     key:{256:None} for key in [1024,512,256,128,64,32,16,8]
   }
 }
+
+
 
 
 def prepareSampleCerPressNums(soundSrcStr=defaultSampleSoundSrcStr):
@@ -468,3 +471,19 @@ Testing\
 
 
 """
+
+
+
+def doCoverageTest():
+  print("Testing: calling test()...")
+  test()
+
+if __name__ == "__main__":
+  print("Testing.py should be imported for interactive tests.")
+  if len(sys.argv) == 1 and sys.argv[0] == "--test":
+    doCoverageTest()
+  else:
+    print("Testing: unknown arguments, will just do doCoverageTest().")
+    doCoverageTest()
+      
+      

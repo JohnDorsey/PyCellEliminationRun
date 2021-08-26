@@ -206,16 +206,15 @@ def getAccumulatorFun(thing):
   return result
 """
 
-try:
-  accumulate = itertools.accumulate
-except AttributeError: #must be python2.
-  def accumulate(inputSeq, inputFun):
-    inputSeq = makeGen(inputSeq)
-    #inputFun = getAccumulatorFun(inputFun) #not used anymore now that itertools.accumulate is sometimes used.
-    result = next(inputSeq)
-    for item in inputSeq:
-      result = inputFun(result, item)
-    return result
+
+def accumulate(inputSeq, inputFun):
+  inputSeq = makeGen(inputSeq)
+  #inputFun = getAccumulatorFun(inputFun) #not used anymore now that itertools.accumulate is sometimes used.
+  result = next(inputSeq)
+  for item in inputSeq:
+    result = inputFun(result, item)
+  return result
+  
     
 def product(inputSeq):
   return accumulate(inputSeq, (lambda x,y:x*y))

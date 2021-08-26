@@ -18,6 +18,11 @@ from PyGenTools import arrTakeOnly, seqsAreEqual, genTakeOnly
 import TestingTools
 
 try:
+  itertools.izip_longest = itertools.zip_longest
+except AttributeError:
+  pass
+  
+try:
   range = xrange
 except NameError:
   pass

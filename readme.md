@@ -146,85 +146,95 @@ Design notes:
 
       -inclusion of LZMA and/or GZIP.
       
-    -internal features:
-    
-      -isolate enbocode code.
-    
-      -fix potential bugs related to rankings not being updated by crit cell callback in CER.
-      
-      -move ParseError to CodecTools.
-        
-      -store CellTargeter rankings as a heap for performance reasons.
-    
-      -make a strict most-aligned-axes-first interpolation mode for higher dimensions.
-    
-      -add lower bound and upper bound shape hints for CER in higher dimensions (e.g. the minimum z for x=5 and y in range(size[1])).
-        
-      -make the cer block seq codec reuse a cercs.
-        
-      -add bound corner touch header features to make the CER codec easily able to compress its own output.
-        
-      -add real lower and upper bounds to spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
-        
-      -add automatic catalogue edits / editing functions for different situations like monotonic data.
-      
-      -modify EmbedCode class to allow original values for settings to be embedded.
-
-      -convolution-based weighted spline interpolation.
-      
-      -add optional filters to genCellCheckOrder and/or scoreFun.
-    
-      -complete and test grid mode for CellCatalogue.
+    -maintenance:
         
       -improve structure of Spline init args.
         
       -make CERCS test for more incompatible settings.
-        
-      -allow Spline cache settings to be chosen automatically.
-    
-      -simplify the CellElimRunCodecState:
-        
-        -separate everything but the header processing into functions outside of the class.
-        
-        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
-      
-        -separate experimental features from the headerDict and header routines.
-    
-      -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
-      
-      -make it possible to define a structure for the storage of header pressNums.
-      
-      -arithmetic coding.
-      
-      -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
-      
-      -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
-      
-      -improve logging techniques, possibly using the logging module.
-    
-    -maintenance:
         
       -fix unnecessary calls to dict.keys().
   
       -reduce file count.
     
       -increase testing.
+    
+      -simplify the CellElimRunCodecState:
       
-    -structure:
+        -factor out all CERCS header interpretation and usage into a new class.
+        
+        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
+  
+      -choose a language version (python 2 for pypy, or python 3 for numba and numpy) and commit to it.
+      
+    -capability goals:
+    
+      -add support for splitting one Cell Elimination Run across any number of _Cell Elim Run Step_-capable objects.
+      
+      -add support for using a single spline across multiple CER blocks.
+      
+    -internal features:
+    
+      -Shrink the interface of the CellCatalogue.
+      
+      -Make a CellCatalogueColumn with more state information (like tracked live cell count, persistent extreme cell info, and strict automatic validation of live cell count.).
+    
+      -add compression mode where local extrema are first stored and then the spaces between them are compressed as CER blocks.
+        
+      -add real _lower and upper bounds_ to Spline instead of imposeMinimum/imposeMaximum. This will fix global clipping.
+      
+      -add real _lower and upper bounds_ to CellCatalogue.
+    
+      -fix potential bugs related to rankings not being updated by crit cell callback in CER.
+    
+      -add lower bound and upper bound shape hints for CER in higher dimensions (e.g. the minimum z for x=5 and y in range(size[1])).
+        
+      -make the CER block seq codec reuse a CERCS.
+        
+      -add automatic cellCatalogue edits / editing functions for different situations like monotonic data.
+      
+      -modify EmbedCode class to allow original values for settings to be embedded.
+      
+      -add optional filters to genCellCheckOrder and/or scoreFun.
+    
+      -complete and test grid mode for CellCatalogue.
+        
+      -allow Spline cache settings to be chosen automatically.
+    
+      -implement cellCatalogue-based spline clipping, or spline value overrides, or temporary spline bones, or a spline bones that are ranges instead of points.
+      
+      -make it possible to define a structure for the storage of header pressNums.
+      
+    -minor details:
+    
+      -store CellTargeter rankings as a heap for performance reasons.
+      
+    -variety features:
+    
+      -make a strict most-aligned-axes-first interpolation mode for higher dimensions.
+
+      -convolution-based weighted spline interpolation.
+      
+      -arithmetic coding.
+      
+    -tools:
 
       -make a better way to make numberSeqCodecs from numberCodecs.
       
-    -time complexity:
-      -self-sorting lists.
-      -list-like objects that track their own sortedness for bisection searches, performance warnings when falling back to linear searches, etc.
-  
-    -choose a language version (python 2 for pypy, or python 3 for numba and numpy) and commit to it.
-  
-    -make better preset storage tools:
-      -memory management and memory warnings.
-      -make a helpful database.
-      -pickling?
+      -come up with a good way to transparently apply a column-aware sequence sequence codec to another sequence sequence codec's data.
+      
+      -come up with a good way to treat sequence codecs like they are not sequence codecs / use them like a stateful function.
+      
+      -make better preset storage tools:
     
+        -memory management and memory warnings.
+      
+        -make a helpful database.
+      
+        -pickling?
+      
+      -time complexity:
+      
+        -list-like objects that track their own sortedness for bisection searches, performance warnings when falling back to linear searches, etc.
 
   Feature wish list (CR = compression ratio):
   
@@ -319,3 +329,13 @@ Design notes:
     -add 15-second 48kHz sample song.
       
     -rename QuickTimers to QuickClocks.
+    
+    -isolate enbocode code.
+      
+    -move ParseError to CodecTools.
+        
+    -add bound corner touch header features to make the CER codec easily able to compress its own output.
+      
+    -improve logging techniques, possibly using the logging module.
+        
+    -separate (cross out: everything) _several_ things but the header processing into functions outside of the class. (cell targeter created.)
