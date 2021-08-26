@@ -533,12 +533,8 @@ class CellElimRunCodecState:
 
 
   def processRun(self, cellTargeter): #do one run, either encoding or decoding.
-    self.stepIndex = 0
     
     cellTargeter.refreshRankings(CellElimRunCodecState.CELL_TARGETER_REFRESH_TYPE)
-    
-    #debug:
-    #self.dbgBuildRankings(cellTargeter)
     
     if not cellTargeter.optionsExist(): #if there's no way to act on any pressNum that might be available, stop now before stealing a pressNum from self._input_pressdata_gen.
       return False #indicate that processing should stop.
@@ -553,28 +549,21 @@ class CellElimRunCodecState:
         
     hitTest = None
     if self.opMode == "encode":
-      if self.dimensions == 2:#this version is only different from the higher-dimensional version for performance reasons.
-        hitTest = (lambda: self._input_plaindata_matrix[cellToCheck[0]] == cellToCheck[1]) 
-      elif self.dimensions > 2:
-        hitTest = (lambda: PyDeepArrTools.getValueUsingPath(self._input_plaindata_matrix, cellToCheck[:-1]) == cellToCheck[-1])
-      else:
-        assert False, "Invalid self.dimensions."
+      hitTest = (lambda: PyDeepArrTools.getValueUsingPath(self._input_plaindata_matrix, cellToCheck[:-1]) == cellToCheck[-1])
     elif self.opMode == "decode":
       hitTest = (lambda: currentPressdataNum == self.stepIndex)
     else:
       assert False, "Invalid opMode"
     
-    targetGen = cellTargeter.genCellCheckOrder()
+    targetCellGen = cellTargeter.genCellCheckOrder()
     
-    for cellToCheck in targetGen:
-      assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex, self.size)
+    for self.stepIndex,cellToCheck in enumerate(targetCellGen):
       
+      assert self.stepIndex <= self.stepIndexTimeout, "This loop has run for an impossibly long time ({} steps for size {}).".format(self.stepIndex, self.size)
       if cellTargeter.DO_FILTER_LOITERING_RANKINGS_IN_GENERATOR:
         assert not self.dbgCellIsInBadColumn(cellToCheck)
       
-      if not hitTest():
-        self.stepIndex += 1
-      else:
+      if hitTest():
         self.doHit(self.stepIndex, cellToCheck)
         return True #indicate that processing should continue.
         
@@ -601,7 +590,7 @@ class CellElimRunCodecState:
       pass #nothing in this branch because it is instead handled by setPlaindataItem in a few lines.
     else:
       assert False, "Invalid opMode."
-    self.setPlaindataItem(cell, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-797797)
+    self.setPlaindataItem(cell, eliminateColumn=CellElimRunCodecState.DO_COLUMN_ELIMINATION_AT_GEN_END, modifyOutputArr=True, dbgCatalogueValue=-608608)
   
   
   def dbgCellIsInBadColumn(self, cell):

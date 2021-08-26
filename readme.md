@@ -147,6 +147,8 @@ Design notes:
       -inclusion of LZMA and/or GZIP.
       
     -maintenance:
+    
+      -move all Spline caching code to new classes to simplify the core of Spline.
         
       -improve structure of Spline init args.
         
@@ -173,6 +175,10 @@ Design notes:
       -add support for using a single spline across multiple CER blocks.
       
     -internal features:
+    
+      -make a Cell class that caches its own score, and knows when that cache is outdated.
+      
+      -modify Spline and ColumnCellCatalogue to make them both use the same list to store known plaindata values.
     
       -Shrink the interface of the CellCatalogue.
       
