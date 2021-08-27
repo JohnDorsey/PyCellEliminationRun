@@ -22,6 +22,12 @@ class IterationFailure(Exception):
   IterationFailure is raised when an iterable runs out of items, in a situation where it never should have run out of items.
   """
   pass
+  
+class SynchronicityViolation(Exception):
+  """
+  SynchronicityViolation is raised when some code expected to perform exactly one operation per execution step of the code around it performs a different number of operations.
+  """
+  pass
 
 
 def isGen(thing):
@@ -407,6 +413,82 @@ def genMonitored(inputSeq, text=""):
       print("PyGenTools.genMonitored: " + text + " i={}, {}".format(i, repr(se)))
       raise se
   assert False, "Unreachable statement."
+  
+  
+class GenBypass:
+  def __init__(self, useHistory=False):
+    #print("GenBypass init.")
+    self.inputGens = None
+    self.lastOutputs = None
+    self.modifiedInputGens = None
+    self.useHistory = useHistory
+    if self.useHistory:
+      self.history = deque()
+    
+  def _create_callback_method(self, indexToWriteTo):
+    def callbackMethod(value):
+      #print("callback method: value {} into index {}.".format(value, indexToWriteTo))
+      if self.latestOutputs[indexToWriteTo] is not None:
+        raise SynchronicityViolation("multiple writes to output tracker for generator at index {}.".format(indexToWriteTo))
+      self.latestOutputs[indexToWriteTo] = value
+      if self.useHistory:
+        assert value is not None, "this breaks things."
+        if self.latestOutputs.count(None) == 0:
+          self._handle_full_outputs()
+      #print("self.lastOutputs is now {}.".format(self.lastOutputs))
+    return callbackMethod
+    
+  def _gen_modify(self, genToModify, callbackMethod):
+    #print("_gen_modify called on {} with callbackMethod {}.".format(genToModify, callbackMethod))
+    for item in genToModify:
+      callbackMethod(item)
+      yield item
+      
+  def _handle_full_outputs(self):
+    self.history.append([item for item in self.latestOutputs])
+    for i in range(len(self.latestOutputs)):
+      self.latestOutputs[i] = None
+      
+  def intercept(self, *inputGens):
+    self.capture(inputGens)
+    return self.share()
+      
+  def capture(self, *inputGens):
+    genCount = len(inputGens)
+    self.inputGens = [item for item in inputGens]
+    self.latestOutputs = [None for i in range(genCount)]
+    self.callbackMethods = [self._create_callback_method(i) for i in range(genCount)]
+    self.modifiedInputGens = [self._gen_modify(genToModify, self.callbackMethods[i]) for i,genToModify in enumerate(self.inputGens)]
+      
+  def share(self):
+    assert len(self.modifiedInputGens) != 0
+    return self.modifiedInputGens
+  
+  def wrap(self, inputGen):
+    #"unspecified_at_{}".format(i)
+    #result = [None for i in range(len(self.lastOutputs)+1)]
+    isLastRun = False
+    if self.useHistory:
+      sentinel = object() #get unique sentinel. only compare using is.
+      for inputGenItem in sentinelize(inputGen, sentinel=sentinel):
+        assert self.latestOutputs == [None for i in range(len(self.latestOutputs))]
+        while len(self.history) > 1:
+          yield [item for item in self.history.popleft()] + [None]
+        if inputGenItem is sentinel:
+          isLastRun = True
+          inputGenItem = None #don't yield sentinel.
+          if not len(self.history) >= 1:
+            return #don't try.
+        yield [item for item in self.history.popleft()] + [inputGenItem]
+        if isLastRun:
+          return #history dumped after last item, nothing left to do.
+    else:
+      yield [item for item in self.latestOutputs] + [inputGenItem]
+      for i in range(len(self.latestOutputs)):
+        self.latestOutputs[i] = None
+      #assert i != 0
+      #assert self.lastOutputs.count(None) == len(self.lastOutputs)
+    
   
 
 class CC:

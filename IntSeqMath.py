@@ -9,6 +9,7 @@ IntSeqMath.py contains tools for transforming integer sequences into other integ
 from collections import namedtuple
 
 import PyGenTools
+from PyGenTools import genSkipFirst
 
 
 def genDelayFirstTupleItem(inputSeq,startValue): #used by genTrackDelayedSum.
@@ -74,10 +75,23 @@ def genRecordLows(inputNumSeq):
       yield item
 
 
-"""
-def genLocalExtrema(inputNumSeq):
-  for placeTriplet
-"""
+def genTrackLocalExtrema(inputNumSeq, **kwargs):
+  gb = PyGenTools.GenBypass(useHistory=True)
+  gb.capture(inputNumSeq)
+  gbWrapped = gb.wrap(genLocalExtrema(*gb.share(), **kwargs))
+  for actualIndex, gbPair in enumerate(gbWrapped):
+    inputNum, outputPair = gbPair
+    if outputPair is not None:
+      raise NotImplementedError()
+  raise NotImplementedError()
+    
+  #gbTupled = (tuple(item) for item in gbWrapped)
+  #return gbTupled
+  #raise NotImplementedError()
+  #return genSkipFirst(genDelayFirstTupleItem(gbTupled, None), 1)
+  
+  
+  
 
 def genLocalExtrema(
     inputNumSeq,
