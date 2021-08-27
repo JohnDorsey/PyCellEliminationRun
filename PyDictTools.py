@@ -36,6 +36,7 @@ def makeFlatKeySeq(template, sortDictKeys=True):
   else:
     raise TypeError("unsupported template type: " + str(type(template)) + ".")
   return templateKeySeq
+  
 
 def makeBlankResultFromTemplate(template):
   if type(template) == dict:
@@ -44,6 +45,7 @@ def makeBlankResultFromTemplate(template):
     return [None for i in range(len(template))]
   else:
     raise TypeError("unsupported template type: " + str(type(template)) + ".")
+    
     
 def makeBlankResultAndKeySeqFromTemplate(template,sortDictKeys=True):
   return (makeBlankResultFromTemplate(template), makeFlatKeySeq(template, sortDictKeys=sortDictKeys))
@@ -76,6 +78,7 @@ def augmentDict(dict0, dict1, recursive=True, recursiveTypes=None):
             augmentDict(dict0[key],dict1[key],recursive=recursive,recursiveTypes=recursiveTypes)
           else:
             print("PyDictTools.augmentDict: recursive: warning: inputs have a value type mismatch at key " + str(key) + " where recursion would otherwise be possible.")
+            
           
 def cloneDict(inputStructure):
   try:
