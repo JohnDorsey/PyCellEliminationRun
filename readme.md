@@ -148,9 +148,15 @@ Design notes:
       
     -maintenance:
     
-      -move all Spline caching code to new classes to simplify the core of Spline.
+      -move most Spline caching code to new classes to simplify the core of Spline.
         
       -improve structure of Spline init args.
+    
+      -simplify the CellElimRunCodecState:
+      
+        -factor out all CERCS header interpretation and usage into a new class.
+        
+        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
         
       -make CERCS test for more incompatible settings.
         
@@ -159,12 +165,6 @@ Design notes:
       -reduce file count.
     
       -increase testing.
-    
-      -simplify the CellElimRunCodecState:
-      
-        -factor out all CERCS header interpretation and usage into a new class.
-        
-        -consider moving the entry point for execution into the CellTargeter, making it more like the player of a one-player game.
   
       -choose a language version (python 2 for pypy, or python 3 for numba and numpy) and commit to it.
       

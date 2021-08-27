@@ -87,7 +87,7 @@ def mean(inputArr):
     return float(inputArrSum) / len(inputArr)
 
 
-def median(inputArr,middlePairHandlingFun=mean):
+def median(inputArr, middlePairHandlingFun=mean):
   #find the median of the input array. Uses middlePairHandlingFun as the function to process the middle pair in even-length inputArrs to get the result.
   inputArr = makeArr(inputArr)
   if len(inputArr) == 0:
@@ -105,24 +105,11 @@ def median(inputArr,middlePairHandlingFun=mean):
   assert False, "reality error."
 
 
-def genRunless(inputSeq):
-  #this generator takes an input sequence and yields only the items that aren't the same as the previous item.
-  #this generator eats only as much as it yields.
-  previousItem = None
-  justStarted = True
-  for item in inputSeq:
-    if justStarted:
-      justStarted = False
-      previousItem = item
-      yield item
-    else:
-      if item != previousItem:
-        previousItem = item
-        yield item
 
 
 
-def genInterlacedIndices(inputEndpoints,startWithEndpoints=True,midpointMode="fail"):
+
+def genInterlacedIndices(inputEndpoints, startWithEndpoints=True, midpointMode="fail"):
   #This didn't need to be a generator, and probably doesn't save much memory by being a generator.
   #works like this:
   #1       2

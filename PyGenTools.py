@@ -8,6 +8,7 @@ PyGenTools.py contains tools that work on python generators without handling the
 
 import traceback
 import itertools
+from collections import deque
 
 
 class ExhaustionError(Exception):
@@ -45,7 +46,7 @@ def makeArr(thing):
 
 
 
-def handleOnExhaustion(methodName,yieldedCount,targetCount,onExhaustion):
+def handleOnExhaustion(methodName, yieldedCount, targetCount, onExhaustion):
   if isinstance(onExhaustion,Exception):
     raise onExhaustion
   elif onExhaustion == "fail":
@@ -60,7 +61,7 @@ def handleOnExhaustion(methodName,yieldedCount,targetCount,onExhaustion):
     raise ValueError(methodName + ": the onExhaustion action \"None\" is no longer supported.")
   raise ValueError(methodName + ": the value of onExhaustion is invalid. (yieldedCount,targetCount,onExhaustion)=" + str((yieldedCount, targetCount, onExhaustion)) + ".")
 
-def genTakeOnly(inputGen,targetCount,onExhaustion="partial"):
+def genTakeOnly(inputGen, targetCount, onExhaustion="partial"):
   #take ONLY _count_ items from a generator _inputGen_ and yield them, so that if other functions call .next on the generator that was shared with this function, they will pick up exactly where this function's output left off (no missing items).
   assert onExhaustion in ["fail","ExhaustionError","partial","warn"]
   assert targetCount >= 0
@@ -75,7 +76,7 @@ def genTakeOnly(inputGen,targetCount,onExhaustion="partial"):
       return
   handleOnExhaustion("PyGenTools.genTakeOnly", i, targetCount, onExhaustion)
 
-def arrTakeOnly(inputGen,targetCount,onExhaustion="partial"):
+def arrTakeOnly(inputGen, targetCount, onExhaustion="partial"):
   #just like genTakeOnly, but bundle the taken items together into an array.
   assert isinstance(onExhaustion,Exception) or onExhaustion in ["fail","ExhaustionError","warn+partial","partial"]
   result = [item for item in genTakeOnly(inputGen,targetCount)]
@@ -84,13 +85,13 @@ def arrTakeOnly(inputGen,targetCount,onExhaustion="partial"):
   return result
   
   
-def genSkipFirst(inputGen,count):
+def genSkipFirst(inputGen, count):
   assert isGen(inputGen)
   for i in range(count):
     _ = next(inputGen)
   return inputGen
   
-def genTakeUntil(inputGen,stopFun,stopSignalsNeeded=1): #might be used in MarkovTools someday.
+def genTakeUntil(inputGen, stopFun, stopSignalsNeeded=1): #might be used in MarkovTools someday.
   stopSignalCount = 0
   for item in inputGen:
     yield item
@@ -101,7 +102,7 @@ def genTakeUntil(inputGen,stopFun,stopSignalsNeeded=1): #might be used in Markov
   print("PyGenTools.genTakeUntil ran out of items.")
   
 
-def arrTakeLast(inputGen,count):
+def arrTakeLast(inputGen, count):
   if count == None:
     raise ValueError("count can't be None.")
   if type(inputGen) == list:
@@ -126,20 +127,20 @@ def getLast(inputGen):
   return storage
   
   
-def indexOfValueInGen(testValue,testGen): #used in MarkovTools.
+def indexOfValueInGen(testValue, testGen): #used in MarkovTools.
   for i,item in enumerate(testGen):
     if item == testValue:
       return i
   return None
   
-def valueAtIndexInGen(inputIndex,inputGen): #used in MarkovTools.
+def valueAtIndexInGen(inputIndex, inputGen): #used in MarkovTools.
   if inputIndex == None:
     raise ValueError("inputIndex can't be None.")
-  return arrTakeLast(genTakeOnly(inputGen,inputIndex+1),1)[0]
+  return arrTakeLast(genTakeOnly(inputGen, inputIndex+1), 1)[0]
 
   
 
-def sentinelize(inputSeq,sentinel=None,loopSentinel=False,failFun=None):
+def sentinelize(inputSeq, sentinel=None, loopSentinel=False, failFun=None):
   """
   Signals the end of a generator by yielding an additional item after its end. Note that sentinelize(x) makes a generator from any type of input, so combining it with makeGen is redundant.
   """
@@ -166,11 +167,11 @@ def zipGens(inputGens):
         except StopIteration:
           gensRunning[genIndex] = False #don't check this generator for items again.
 
-def genAddInt(inputSeq,inputInt): #used in CodecTools.Codec.
+def genAddInt(inputSeq, inputInt): #used in CodecTools.Codec.
   for item in inputSeq:
     yield item+inputInt
     
-def arrAddInt(inputArr,inputInt): #used in CodecTools.Codec.
+def arrAddInt(inputArr, inputInt): #used in CodecTools.Codec.
   assert type(inputArr) == list
   return [item+inputInt for item in inputArr] 
 
@@ -239,6 +240,40 @@ def genChunksAsLists(inputGen, n=2, partialChunkHandling="warn partial"):
       return
     yield chunkAsList
   
+  
+def genRollingWindowsAsLists(inputGen, n=3, step=1, defaultValue=None, includePartialChunks=True, includeEmptyChunks=False): # @ could be faster by using an index wrapping list.
+  if step != 1:
+    raise NotImplementedError("step != 1")
+  if includeEmptyChunks and not includePartialChunks:
+    raise ValueError("can't include empty chunks without including partial chunks.")
+    
+  currentWindowDeque = deque([defaultValue for i in range(n)])
+  registeredCount = 0
+  def register(itemToRegister):
+    currentWindowDeque.append(itemToRegister)
+    currentWindowDeque.popleft()
+    
+  if includeEmptyChunks:
+    yield list(currentWindowDeque)
+    
+  for index, item in enumerate(inputGen):
+    register(item)
+    registeredCount += 1
+    if registeredCount%step != 0:
+      continue
+    if (index+1 >= n) or includePartialChunks:
+      yield list(currentWindowDeque)
+  if includePartialChunks:
+    for i in range(n-1):
+      register(defaultValue)
+      registeredCount += 1
+      if registeredCount%step != 0:
+        continue
+      yield list(currentWindowDeque)
+      
+  if includeEmptyChunks:
+    yield list(currentWindowDeque)
+      
 
 def allAreEqual(inputSeq):
   inputSeq = makeGen(inputSeq)
@@ -248,24 +283,118 @@ def allAreEqual(inputSeq):
       return False
   return True
   
+  
 def seqsAreEqual(*args):
   return all(allAreEqual(item) for item in itertools.izip_longest(*args))
   
+  
 def countIn(inputSeq, testValue, includeDenominator=False):
   return countTriggers(inputSeq,(lambda x: x==testValue),includeDenominator=includeDenominator)
+  
   
 def countTriggers(inputSeq, triggerFun, includeDenominator=False):
   count, denominator = 0, 0
   for item in inputSeq:
     count, denominator = count+triggerFun(item), denominator+1
-  return (count,denominator) if includeDenominator else count
+  return (count, denominator) if includeDenominator else count
+
+
+def genRunless(inputSeq, func=(lambda compA, compB: compA == compB)):
+  #this generator takes an input sequence and yields only the items that aren't the same as the previous item.
+  #this generator eats only as much as it yields.
+  previousItem = None
+  justStarted = True
+  for item in inputSeq:
+    if justStarted:
+      justStarted = False
+      previousItem = item
+      yield item
+    else:
+      if not func(item, previousItem):
+        previousItem = item
+        yield item
 
 
 
+#not tested well.
+def genTrackEnds(
+    inputSeq,
+    leftTag="left", middleTag="middle", rightTag="right", onlyTag="only",
+    useLookahead=True,
+    tagByExpanding=False,
+    supressOvereatingWarning=False):
+    
+  if iter(inputSeq) is iter(inputSeq):
+    if useLookahead:
+      if not supressOvereatingWarning:
+        print("PyGenTools.genTrackEnds: over-eating warning: this function may take more items from inputSeq than it yields with the current args.")
+  
+  if tagByExpanding:
+    def toTagged(workingItem, tagToApply):
+      return (type(workingItem))((tagToApply,)) + workingItem
+  else:
+    def toTagged(workingItem, tagToApply):
+      return (tagToApply, workingItem)
+  
+  inputGen = makeGen(inputSeq)
+  
+  if useLookahead:
+    previousItem = None
+    index = None
+    for index,currentItem in enumerate(inputGen):
+      #assert currentItem is not None, "can't handle Nones in inputSeq yet."
+      if index == 0:
+        previousItem = currentItem
+      elif index == 1:
+        yield toTagged(previousItem, leftTag)
+      else:
+        yield toTagged(previousItem, middleTag)
+        previousItem = currentItem
+        
+    if index is None:
+      return
+    elif index == 0:
+      yield toTagged(currentItem, onlyTag)
+    else:
+      yield toTagged(currentItem, rightTag)
+  else:
+    for index,currentItem in enumerate(inputGen):
+      if index == 0:
+        yield toTagged(currentItem, leftTag)
+      else:
+        yield toTagged(currentItem, middleTag)
 
+  
 
+def enumerateFlatly(inputSeq, start=0):
+  commonLength = None
+  isProbablyTupleSeq = None
+  isProbablyListSeq = None
+  for index,value in enumerate(inputSeq, start=start):
+    assert value != None, "can't."
+    if commonLength is None:
+      isProbablyTupleSeq = isinstance(value, tuple)
+      isProbablyListSeq = isinstance(value, list)
+      if isTupleSeq or isListSeq:
+        commonLength = len(value)
+      isExpandableSeq = isProbablyTupleSeq or isProbablyListSeq
+      if not isExpandableSeq:
+        print("PyGenTools.enumerateFlatly: warning: this input sequence isn't of items that can be expanded to include enumeration (the first item is of type {}). New tuples will be created for each item... This is just like builtin enumerate, but with overhead.".format(repr(type(value))))
+    if isExpandableSeq:
+      if isinstance(value, tuple):
+        assert len(value) == commonLength
+        yield (index,) + value
+      elif isinstance(value, list):
+        assert len(value) == commonLength
+        yield [index,] + value
+      else:
+        assert False
+    else:
+      yield (index, value)
+        
+  
 
-def genMonitored(inputSeq,text=""):
+def genMonitored(inputSeq, text=""):
   inputGen = makeGen(inputSeq)
   i = 0
   while True:
